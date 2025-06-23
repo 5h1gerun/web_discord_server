@@ -1,0 +1,65 @@
+{# templates/index.html #}
+{% extends "base.html" %}
+
+{% block title %}共有フォルダ一覧 | Web-Discord-Server{% endblock %}
+
+{% block content %}
+  <!-- Dark Mode Switch for Index -->
+  <div class="form-check form-switch position-fixed top-0 end-0 m-3 text-white">
+    <input class="form-check-input" type="checkbox" id="darkModeSwitch">
+    <label class="form-check-label" for="darkModeSwitch">🌙</label>
+  </div>
+
+  <div class="container-fluid py-5">
+    <!-- ★ パンくずリストで現在位置を明示 -->
+    <nav aria-label="breadcrumb" class="mb-3">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">ホーム</a></li>
+        <li class="breadcrumb-item"><a href="/shared">共有フォルダ</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+      </ol>
+    </nav>
+    <div
+      class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInDown hover-grow"
+      data-tilt data-tilt-max="10"
+      style="border-radius: 1rem;"
+    >
+      <!-- ヘッダー -->
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">
+          <i class="bi bi-folder2-open-fill me-2"></i>あなたの共有フォルダ
+        </h4>
+      </div>
+
+      <!-- ボディ：フォルダ一覧 -->
+      <div class="card-body">
+        {% if folders %}
+          <div class="list-group list-group-flush">
+            {% for f in folders %}
+            <a href="/shared/{{ f.id }}"
+              class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+              <div>
+                <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
+              </div>
+              <span class="badge rounded-pill bg-primary">
+                {{ f.file_count }} ファイル
+              </span>
+            </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="alert alert-info mb-0">
+            共有フォルダがありません。
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- フッター：ホームへ戻る -->
+      <div class="card-footer text-end">
+        <a href="/" class="btn btn-outline-primary ripple">
+          <i class="bi bi-house-fill me-1"></i>ホームへ戻る
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

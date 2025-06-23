@@ -1,0 +1,57 @@
+{% extends "base_public.html" %}
+
+{% block title %}ダウンロード確認{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="card shadow-sm mx-auto" style="max-width: 720px;">
+    <div class="card-body text-center">
+
+      <!-- タイトル・ファイル情報 -->
+      <h5 class="card-title mb-3">このファイルをダウンロードしますか？</h5>
+      <p class="fw-bold mb-1">{{ file.original_name }}</p>
+      <p class="text-muted">{{ file.size|human_size }}</p>
+
+      <!-- プレビュー（画像・HTMLのみ） -->
+      {% set ext = file.original_name.rsplit('.', 1)[-1]|lower %}
+
+      <div class="my-4">
+        {# 画像 #}
+        {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
+          <img src="{{ request.path }}?dl=1"
+              class="img-fluid rounded shadow-sm"
+              alt="preview">
+
+        {# HTML #}
+        {% elif ext in ["html", "htm"] %}
+          <div class="ratio ratio-16x9 border rounded shadow-sm">
+            <iframe src="{{ request.path }}?dl=1"
+                    title="preview" style="border:0;"></iframe>
+          </div>
+
+        {# ★ 動画（mp4 / webm / mov / m4v / ogg など）★ #}
+        {% elif ext in ["mp4", "webm", "mov", "m4v", "ogg"] %}
+          <div class="ratio ratio-16x9 border rounded shadow-sm">
+            <video src="{{ request.path }}?dl=1"
+                  class="w-100 h-100 rounded"
+                  controls
+                  preload="metadata"
+                  playsinline>
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- 操作ボタン -->
+      <div class="mt-4 d-flex justify-content-center gap-3">
+        <a href="{{ request.path }}?dl=1"
+           class="btn btn-primary px-4">ダウンロード</a>
+        <a href="javascript:history.back()"
+           class="btn btn-outline-secondary">キャンセル</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

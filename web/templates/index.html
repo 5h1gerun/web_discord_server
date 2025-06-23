@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}ホーム | Web-Discord-Server{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+  <!-- ★ パンくずリストで現在位置を明示 -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">ホーム</a></li>
+      <li class="breadcrumb-item"><a href="/shared">共有フォルダ</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+    </ol>
+  </nav>
+
+  <!-- コピー完了トースト -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast" class="toast align-items-center text-white bg-success border-0 animate__animated animate__fadeInRight" 
+         role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">リンクをコピーしました！</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                data-mdb-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ウェルカムカード -->
+  <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInDown hover-grow" data-tilt data-tilt-glare data-tilt-max-glare="0.4" style="border-radius: 1rem;">
+    <div class="card-body text-center">
+      <h2 class="card-title mb-0 fw-bold text-primary">ようこそ、{{ username }} さん</h2>
+    </div>
+  </div>
+
+  <!-- アップロードセクション -->
+  <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow" data-tilt data-tilt-max="10" style="border-radius: 1rem;">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">ファイルアップロード</h5>
+    </div>
+        <!-- ここがドラッグ受け皿 -->
+        <div class="card-body" id="uploadArea">
+          <form id="uploadForm"
+                action="/upload"
+                method="post"
+                enctype="multipart/form-data"
+                onsubmit="return false;">     <!-- ネイティブ送信を止める -->
+            <div class="row gx-3 align-items-end mb-4">
+              <div class="col-sm-8">
+                <!-- multiple を付ける -->
+                <input type="file" name="file" class="form-control" multiple required>
+              </div>
+              <div class="col-sm-4 text-end">
+                <!-- type="button" にして、JS のみで送信 -->
+                <button type="button"
+                        id="uploadBtn"
+                        class="btn btn-success w-100 ripple"
+                        data-mdb-ripple-init>
+                  <i class="bi bi-cloud-upload-fill me-2"></i>アップロード
+                  <span id="uploadSpinner"
+                        class="spinner-border spinner-border-sm ms-2"
+                        role="status"
+                        style="display:none;"></span>
+                </button>
+              </div>
+            </div>
+          </form>
+          <div class="text-center text-muted small">
+            ここにファイルをドラッグ＆ドロップしてアップロード
+          </div>
+    </div>
+          <div class="progress mt-2" id="uploadProgressWrap" style="height:6px; display:none;">
+            <div id="uploadProgressBar"
+                class="progress-bar bg-success"
+                role="progressbar"
+                style="width:0%"
+                aria-valuemin="0"
+                aria-valuemax="100"></div>
+          </div>
+  </div>
+  <!-- ファイル一覧セクション -->
+    <div id="fileListContainer">
+        {% include "partials/file_table.html" %}
+    </div>
+</div>
+
+<!-- モーダル -->
+<div id="modal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-transparent border-0 animate__animated animate__zoomIn">
+      <img id="modal-img" src="" class="img-fluid rounded mx-auto d-block" style="max-height:90vh;">
+    </div>
+  </div>
+</div>
+
+<!-- 共有フォルダリンクカード -->
+<div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow" 
+     data-tilt data-tilt-max="10" style="border-radius: 1rem;">
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body text-center">
+      <a href="/shared" class="btn btn-outline-primary w-100">📁 共有フォルダを確認</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

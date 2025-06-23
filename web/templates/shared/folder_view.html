@@ -1,0 +1,120 @@
+<!-- templates/shared/folder_view.html -->
+{% extends "base.html" %}
+{% block title %}フォルダ内ファイル | {{ folder_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+
+  <!-- ★ パンくずリストで現在位置を明示 -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">ホーム</a></li>
+      <li class="breadcrumb-item"><a href="/shared">共有フォルダ</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+    </ol>
+  </nav>
+
+  <!-- コピー完了トースト -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast"
+         class="toast align-items-center text-white bg-success border-0 animate__animated animate__fadeInRight"
+         role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">リンクをコピーしました！</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                data-mdb-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 画像プレビューモーダル -->
+  <div id="modal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-transparent border-0 animate__animated animate__zoomIn">
+        <img id="modal-img" src="" class="img-fluid rounded mx-auto d-block"
+             style="max-height:90vh;">
+      </div>
+    </div>
+  </div>
+
+  <!-- フォルダカード本体 -->
+  <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow"
+       data-tilt data-tilt-glare data-tilt-max-glare="0.4"
+       style="border-radius: 1rem;">
+    <!-- ヘッダー：フォルダ名表示＋編集／削除 -->
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-folder2-open-fill fs-4"></i>
+        <h5 class="mb-0">{{ folder_name }}</h5>
+
+        <!-- ★ フォルダジャンプ用ドロップダウン -->
+        <select id="folderJump"
+                class="form-select form-select-sm ms-3"
+                style="min-width: 180px;">
+          <option selected hidden value="">📁 フォルダを選択…</option>
+          {% for f in all_folders %}
+            <option value="{{ f.id }}">📁 {{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- ボディ：アップロードフォーム + ファイル一覧 -->
+    <div class="card-body" id="uploadArea">
+      <!-- クリック & D&D 共通フォーム -->
+      <form id="uploadForm"
+            action="/shared/upload"
+            method="post"
+            enctype="multipart/form-data"
+            onsubmit="return false;"
+            class="row gx-3 align-items-end mb-4">
+        <input type="hidden" name="folder_id" value="{{ folder_id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="col-md-9">
+          <input type="file" name="file" class="form-control" required>
+        </div>
+        <div class="col-md-3 text-end">
+          <button type="button"
+                  id="uploadBtn"
+                  class="btn btn-success w-100 ripple"
+                  data-mdb-ripple-init>
+            <i class="bi bi-cloud-upload-fill me-2"></i>アップロード
+            <span id="uploadSpinner"
+                  class="spinner-border spinner-border-sm ms-2"
+                  role="status"
+                  style="display:none;"></span>
+          </button>
+        </div>
+      </form>
+
+      <div class="progress mt-2" id="uploadProgressWrap" style="height:6px; display:none;">
+          <div id="uploadProgressBar"
+              class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width:0%; white-space:nowrap;"
+              aria-valuemin="0"
+              aria-valuemax="100">0 %</div>
+              <span id="uploadStat" class="ms-2 small text-muted">0 / 0 MB</span>
+      </div>
+      <div id="fileListContainer">
+        {% include "partials/shared_folder_table.html" %}
+      </div>
+    </div>
+
+    <!-- フッター：ナビゲーション -->
+    <div class="card-footer text-end">
+      <a href="/shared"
+         class="btn btn-outline-primary ripple me-2"
+         data-mdb-ripple-init>
+        <i class="bi bi-arrow-left-circle me-1"></i>フォルダ一覧へ
+      </a>
+      <a href="/"
+         class="btn btn-outline-primary ripple"
+         data-mdb-ripple-init>
+        <i class="bi bi-house-fill me-1"></i>ホームへ
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,167 @@
+{# templates/partials/file_table.html #}
+<div class="card shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow"
+     data-tilt data-tilt-max="8" style="border-radius: 2rem;">
+  <div class="card-header bg-secondary text-white d-flex align-items-center">
+    <h5 class="mb-0 flex-grow-1">アップロード済みファイル</h5>
+    <small class="me-3">ファイル数: {{ files|length }}</small>
+
+    <div class="input-group input-group-sm w-auto">
+      <span class="input-group-text bg-light border-0">
+        <i class="bi bi-search"></i>
+      </span>
+      <input type="text"
+            id="fileSearch"
+            class="form-control border-0"
+            placeholder="検索..."
+            autocomplete="off">
+    </div>
+  </div>
+  <div class="card-body p-0">
+    {% if files %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ファイル名</th>
+            <th class="text-end">サイズ</th>
+            <th class="text-center">ダウンロード</th>
+            <th class="text-center">共有切替</th>
+            <th class="text-center">共有リンク</th>
+            <th class="text-center">名前変更</th>
+            <th class="text-center">削除</th>
+            <th class="text-center">残り期限</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in files %}
+          <tr class="hover-grow-small animate__animated animate__fadeIn">
+            <td>
+                {% if f.is_image %}
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-outline-secondary p-0 border-0"
+                          style="width:60px;height:60px"
+                          onclick="showFull('{{ f.url }}?preview=1'); return false;">
+                    <img src="{{ f.url }}?preview=1"
+                          class="img-fluid rounded" style="max-height:60px;">
+                  </button>
+                  <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                </div>
+                {% elif f.is_video %}
+                  <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary p-0 border-0"
+                            style="width:60px;height:60px"
+                            onclick="showFull('{{ f.url }}?preview=1', true)">
+                      <video src="{{ f.url }}?preview=1"
+                              class="w-100 h-100 rounded object-fit-cover"
+                              style="max-width:60px;max-height:60px;"
+                              muted autoplay loop playsinline></video>
+                    </button>
+                    <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                  </div>
+                {% else %}
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-outline-secondary p-0 border-0"
+                          style="width:60px;height:60px" onclick="window.open('{{ f.url }}', '_blank')">
+                    <i class="bi bi-file-earmark-text" style="font-size: 2rem;"></i>
+                  </button>
+                  <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                </div>
+              {% endif %}
+            </td>
+            <td class="text-end" title="{{ f.size }} B">{{ f.size|human_size }}</td>
+            <td class="text-center">
+              <a href="{{ f.url }}"
+                  class="btn btn-sm btn-outline-primary ripple"
+                  data-mdb-ripple-init
+                  title="ダウンロード">
+                <i class="bi bi-download"></i>
+              </a>
+            </td>
+            <td class="text-center">
+              {% if f.user_id == user_id %}
+              <div class="d-flex flex-column align-items-center">
+                <select class="form-select form-select-sm mb-1 expiration-select"
+                        data-file-id="{{ f.id }}">
+                  <option value="86400"   {% if f.expiration == 86400   %}selected{% endif %}>1日</option>
+                  <option value="604800"  {% if f.expiration == 604800  %}selected{% endif %}>1週間</option>
+                  <option value="2592000" {% if f.expiration == 2592000 %}selected{% endif %}>1か月</option>
+                  <option value="0"       {% if f.expiration == 0       %}selected{% endif %}>無期限</option>
+                </select>
+                <span class="badge shared-toggle ripple {{ 'bg-success' if f.is_shared else 'bg-secondary' }}"
+                      data-file-id="{{ f.id }}"
+                      data-url="/toggle_shared/{{ f.id }}"
+                      data-shared="{{ '1' if f.is_shared else '0' }}"
+                      data-mdb-ripple-init
+                      style="cursor:pointer;">
+                  <i class="bi bi-link-45deg me-1"></i>{{ '共有中' if f.share_url else '非共有' }}
+                </span>
+              </div>
+              {% endif %}
+            </td>
+            <td class="text-center" id="sharebox-{{ f.id }}">
+              {% if f.share_url %}
+              <div class="input-group input-group-sm">
+                <input id="link-{{ f.id }}" type="text" class="form-control" readonly
+                        value="{{ f.share_url }}">
+                <button class="btn btn-outline-secondary btn-sm ripple"
+                        data-mdb-ripple-init
+                        onclick="copyLink('{{ f.id }}')">
+                  <i class="bi bi-clipboard"></i>
+                </button>
+              </div>
+              {% else %}
+              <span class="text-muted">非共有</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if f.user_id == user_id %}
+              <button
+                class="btn btn-sm btn-outline-secondary ripple rename-btn"
+                data-file-id="{{ f.id }}"
+                data-current="{{ f.original_name }}"
+                title="名前変更"
+                data-mdb-ripple-init>
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              {% else %}
+              <span class="text-muted">–</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if f.user_id == user_id %}
+              <form method="post"
+                    action="/delete/{{ f.id }}"
+                    class="d-inline delete-form"
+                    onsubmit="return confirm('本当に削除しますか？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit"
+                        class="btn btn-sm btn-outline-danger ripple"
+                        data-mdb-ripple-init
+                        title="削除">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% else %}
+              <span class="text-muted">–</span>
+              {% endif %}
+            </td>
+            {# 共有中か否かに関わらず必ず .expiration-cell を吐き出す #}
+            <td class="text-center expiration-cell"
+                data-file-id="{{ f.id }}"
+                data-expiration="{{ f.share_url and f.expiration or 0 }}">
+              <small class="text-muted">
+                {{ f.share_url and f.expiration_str or "-" }}
+              </small>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4 text-muted">
+      <p class="mb-0">ファイルはありません。</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
