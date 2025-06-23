@@ -677,14 +677,38 @@ def create_app() -> web.Application:
         fid = _verify_token(req.match_info["token"])
         if not fid:
             raise web.HTTPForbidden()
-        rec = await app["db"].get_file(fid)
+
+        db = app["db"]
+        rec = await db.get_file(fid)
+        filename_key = "original_name"
+
+        if not rec:
+            # check shared_files for private preview/download
+            rec = await db.fetchone(
+                "SELECT * FROM shared_files WHERE id = ?",
+                fid,
+            )
+            filename_key = "file_name"
+            if rec:
+                # validate membership
+                discord_id = req.get("user_id")
+                if not discord_id:
+                    raise web.HTTPForbidden()
+                member = await db.fetchone(
+                    "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+                    rec["folder_id"], discord_id,
+                )
+                if not member:
+                    raise web.HTTPForbidden()
+
         if not rec:
             raise web.HTTPNotFound()
+
         path = Path(rec["path"])
-        mime, _ = mimetypes.guess_type(rec["original_name"])
+        mime, _ = mimetypes.guess_type(rec[filename_key])
         headers = {
             "Content-Type": mime or "application/octet-stream",
-            "Content-Disposition": f'attachment; filename="{rec["original_name"]}"'
+            "Content-Disposition": f'attachment; filename="{rec[filename_key]}"'
         }
         return web.FileResponse(path, headers=headers)
 
