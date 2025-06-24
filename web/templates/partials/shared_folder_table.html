@@ -28,6 +28,7 @@
             <th class="text-center">ダウンロード</th>
             <th class="text-center">共有切替</th>
             <th class="text-center">共有リンク</th>
+            <th class="text-center">タグ</th>
             <th class="text-center">名前変更</th>
             <th class="text-center">削除</th>
             <th class="text-center">残り期限</th>
@@ -35,7 +36,7 @@
         </thead>
         <tbody>
           {% for f in files %}
-          <tr class="hover-grow-small animate__animated animate__fadeIn">
+          <tr class="hover-grow-small animate__animated animate__fadeIn" data-tags="{{ f.tags }}">
             <td>
               {% if f.is_image %}
               <div class="d-flex align-items-center gap-2">
@@ -114,7 +115,14 @@
             </td>
             <td class="text-center">
               {% if f.user_id == user_id %}
-              <button class="btn btn-sm btn-outline-secondary ripple rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}" title="名前変更" data-mdb-ripple-init>
+              <input type="text" class="form-control form-control-sm tag-input" data-file-id="{{ f.id }}" data-shared="1" value="{{ f.tags }}">
+              {% else %}
+              <span class="badge bg-light text-dark">{{ f.tags }}</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if f.user_id == user_id %}
+              <button class="btn btn-sm btn-outline-secondary ripple rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}" data-shared="1" title="名前変更" data-mdb-ripple-init>
                 <i class="bi bi-pencil-square"></i>
               </button>
               {% else %}
@@ -146,6 +154,10 @@
       <p class="mb-0">このフォルダにはファイルがありません。</p>
     </div>
     {% endif %}
+    <form method="post" action="/shared/delete_all/{{ folder_id }}" class="ms-2" onsubmit="return confirm('本当に全て削除しますか？');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn btn-danger btn-sm">全削除</button>
+    </form>
     <!-- プレビュー用モーダル -->
     <div id="previewModal" class="modal fade" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">

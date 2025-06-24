@@ -37,7 +37,33 @@ CREATE TABLE IF NOT EXISTS files (
     sha256        TEXT    NOT NULL,
     uploaded_at   TEXT    NOT NULL,
     expires_at    INTEGER NOT NULL DEFAULT 0,
+    tags          TEXT    NOT NULL DEFAULT '',
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS shared_folders (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    channel_id INTEGER
+);
+CREATE TABLE IF NOT EXISTS shared_folder_members (
+    folder_id      INTEGER,
+    discord_user_id INTEGER,
+    PRIMARY KEY(folder_id, discord_user_id),
+    FOREIGN KEY(folder_id) REFERENCES shared_folders(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS shared_files (
+    id             TEXT PRIMARY KEY,
+    folder_id      INTEGER NOT NULL,
+    file_name      TEXT NOT NULL,
+    path           TEXT NOT NULL,
+    size           INTEGER NOT NULL,
+    is_shared      INTEGER NOT NULL,
+    token          TEXT,
+    uploaded_at    TEXT NOT NULL,
+    expiration_sec INTEGER NOT NULL DEFAULT 0,
+    expires_at     INTEGER NOT NULL DEFAULT 0,
+    tags           TEXT NOT NULL DEFAULT '',
+    FOREIGN KEY(folder_id) REFERENCES shared_folders(id) ON DELETE CASCADE
 );
 """
 
@@ -191,16 +217,13 @@ class Database:
         )
         return await cursor.fetchone()
 
-    async def add_shared_file(self, file_id: str, folder_id: int, filename: str, path: str) -> None:
-        """
-        shared_files テーブルにレコードを追加。
-        uploaded_at は DB 側で DEFAULT CURRENT_TIMESTAMP などの仕掛けを想定。
-        """
+    async def add_shared_file(self, file_id: str, folder_id: int, filename: str, path: str, tags: str = "") -> None:
+        """shared_files テーブルにレコードを追加"""
         await self.conn.execute(
             "INSERT INTO shared_files "
-            "  (id, folder_id, file_name, path, size, is_shared, share_token, uploaded_at, expires_at) "
-            "VALUES (?,     ?,         ?,         ?,    ?,    1,         NULL,       strftime('%s','now'), 0)",
-            (file_id, folder_id, filename, path, os.path.getsize(path)),
+            "  (id, folder_id, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
+            "VALUES (?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
+            (file_id, folder_id, filename, path, os.path.getsize(path), tags),
         )
         await self.conn.commit()
 
@@ -273,19 +296,20 @@ class Database:
         path: str,
         size: int,
         sha256: str,
+        tags: str = "",
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0)""",
-            (file_id, user_id, original_name, path, size, sha256),
+            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at, tags)
+            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
+            (file_id, user_id, original_name, path, size, sha256, tags),
         )
         await self.conn.commit()
 
 
     async def list_files(self, user_id: int):
         return await self.fetchall(
-            "SELECT id, original_name, size, uploaded_at, is_shared, token "
+            "SELECT id, original_name, size, uploaded_at, tags "
             "FROM   files "
             "WHERE  user_id=? "
             "ORDER  BY uploaded_at DESC",
@@ -297,6 +321,36 @@ class Database:
 
     async def delete_file(self, file_id: str):
         await self.execute("DELETE FROM files WHERE id=?", file_id)
+
+    async def delete_all_files(self, user_id: int):
+        rows = await self.fetchall(
+            "SELECT path FROM files WHERE user_id=?",
+            user_id
+        )
+        for r in rows:
+            try:
+                Path(r["path"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        await self.execute("DELETE FROM files WHERE user_id=?", user_id)
+
+    async def update_tags(self, file_id: str, tags: str):
+        await self.execute("UPDATE files SET tags=? WHERE id=?", tags, file_id)
+
+    async def update_shared_tags(self, file_id: str, tags: str):
+        await self.execute("UPDATE shared_files SET tags=? WHERE id=?", tags, file_id)
+
+    async def delete_all_shared_files(self, folder_id: int):
+        rows = await self.fetchall(
+            "SELECT path FROM shared_files WHERE folder_id=?",
+            folder_id,
+        )
+        for r in rows:
+            try:
+                Path(r["path"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        await self.execute("DELETE FROM shared_files WHERE folder_id=?", folder_id)
 
 # ───────────────────────────────────────────
 # CLI

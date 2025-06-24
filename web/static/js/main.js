@@ -440,7 +440,8 @@ function filterTable(term) {
   const rows = document.querySelectorAll("#fileListContainer tbody tr");
   rows.forEach(tr => {
     const name = tr.querySelector(".file-name")?.textContent.toLowerCase() || "";
-    tr.style.display = name.includes(term) ? "" : "none";
+    const tags = tr.dataset.tags?.toLowerCase() || "";
+    tr.style.display = (name.includes(term) || tags.includes(term)) ? "" : "none";
   });
 }
 
@@ -529,6 +530,18 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
   document.addEventListener("input", e => {
     if (e.target.id === "fileSearch") {
       filterTable(e.target.value.toLowerCase());
+    } else if (e.target.classList.contains("tag-input")) {
+      const fid  = e.target.dataset.fileId;
+      const isShared = e.target.dataset.shared === "1";
+      const form = new FormData();
+      form.append("tags", e.target.value);
+      const url = isShared ? `/shared/tags/${fid}` : `/tags/${fid}`;
+      fetch(url, {
+        method: "POST",
+        body: form,
+        headers: { "X-CSRF-Token": getCsrfToken() },
+        credentials: "same-origin"
+      }).catch(err => console.error("tag update failed", err));
     }
   });
 
