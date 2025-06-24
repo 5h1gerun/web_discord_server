@@ -116,6 +116,20 @@ async def auth_mw(request: web.Request, handler):
     request["user_id"] = sess.get("user_id")
     return await handler(request)
 
+CSP_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
+    "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
+)
+
+@web.middleware
+async def csp_mw(request: web.Request, handler):
+    resp = await handler(request)
+    resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+    return resp
+
 limiter = AsyncLimiter(30, 60)  # 60 秒あたり 30 リクエスト
 @web.middleware
 async def rl_mw(req, handler):
@@ -143,6 +157,7 @@ def create_app() -> web.Application:
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
     app.middlewares.append(rl_mw)   # DoS / ブルートフォース緩和
+    app.middlewares.append(csp_mw)
 
     # jinja2 setup
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)))
