@@ -23,6 +23,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Optional
+from .help import setup_help
 
 import discord
 from discord import app_commands

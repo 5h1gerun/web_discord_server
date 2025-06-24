@@ -27,6 +27,7 @@ import base64
 
 import io                # 画像バッファ用
 import qrcode            # QR 生成
+from .help import setup_help
 
 # ───────────────────────────────────────
 # 1. .env
@@ -84,6 +85,7 @@ class WebDiscordBot(discord.Client):
             await self.tree.sync(guild=discord.Object(DEV_GUILD_ID))
         else:
             await self.tree.sync()
+        await setup_help(self)
 
 
     # --------------- member join -------------
