@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS files (
     sha256        TEXT    NOT NULL,
     uploaded_at   TEXT    NOT NULL,
     expires_at    INTEGER NOT NULL DEFAULT 0,
+    tags          TEXT    NOT NULL DEFAULT '',
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 """
@@ -273,19 +274,20 @@ class Database:
         path: str,
         size: int,
         sha256: str,
+        tags: str = "",
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0)""",
-            (file_id, user_id, original_name, path, size, sha256),
+            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at, tags)
+            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
+            (file_id, user_id, original_name, path, size, sha256, tags),
         )
         await self.conn.commit()
 
 
     async def list_files(self, user_id: int):
         return await self.fetchall(
-            "SELECT id, original_name, size, uploaded_at, is_shared, token "
+            "SELECT id, original_name, size, uploaded_at, tags "
             "FROM   files "
             "WHERE  user_id=? "
             "ORDER  BY uploaded_at DESC",
@@ -297,6 +299,21 @@ class Database:
 
     async def delete_file(self, file_id: str):
         await self.execute("DELETE FROM files WHERE id=?", file_id)
+
+    async def delete_all_files(self, user_id: int):
+        rows = await self.fetchall(
+            "SELECT path FROM files WHERE user_id=?",
+            user_id
+        )
+        for r in rows:
+            try:
+                Path(r["path"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        await self.execute("DELETE FROM files WHERE user_id=?", user_id)
+
+    async def update_tags(self, file_id: str, tags: str):
+        await self.execute("UPDATE files SET tags=? WHERE id=?", tags, file_id)
 
 # ───────────────────────────────────────────
 # CLI

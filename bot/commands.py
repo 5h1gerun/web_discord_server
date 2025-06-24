@@ -291,6 +291,32 @@ def setup_commands(bot: discord.Client):
         await db.delete_file(file_id)
         await i.followup.send("🗑️ 削除しました。", ephemeral=True)
 
+    @tree.command(name="delete_all", description="自分の全ファイルを削除します。")
+    async def _delete_all(i: discord.Interaction):
+        db = i.client.db
+        await i.response.defer(thinking=True, ephemeral=True)
+        pk = await db.get_user_pk(i.user.id)
+        if pk is None:
+            await i.followup.send("ユーザー登録が見つかりません。", ephemeral=True)
+            return
+        rows = await db.fetchall("SELECT path FROM files WHERE user_id=?", pk)
+        for r in rows:
+            Path(r["path"]).unlink(missing_ok=True)
+        await db.delete_all_files(pk)
+        await i.followup.send(f"🗑️ {len(rows)} 件のファイルを削除しました。", ephemeral=True)
+
+    @tree.command(name="set_tags", description="ファイルにタグを設定します。")
+    async def _set_tags(i: discord.Interaction, file_id: str, tags: str):
+        db = i.client.db
+        await i.response.defer(ephemeral=True)
+        rec = await db.get_file(file_id)
+        pk = await db.get_user_pk(i.user.id)
+        if not rec or rec["user_id"] != pk:
+            await i.followup.send("❌ 見つからないか権限なし。", ephemeral=True)
+            return
+        await db.update_tags(file_id, tags)
+        await i.followup.send("✅ タグを更新しました。", ephemeral=True)
+
     @tree.command(name="getfile", description="指定したファイルを取得します。")
     async def _getfile(i: discord.Interaction, file_id: str):
         db = i.client.db

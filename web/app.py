@@ -873,6 +873,41 @@ def create_app() -> web.Application:
 
         raise web.HTTPFound("/")
 
+    async def delete_all(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPForbidden()
+        user_id = await req.app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPForbidden()
+        rows = await req.app["db"].fetchall(
+            "SELECT path FROM files WHERE user_id=?",
+            user_id
+        )
+        for r in rows:
+            try:
+                Path(r["path"]).unlink(missing_ok=True)
+            except Exception as e:
+                log.warning("Failed to delete file: %s", e)
+        await req.app["db"].delete_all_files(user_id)
+        raise web.HTTPFound("/")
+
+    async def update_tags(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            return web.json_response({"error": "unauthorized"}, status=403)
+        user_id = await req.app["db"].get_user_pk(discord_id)
+        if not user_id:
+            return web.json_response({"error": "unauthorized"}, status=403)
+        file_id = req.match_info["id"]
+        rec = await req.app["db"].get_file(file_id)
+        if not rec or rec["user_id"] != user_id:
+            return web.json_response({"error": "forbidden"}, status=403)
+        data = await req.post()
+        tags = data.get("tags", "")
+        await req.app["db"].update_tags(file_id, tags)
+        return web.json_response({"status": "ok", "tags": tags})
+
     async def shared_upload(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1223,6 +1258,8 @@ def create_app() -> web.Application:
     app.router.add_post("/upload_chunked", upload_chunked)
     app.router.add_post("/toggle_shared/{id}", toggle_shared)
     app.router.add_post("/delete/{id}", delete_file)
+    app.router.add_post("/delete_all", delete_all)
+    app.router.add_post("/tags/{id}", update_tags)
     app.router.add_get("/static/api/files", file_list_api)
     app.router.add_get("/partial/files", file_list_api)
     app.router.add_get("/shared", shared_index)
