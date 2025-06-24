@@ -1211,7 +1211,6 @@ def create_app() -> web.Application:
             "request": req
         })
 
-
     # routes
     app.router.add_get("/health", health)
     app.router.add_get("/login", login_get)
