@@ -520,7 +520,7 @@ def create_app() -> web.Application:
 
     async def login_get(req):
         token = await issue_csrf(req)
-        return _render(req, "login.html", {"csrf_token": token})
+        return _render(req, "login.html", {"csrf_token": token, "request": req})
 
     async def login_post(req):
         data = await req.post()
@@ -529,13 +529,13 @@ def create_app() -> web.Application:
         db      = app["db"]
 
         if not await db.verify_user(username, password):
-            return _render(req, "login.html", {"error": "Invalid", "csrf_token": await issue_csrf(req)})
+            return _render(req, "login.html", {"error": "Invalid", "csrf_token": await issue_csrf(req), "request": req})
 
         row = await db.fetchone(
             "SELECT discord_id, totp_enabled FROM users WHERE username = ?", username)
 
         if not row:
-            return _render(req, "login.html", {"error": "No user found", "csrf_token": await issue_csrf(req)})
+            return _render(req, "login.html", {"error": "No user found", "csrf_token": await issue_csrf(req), "request": req})
 
         sess = await new_session(req)
 
@@ -636,7 +636,8 @@ def create_app() -> web.Application:
             "files": files,
             "csrf_token": token,
             "username": username,
-            "static_version": int(time.time())
+            "static_version": int(time.time()),
+            "request": req
         })
 
     async def upload(req):

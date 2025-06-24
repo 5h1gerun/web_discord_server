@@ -1,6 +1,17 @@
 {% extends "base_public.html" %}
+{% set ext = file.original_name.rsplit('.', 1)[-1]|lower %}
 
 {% block title %}ダウンロード確認{% endblock %}
+
+{% block extra_meta %}
+  <meta property="og:title" content="{{ file.original_name }}">
+  <meta property="og:description" content="{{ file.size|human_size }}">
+  <meta property="og:url" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}">
+  <meta property="og:type" content="article">
+  {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}?dl=1">
+  {% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -13,7 +24,6 @@
       <p class="text-muted">{{ file.size|human_size }}</p>
 
       <!-- プレビュー（画像・HTMLのみ） -->
-      {% set ext = file.original_name.rsplit('.', 1)[-1]|lower %}
 
       <div class="my-4">
         {# 画像 #}

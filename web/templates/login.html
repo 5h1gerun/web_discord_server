@@ -2,6 +2,14 @@
 
 {% block title %}ログイン | Web-Discord-Server{% endblock %}
 
+{% block extra_meta %}
+  <meta property="og:title" content="Web-Discord-Server">
+  <meta property="og:description" content="Discord ボットと連携したファイル共有ツール">
+  <meta property="og:url" content="{{ request.scheme }}://{{ request.host }}/login">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ static('/favicon.png') }}?v={{ static_version }}">
+{% endblock %}
+
 {% block content %}
 <!-- Dark Mode Switch for Login -->
 <div class="form-check form-switch position-fixed top-0 end-0 m-3 text-white">
