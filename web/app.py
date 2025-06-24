@@ -198,39 +198,19 @@ def create_app() -> web.Application:
         token = d.get("token")
 
         # DBに保存されたTTL（秒）をプリセット用に渡す
-        # ─── まずDBに保存された“選んだTTL”は残す（プルダウンのselected用） ───
         d["expiration_sec"] = d.get("expiration_sec", URL_EXPIRES_SEC)
 
-        # ─── トークンから“切れる時刻(exp_ts)”を取り出し、残り秒数を計算 ───
-        import base64, time
-        token = d.get("token")
-        if token:
-            try:
-                raw     = base64.urlsafe_b64decode(token.encode())
-                _, exp_raw, _ = raw.split(b":", 2)
-                exp_ts  = int(exp_raw)
-                now_ts  = int(time.time())
-
-                # 期限切れなら即座に非共有化
-                if exp_ts != 0 and now_ts > exp_ts:
-                    table = "shared_files" if d.get("folder_id") else "files"
-                    await request.app["db"].execute(
-                        f"UPDATE {table} SET is_shared=0, token=NULL, expiration_sec=? WHERE id=?",
-                        URL_EXPIRES_SEC,
-                        d["id"],
-                    )
-                    d["is_shared"] = 0
-                    d["token"] = None
-                    token = None
-                    d["expiration"] = 0
-                    d["expiration_str"] = "期限切れ"
-                else:
-                    d["expiration"] = 0 if exp_ts == 0 else max(exp_ts - now_ts, 0)
-            except Exception:
-                # トークン異常時はTTL丸ごと残す
-                d["expiration"] = d["expiration_sec"]
+        import time
+        now_ts = int(time.time())
+        exp_ts = int(d.get("expires_at", 0) or 0)
+        if exp_ts != 0:
+            remaining = exp_ts - now_ts
+            if remaining < 0:
+                d["expiration"] = 0
+                d["expiration_str"] = "期限切れ"
+            else:
+                d["expiration"] = remaining
         else:
-            # 非共有時はゼロにしておく
             d["expiration"] = 0
 
         # ─── 残り期限のヒューマンリーダブル文字列を追加 ───
@@ -302,10 +282,22 @@ def create_app() -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
 
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        await db.execute(
+            "UPDATE files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+        await db.execute(
+            "UPDATE shared_files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+
         # ファイル一覧取得
         # SELECT で expiration_sec も取得する
         rows = await db.fetchall(
-            "SELECT *, expiration_sec FROM files WHERE user_id = ?",
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
             user_id
         )
         now = int(datetime.now(timezone.utc).timestamp())
@@ -382,6 +374,18 @@ def create_app() -> web.Application:
         if not member:
             raise web.HTTPForbidden(text="Not a member")
 
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        await db.execute(
+            "UPDATE files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+        await db.execute(
+            "UPDATE shared_files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+
         # フォルダ名取得
         row = await db.fetchone("SELECT name FROM shared_folders WHERE id = ?", folder_id)
         folder_name = row["name"] if row else "(不明なフォルダ)"
@@ -398,15 +402,19 @@ def create_app() -> web.Application:
                 # 1) DBに保存されたトークンを使う
                 token = f["token"]
                 if not token:
+                    # トークンがまだ無ければ生成してDBへ永続化
                     exp = now_ts + f["expiration_sec"]
                     token = _sign_token(f["id"], exp)
                     await db.execute(
-                        "UPDATE shared_files SET token=?, expiration_sec=? WHERE id=?",
-                        token, f["expiration_sec"], f["id"]
+                        "UPDATE shared_files SET token=?, expiration_sec=?, expires_at=? WHERE id=?",
+                        token, f["expiration_sec"], exp, f["id"]
                     )
                     await db.commit()
                     f["token"] = token
-                download_url = f"/shared/download/{token}?dl=1"
+                # 2) 共有用URL
+                # プレビュー用は inline 表示させるため preview=1
+                f["preview_url"]  = f"/shared/download/{token}?preview=1"
+                f["download_url"] = f"/shared/download/{token}?dl=1"
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 download_url = f"/download/{private_token}"
@@ -440,9 +448,11 @@ def create_app() -> web.Application:
             if f["is_shared"]:
                 # token がまだ無ければ生成して DB に格納
                 if not rec["token"]:
-                    new_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+                    exp_val = now_ts + URL_EXPIRES_SEC
+                    new_token = _sign_token(f["id"], exp_val)
                     await db.execute(
-                        "UPDATE shared_files SET token=? WHERE id=?", new_token, f["id"]
+                        "UPDATE shared_files SET token=?, expires_at=? WHERE id=?",
+                        new_token, exp_val, f["id"]
                     )
                     await db.commit()
                     f["token"] = new_token
@@ -577,11 +587,23 @@ def create_app() -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
 
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        await app["db"].execute(
+            "UPDATE files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+        await app["db"].execute(
+            "UPDATE shared_files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+
         user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
         username = user_row["username"] if user_row else "Unknown"
         # expiration_sec を含めて取得するように
         rows   = await app["db"].fetchall(
-            "SELECT *, expiration_sec FROM files WHERE user_id = ?",
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
             user_id
         )
         now_ts = int(datetime.now(timezone.utc).timestamp())
@@ -712,13 +734,13 @@ def create_app() -> web.Application:
                 token = token.decode()
             # トークンとともに expiration_sec も保存
             await request.app["db"].execute(
-                "UPDATE files SET is_shared=1, token=?, expiration_sec=? WHERE id=?",
-                token, exp_sec, file_id
+                "UPDATE files SET is_shared=1, token=?, expiration_sec=?, expires_at=? WHERE id=?",
+                token, exp_sec, exp, file_id
             )
         else:                                      # 共有 OFF
             # 非共有に戻すときはデフォルトに
             await request.app["db"].execute(
-                "UPDATE files SET is_shared=0, token=NULL, expiration_sec=? WHERE id=?",
+                "UPDATE files SET is_shared=0, token=NULL, expiration_sec=?, expires_at=0 WHERE id=?",
                 URL_EXPIRES_SEC, file_id
             )
         await request.app["db"].commit()
@@ -864,6 +886,18 @@ def create_app() -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
 
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        await request.app["db"].execute(
+            "UPDATE files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+        await request.app["db"].execute(
+            "UPDATE shared_files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+
         # 3) ファイル一覧を取得
         files = await request.app["db"].list_files(user_id)
 
@@ -934,7 +968,8 @@ def create_app() -> web.Application:
         exp_ts = int(exp_raw)
         if exp_ts != 0 and time.time() > exp_ts:
             await req.app["db"].execute(
-                "UPDATE shared_files SET is_shared=0, token=NULL WHERE id=?", fid
+                "UPDATE shared_files SET is_shared=0, token=NULL, expires_at=0 WHERE id=?",
+                fid
             )
             await req.app["db"].commit()
             raise web.HTTPNotFound()
@@ -1048,13 +1083,13 @@ def create_app() -> web.Application:
                 token = token.decode()
             # 共有フォルダ内も同様に、expiration_sec を永続化
             await request.app["db"].execute(
-                "UPDATE shared_files SET is_shared=1, token=?, expiration_sec=? WHERE id=?",
-                token, exp_sec, file_id
+                "UPDATE shared_files SET is_shared=1, token=?, expiration_sec=?, expires_at=? WHERE id=?",
+                token, exp_sec, exp, file_id
             )
         else:
             # 非共有に戻すときは既定に戻す
             await request.app["db"].execute(
-                "UPDATE shared_files SET is_shared=0, token=NULL, expiration_sec=? WHERE id=?",
+                "UPDATE shared_files SET is_shared=0, token=NULL, expiration_sec=?, expires_at=0 WHERE id=?",
                 URL_EXPIRES_SEC, file_id
             )
         await db.commit()
@@ -1187,7 +1222,8 @@ def create_app() -> web.Application:
         exp_ts = int(exp_raw)
         if exp_ts != 0 and time.time() > exp_ts:
             await req.app["db"].execute(
-                "UPDATE files SET is_shared=0, token=NULL WHERE id=?", fid
+                "UPDATE files SET is_shared=0, token=NULL, expires_at=0 WHERE id=?",
+                fid
             )
             await req.app["db"].commit()
             raise web.HTTPNotFound()

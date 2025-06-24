@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS files (
     size          INTEGER NOT NULL,
     sha256        TEXT    NOT NULL,
     uploaded_at   TEXT    NOT NULL,
+    expires_at    INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 """
@@ -197,8 +198,8 @@ class Database:
         """
         await self.conn.execute(
             "INSERT INTO shared_files "
-            "  (id, folder_id, file_name, path, size, is_shared, share_token, uploaded_at) "
-            "VALUES (?,     ?,         ?,         ?,    ?,    1,         NULL,       strftime('%s','now'))",
+            "  (id, folder_id, file_name, path, size, is_shared, share_token, uploaded_at, expires_at) "
+            "VALUES (?,     ?,         ?,         ?,    ?,    1,         NULL,       strftime('%s','now'), 0)",
             (file_id, folder_id, filename, path, os.path.getsize(path)),
         )
         await self.conn.commit()
@@ -275,8 +276,8 @@ class Database:
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, original_name, path, size, sha256, uploaded_at)
-            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'))""",
+            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0)""",
             (file_id, user_id, original_name, path, size, sha256),
         )
         await self.conn.commit()
