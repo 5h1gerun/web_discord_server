@@ -1145,15 +1145,20 @@ def create_app() -> web.Application:
             raise web.HTTPForbidden()
 
         rows = await db.fetchall("SELECT file_name, path FROM shared_files WHERE folder_id=?", folder_id)
-        import tempfile, zipfile
-        tmp_dir = tempfile.mkdtemp()
-        zip_path = Path(tmp_dir) / f"folder_{folder_id}.zip"
-        with zipfile.ZipFile(zip_path, "w") as zf:
-            for r in rows:
-                try:
-                    zf.write(r["path"], arcname=r["file_name"])
-                except FileNotFoundError:
-                    pass
+
+        def _create_zip(rows, folder_id):
+            import tempfile, zipfile
+            tmp_dir = tempfile.mkdtemp()
+            zip_path = Path(tmp_dir) / f"folder_{folder_id}.zip"
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                for r in rows:
+                    try:
+                        zf.write(r["path"], arcname=r["file_name"])
+                    except FileNotFoundError:
+                        pass
+            return zip_path, tmp_dir
+
+        zip_path, tmp_dir = await asyncio.to_thread(_create_zip, rows, folder_id)
 
         async def _cleanup():
             await asyncio.sleep(60)
