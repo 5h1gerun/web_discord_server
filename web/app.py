@@ -28,6 +28,8 @@ from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
 from aiolimiter import AsyncLimiter
 import io, qrcode, pyotp      # ← 二要素用
+from PIL import Image
+import subprocess
 
 from bot.db import init_db  # スキーマ初期化用
 Database = import_module("bot.db").Database  # type: ignore
@@ -39,8 +41,9 @@ STATIC_DIR   = Path(os.getenv("STATIC_DIR", ROOT / "static"))
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", ROOT / "templates"))
 DB_PATH      = Path(os.getenv("DB_PATH", ROOT / "data" / "web_discord_server.db"))
 CHUNK_DIR    = DATA_DIR / "chunks"
+PREVIEW_DIR  = DATA_DIR / "previews"
 
-for d in (DATA_DIR, STATIC_DIR, TEMPLATE_DIR, CHUNK_DIR):
+for d in (DATA_DIR, STATIC_DIR, TEMPLATE_DIR, CHUNK_DIR, PREVIEW_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
@@ -321,6 +324,11 @@ def create_app() -> web.Application:
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
             f["url"]       = f"/download/{_sign_token(f['id'], now + URL_EXPIRES_SEC)}"
             f["user_id"]   = discord_id
+            preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
+            if preview_file.exists():
+                f["preview_url"] = f"/previews/{preview_file.name}"
+            else:
+                f["preview_url"] = f["url"] + "?preview=1"
 
             file_objs.append(f)
 
@@ -390,7 +398,6 @@ def create_app() -> web.Application:
                 # 1) DBに保存されたトークンを使う
                 token = f["token"]
                 if not token:
-                    # トークンがまだ無ければ生成してDBへ永続化
                     exp = now_ts + f["expiration_sec"]
                     token = _sign_token(f["id"], exp)
                     await db.execute(
@@ -399,15 +406,20 @@ def create_app() -> web.Application:
                     )
                     await db.commit()
                     f["token"] = token
-                # 2) 共有用URL
-                # プレビュー用は inline 表示させるため preview=1
-                f["preview_url"]  = f"/shared/download/{token}?preview=1"
-                f["download_url"] = f"/shared/download/{token}?dl=1"
+                download_url = f"/shared/download/{token}?dl=1"
             else:
-                # 非共有時はHMAC付きトークンでプライベートルートを生成
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["preview_url"]  = f"/download/{private_token}"
-                f["download_url"] = f"/download/{private_token}"
+                download_url = f"/download/{private_token}"
+
+            f["download_url"] = download_url
+            preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
+            if preview_file.exists():
+                f["preview_url"] = f"/previews/{preview_file.name}"
+            else:
+                if f["is_shared"]:
+                    f["preview_url"] = f"/shared/download/{token}?preview=1"
+                else:
+                    f["preview_url"] = f"/download/{private_token}?preview=1"
 
             # 2) ファイル名表示用
             f["original_name"] = f.get("file_name", "")  # partial では {{ f.original_name }} を使うため
@@ -490,6 +502,8 @@ def create_app() -> web.Application:
     # static files
     if STATIC_DIR.exists():
         app.router.add_static("/static/", str(STATIC_DIR), name="static")
+    if PREVIEW_DIR.exists():
+        app.router.add_static("/previews/", str(PREVIEW_DIR), name="previews")
 
     # handlers
     async def health(req):
@@ -583,6 +597,12 @@ def create_app() -> web.Application:
             f["is_image"]  = bool(mime and mime.startswith("image/"))
             f["is_video"]  = bool(mime and mime.startswith("video/"))
 
+            preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
+            if preview_file.exists():
+                f["preview_url"] = f"/previews/{preview_file.name}"
+            else:
+                f["preview_url"] = f["url"] + "?preview=1"
+
             # is_shared フラグは DB のまま
             f["is_shared"] = bool(r["is_shared"])
             if f["is_shared"]:
@@ -613,7 +633,6 @@ def create_app() -> web.Application:
             return web.json_response({"success": False, "error": "no file"}, status=400)
 
         # 受け取った各ファイルごとに保存＆DB 登録
-        now_ts = int(datetime.now(timezone.utc).timestamp())
         for filefield in filefields:
             fid = str(uuid.uuid4())
             path = DATA_DIR / fid
@@ -628,6 +647,25 @@ def create_app() -> web.Application:
                     f.write(chunk)
             # ハッシュ計算
             sha256sum = hashlib.sha256(path.read_bytes()).hexdigest()
+            # プレビュー生成
+            mime, _ = mimetypes.guess_type(filefield.filename)
+            preview_path = PREVIEW_DIR / f"{fid}.jpg"
+            try:
+                if mime and mime.startswith("image"):
+                    img = Image.open(path)
+                    img.thumbnail((320, 320))
+                    img.convert("RGB").save(preview_path, "JPEG")
+                elif mime and mime.startswith("video"):
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
+                        "-vframes", "1", str(preview_path)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    preview_path = None
+            except Exception as e:
+                log.warning("preview generation failed: %s", e)
+                if preview_path and preview_path.exists():
+                    preview_path.unlink(missing_ok=True)
             # DB 登録
             await app["db"].add_file(
                 fid,
@@ -762,6 +800,25 @@ def create_app() -> web.Application:
             user_id = await req.app["db"].get_user_pk(discord_id)
             if not user_id:
                 raise web.HTTPForbidden()
+
+            mime, _ = mimetypes.guess_type(field.filename)
+            preview_path = PREVIEW_DIR / f"{target_id}.jpg"
+            try:
+                if mime and mime.startswith("image"):
+                    img = Image.open(target_path)
+                    img.thumbnail((320, 320))
+                    img.convert("RGB").save(preview_path, "JPEG")
+                elif mime and mime.startswith("video"):
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", str(target_path), "-ss", "00:00:01",
+                        "-vframes", "1", str(preview_path)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    preview_path = None
+            except Exception as e:
+                log.warning("preview generation failed: %s", e)
+                if preview_path and preview_path.exists():
+                    preview_path.unlink(missing_ok=True)
 
             await req.app["db"].add_file(
                 target_id, user_id, field.filename,
