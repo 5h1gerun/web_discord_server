@@ -174,8 +174,53 @@ class MemberRemoveButton(discord.ui.Button):
         await interaction.response.send_message(
             f"🗑 {self.member.display_name} を削除しました。", ephemeral=True)
 
-# コマンド登録
+class DeleteSharedFolderView(discord.ui.View):
+    def __init__(self, bot, user: discord.User, folders: list[dict]):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.user = user
 
+        # セレクトを動的に生成してから、callback を紐付け
+        options = [discord.SelectOption(label=f["name"], value=str(f["id"])) for f in folders]
+        select = discord.ui.Select(
+            placeholder="削除したい共有フォルダを選択してください",
+            options=options,
+            min_values=1,
+            max_values=1,
+            custom_id="delete_shared_folder_select"
+        )
+        select.callback = self.select_folder
+        self.add_item(select)
+
+    async def select_folder(self, interaction: discord.Interaction):
+        # interaction.data["values"] に選択された値のリストが入っている
+        folder_id = int(interaction.data["values"][0])
+        db = self.bot.db
+
+        # 共有フォルダ情報取得
+        rec = await db.get_shared_folder(folder_id)
+        if not rec:
+            return await interaction.response.send_message("❌ フォルダ情報が見つかりません。", ephemeral=True)
+
+        channel = interaction.guild.get_channel(rec["channel_id"])
+        perm = channel.permissions_for(interaction.user) if channel else None
+        is_owner = bool(perm and perm.manage_channels)
+
+        if is_owner:
+            # オーナー：チャンネル削除＋DB完全削除
+            if channel:
+                await channel.delete(reason=f"Shared folder deletion by {interaction.user}")
+            await db.delete_shared_folder(folder_id)
+            await interaction.response.send_message(f"✅ 共有フォルダ `{rec['name']}` を完全に削除しました。", ephemeral=True)
+        else:
+            # メンバー：参加解除のみ
+            member = interaction.guild.get_member(interaction.user.id)
+            if channel and member:
+                await channel.set_permissions(member, overwrite=None)
+            await db.delete_shared_folder_member(folder_id, interaction.user.id)
+            await interaction.response.send_message(f"🗑️ `{rec['name']}` からの参加を解除しました。", ephemeral=True)
+
+# コマンド登録
 def setup_commands(bot: discord.Client):
     tree, owner_id = bot.tree, getattr(bot, "owner_id", None)
 
@@ -604,3 +649,39 @@ def setup_commands(bot: discord.Client):
             )
         except discord.Forbidden:
             pass
+
+    # ── ② コマンド登録 ──
+    @tree.command(
+        name="remove_shared_folder",
+        description="共有フォルダを削除または参加解除します"
+    )
+    async def remove_shared_folder(i: discord.Interaction):
+        await i.response.defer(ephemeral=True)
+        db = i.client.db
+
+        # 1) shared_folders 全件取得
+        all_folders = await db.fetchall("SELECT id, name, channel_id FROM shared_folders")
+
+        owner_folders = []
+        member_folders = []
+        for f in all_folders:
+            ch = i.guild.get_channel(f["channel_id"])
+            if ch and ch.permissions_for(i.user).manage_channels:
+                owner_folders.append({"id": f["id"], "name": f["name"], "channel_id": f["channel_id"]})
+            else:
+                # メンバー登録があるかチェック
+                row = await db.fetchone(
+                    "SELECT 1 FROM shared_folder_members WHERE folder_id=? AND discord_user_id=?",
+                    f["id"], i.user.id
+                )
+                if row:
+                    member_folders.append({"id": f["id"], "name": f["name"], "channel_id": f["channel_id"]})
+
+        # オーナーUI優先、それ以外はメンバーUI
+        folders = owner_folders if owner_folders else member_folders
+        if not folders:
+            return await i.followup.send("❌ 操作可能な共有フォルダがありません。", ephemeral=True)
+
+
+        view = DeleteSharedFolderView(i.client, i.user, folders)
+        await i.followup.send("共有フォルダの削除メニューです。", view=view, ephemeral=True)

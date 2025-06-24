@@ -163,6 +163,22 @@ class Database:
             "DELETE FROM shared_folders WHERE id = ?",
             (folder_id,),
         )
+        await self.conn.commit()  # ← ここでコミット
+
+    async def delete_shared_folder_member(
+        self,
+        folder_id: int,
+        discord_user_id: int
+    ) -> None:
+        """
+        shared_folder_members テーブルから
+        (folder_id, discord_user_id) のレコードを削除
+        """
+        await self.conn.execute(
+            "DELETE FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            (folder_id, discord_user_id),
+        )
+        await self.conn.commit()
 
     async def get_shared_folder_by_channel(self, channel_id: int) -> sqlite3.Row | None:
         """
