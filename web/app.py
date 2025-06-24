@@ -380,9 +380,16 @@ def create_app() -> web.Application:
                     )
                     await db.commit()
                     f["token"] = token
+<<<<<<< HEAD
                 # 2) 共有用URL
                 f["preview_url"]  = f"/shared/download/{token}"
                 f["download_url"] = f"/shared/download/{token}"
+=======
+                # 2) 共有用URL
+                # プレビュー用は inline 表示させるため preview=1
+                f["preview_url"]  = f"/shared/download/{token}?preview=1"
+                f["download_url"] = f"/shared/download/{token}?dl=1"
+>>>>>>> codex/共有フォルダでプレビュー画像が表示されない問題を修正
             else:
                 # 非共有時はHMAC付きトークンでプライベートルートを生成
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
@@ -871,8 +878,16 @@ def create_app() -> web.Application:
             raise web.HTTPNotFound()
 
         mime, _ = mimetypes.guess_type(rec["file_name"])
-        # ① 画像はインライン表示
-        # → dl=1 の場合はダウンロード（添付）レスポンス
+        # ① プレビュー表示用 (preview=1)
+        if req.query.get("preview") == "1":
+            return web.FileResponse(
+                rec["path"],
+                headers={
+                    "Content-Type": mime or "application/octet-stream"
+                }
+            )
+
+        # ② ダウンロード要求 (dl=1)
         if req.query.get("dl") == "1":
             return web.FileResponse(
                 rec["path"],
