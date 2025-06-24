@@ -116,7 +116,7 @@ async def auth_mw(request: web.Request, handler):
     request["user_id"] = sess.get("user_id")
     return await handler(request)
 
-limiter = AsyncLimiter(30, 60)  # 60 秒あたり 10 リクエスト
+limiter = AsyncLimiter(30, 60)  # 60 秒あたり 30 リクエスト
 @web.middleware
 async def rl_mw(req, handler):
     ip = req.remote
