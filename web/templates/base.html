@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/static/css/style.css?v={{ static_version }}">
   <link rel="icon" href="{{ static('/favicon.png') }}?v={{ static_version }}" type="image/png">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  {% block extra_meta %}{% endblock %}
 </head>
 <body>
 <!-- FOUC 対策：CSS 読み込み前に body.dark-mode を付与 -->

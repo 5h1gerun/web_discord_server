@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}ホーム | Web-Discord-Server{% endblock %}
 
+{% block extra_meta %}
+  <meta property="og:title" content="Web-Discord-Server">
+  <meta property="og:description" content="Discord ボットと連携したファイル共有ツール">
+  <meta property="og:url" content="{{ request.scheme }}://{{ request.host }}/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ static('/favicon.png') }}?v={{ static_version }}">
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-5">
   <!-- ★ パンくずリストで現在位置を明示 -->
