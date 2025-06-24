@@ -450,19 +450,17 @@ def create_app() -> web.Application:
                 # プレビュー用は inline 表示させるため preview=1
                 f["preview_url"]  = f"/shared/download/{token}?preview=1"
                 f["download_url"] = f"/shared/download/{token}?dl=1"
+                preview_fallback = f["preview_url"]
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                download_url = f"/download/{private_token}"
+                f["download_url"] = f"/download/{private_token}"
+                preview_fallback = f"/download/{private_token}?preview=1"
 
-            f["download_url"] = download_url
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                if f["is_shared"]:
-                    f["preview_url"] = f"/shared/download/{token}?preview=1"
-                else:
-                    f["preview_url"] = f"/download/{private_token}?preview=1"
+                f["preview_url"] = preview_fallback
 
             # 2) ファイル名表示用
             f["original_name"] = f.get("file_name", "")  # partial では {{ f.original_name }} を使うため
