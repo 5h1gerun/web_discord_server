@@ -16,7 +16,7 @@ __pycache__/
 web/static/api/files/
 
 # 開発メモ
-web/仕様書.txt
+/仕様書.txt
 
 # nginx 実運用設定ファイル（機密情報含む可能性あり）
 nginx/sites-enabled/web_discord_server.conf

@@ -216,7 +216,8 @@ function bindUploadArea() {
 }
 // 秒数を「○日○時間○分○秒」に変換するヘルパー
 function formatExpiration(sec) {
-  if (sec <= 0) return "期限切れ";
+  if (sec === 0) return "無期限";
+  if (sec < 0)  return "期限切れ";
   const days = Math.floor(sec / 86400);
   const hrs  = Math.floor((sec % 86400) / 3600);
   const mins = Math.floor((sec % 3600) / 60);
@@ -337,6 +338,9 @@ async function handleToggle(toggle, expiration) {
             </div>`
         : `<span class="text-muted">非共有</span>`;
     }
+
+    // 共有状態が変わった際はプレビューURLも変わるため一覧を再取得
+    await reloadFileList();
   } catch (err) {
     alert("共有切替エラー: " + err.message);
   }
