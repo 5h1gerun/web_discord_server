@@ -741,3 +741,22 @@ def setup_commands(bot: discord.Client):
 
         view = DeleteSharedFolderView(i.client, i.user, folders)
         await i.followup.send("共有フォルダの削除メニューです。", view=view, ephemeral=True)
+
+    @tree.command(name="search_files", description="タグで自分のファイルを検索します")
+    @app_commands.describe(tag="検索ワード")
+    async def search_files_cmd(i: discord.Interaction, tag: str):
+        db = i.client.db
+        pk = await db.get_user_pk(i.user.id)
+        if pk is None:
+            await i.response.send_message("ユーザー登録が見つかりません。", ephemeral=True)
+            return
+        rows = await db.search_files(pk, tag)
+        if not rows:
+            await i.response.send_message("該当ファイルがありません。", ephemeral=True)
+            return
+        now = int(datetime.now(timezone.utc).timestamp())
+        emb = discord.Embed(title=f"検索結果: {tag}")
+        for r in rows[:10]:
+            url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(r['id'], now+URL_EXPIRES_SEC)}"
+            emb.add_field(name=r['original_name'], value=f"[DL]({url}) tags:{r['tags']}", inline=False)
+        await i.response.send_message(embed=emb, ephemeral=True)

@@ -10,3 +10,4 @@ pyotp
 qrcode
 Pillow
 scrypt
+pdf2image

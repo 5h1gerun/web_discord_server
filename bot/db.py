@@ -340,6 +340,20 @@ class Database:
     async def update_shared_tags(self, file_id: str, tags: str):
         await self.execute("UPDATE shared_files SET tags=? WHERE id=?", tags, file_id)
 
+    async def search_files(self, user_id: int, term: str):
+        like = f"%{term}%"
+        return await self.fetchall(
+            "SELECT * FROM files WHERE user_id=? AND tags LIKE ?",
+            user_id, like,
+        )
+
+    async def search_shared_files(self, folder_id: int, term: str):
+        like = f"%{term}%"
+        return await self.fetchall(
+            "SELECT * FROM shared_files WHERE folder_id=? AND tags LIKE ?",
+            folder_id, like,
+        )
+
     async def delete_all_shared_files(self, folder_id: int):
         rows = await self.fetchall(
             "SELECT path FROM shared_files WHERE folder_id=?",

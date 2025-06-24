@@ -30,6 +30,7 @@ from aiolimiter import AsyncLimiter
 import io, qrcode, pyotp      # ← 二要素用
 from PIL import Image
 import subprocess
+from pdf2image import convert_from_path
 
 from bot.db import init_db  # スキーマ初期化用
 Database = import_module("bot.db").Database  # type: ignore
@@ -330,6 +331,26 @@ def create_app() -> web.Application:
             'files':       file_objs,
             'csrf_token':  token,
             'user_id':     discord_id
+        }
+
+    @aiohttp_jinja2.template("partials/search_results.html")
+    async def search_files_api(request: web.Request):
+        discord_id = request.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        db = request.app["db"]
+        user_id = await db.get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPFound("/login")
+        term = request.query.get("q", "").strip()
+        rows = await db.search_files(user_id, term) if term else []
+        file_objs = [await _file_to_dict(r, request) for r in rows]
+        token = await issue_csrf(request)
+        return {
+            "files": file_objs,
+            "csrf_token": token,
+            "user_id": discord_id,
+            "term": term,
         }
 
     @aiohttp_jinja2.template("shared/index.html")
@@ -682,6 +703,24 @@ def create_app() -> web.Application:
                         "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
                         "-vframes", "1", str(preview_path)
                     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif mime == "application/pdf":
+                    pages = convert_from_path(str(path), first_page=1, last_page=1)
+                    if pages:
+                        img = pages[0]
+                        img.thumbnail((320, 320))
+                        img.save(preview_path, "JPEG")
+                elif mime and mime.startswith("application/vnd"):
+                    tmp_pdf = path.with_suffix(".pdf")
+                    subprocess.run([
+                        "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if tmp_pdf.exists():
+                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                        if pages:
+                            img = pages[0]
+                            img.thumbnail((320, 320))
+                            img.save(preview_path, "JPEG")
+                        tmp_pdf.unlink(missing_ok=True)
                 else:
                     preview_path = None
             except Exception as e:
@@ -835,6 +874,24 @@ def create_app() -> web.Application:
                         "ffmpeg", "-y", "-i", str(target_path), "-ss", "00:00:01",
                         "-vframes", "1", str(preview_path)
                     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif mime == "application/pdf":
+                    pages = convert_from_path(str(target_path), first_page=1, last_page=1)
+                    if pages:
+                        img = pages[0]
+                        img.thumbnail((320, 320))
+                        img.save(preview_path, "JPEG")
+                elif mime and mime.startswith("application/vnd"):
+                    tmp_pdf = target_path.with_suffix(".pdf")
+                    subprocess.run([
+                        "libreoffice", "--headless", "--convert-to", "pdf", str(target_path), "--outdir", str(target_path.parent)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if tmp_pdf.exists():
+                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                        if pages:
+                            img = pages[0]
+                            img.thumbnail((320, 320))
+                            img.save(preview_path, "JPEG")
+                        tmp_pdf.unlink(missing_ok=True)
                 else:
                     preview_path = None
             except Exception as e:
@@ -1072,6 +1129,45 @@ def create_app() -> web.Application:
         await db.delete_all_shared_files(int(folder_id))
         raise web.HTTPFound(f"/shared/{folder_id}")
 
+    async def download_zip(req: web.Request):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+
+        folder_id = req.match_info.get("folder_id")
+        db = req.app["db"]
+        member = await db.fetchone(
+            "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            folder_id, discord_id,
+        )
+        if member is None:
+            raise web.HTTPForbidden()
+
+        rows = await db.fetchall("SELECT file_name, path FROM shared_files WHERE folder_id=?", folder_id)
+        import tempfile, zipfile
+        tmp_dir = tempfile.mkdtemp()
+        zip_path = Path(tmp_dir) / f"folder_{folder_id}.zip"
+        with zipfile.ZipFile(zip_path, "w") as zf:
+            for r in rows:
+                try:
+                    zf.write(r["path"], arcname=r["file_name"])
+                except FileNotFoundError:
+                    pass
+
+        async def _cleanup():
+            await asyncio.sleep(60)
+            try:
+                zip_path.unlink(missing_ok=True)
+                Path(tmp_dir).rmdir()
+            except Exception:
+                pass
+
+        asyncio.create_task(_cleanup())
+        return web.FileResponse(zip_path, headers={
+            "Content-Disposition": f'attachment; filename="folder_{folder_id}.zip"'
+        })
+
     # ─────────────── Shared ファイルの共有トグル API ───────────────
     async def shared_toggle(request: web.Request):
         sess = await aiohttp_session.get_session(request)
@@ -1299,6 +1395,7 @@ def create_app() -> web.Application:
     app.router.add_post("/delete/{id}", delete_file)
     app.router.add_post("/delete_all", delete_all)
     app.router.add_post("/tags/{id}", update_tags)
+    app.router.add_get("/search", search_files_api)
     app.router.add_get("/static/api/files", file_list_api)
     app.router.add_get("/partial/files", file_list_api)
     app.router.add_get("/shared", shared_index)
@@ -1307,6 +1404,7 @@ def create_app() -> web.Application:
     app.router.add_get("/shared/download/{token}", shared_download)
     app.router.add_post("/shared/delete/{file_id}", shared_delete)
     app.router.add_post("/shared/delete_all/{folder_id}", shared_delete_all)
+    app.router.add_get("/zip/{folder_id}", download_zip)
     app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)
     app.router.add_post("/rename/{id}", rename_file)

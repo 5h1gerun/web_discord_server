@@ -102,11 +102,16 @@
     </div>
 
     <!-- フッター：ナビゲーション -->
-    <div class="card-footer text-end">
+  <div class="card-footer text-end">
       <a href="/shared"
          class="btn btn-outline-primary ripple me-2"
          data-mdb-ripple-init>
         <i class="bi bi-arrow-left-circle me-1"></i>フォルダ一覧へ
+      </a>
+      <a href="/zip/{{ folder_id }}"
+         class="btn btn-outline-secondary ripple me-2"
+         data-mdb-ripple-init>
+        <i class="bi bi-file-earmark-zip me-1"></i>ZIP ダウンロード
       </a>
       <a href="/"
          class="btn btn-outline-primary ripple"
