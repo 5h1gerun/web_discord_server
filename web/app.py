@@ -380,15 +380,21 @@ def create_app() -> web.Application:
                     )
                     await db.commit()
                     f["token"] = token
+<<<<<<< HEAD
+                # 2) 共有用URL
+                f["preview_url"]  = f"/shared/download/{token}"
+                f["download_url"] = f"/shared/download/{token}"
+=======
                 # 2) 共有用URL
                 # プレビュー用は inline 表示させるため preview=1
                 f["preview_url"]  = f"/shared/download/{token}?preview=1"
                 f["download_url"] = f"/shared/download/{token}?dl=1"
+>>>>>>> codex/共有フォルダでプレビュー画像が表示されない問題を修正
             else:
                 # 非共有時はHMAC付きトークンでプライベートルートを生成
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["preview_url"]  = f"/download/{private_token}?dl=1"
-                f["download_url"] = f"/download/{private_token}?dl=1"
+                f["preview_url"]  = f"/download/{private_token}"
+                f["download_url"] = f"/download/{private_token}"
 
             # 2) ファイル名表示用
             f["original_name"] = f.get("file_name", "")  # partial では {{ f.original_name }} を使うため
@@ -678,14 +684,38 @@ def create_app() -> web.Application:
         fid = _verify_token(req.match_info["token"])
         if not fid:
             raise web.HTTPForbidden()
-        rec = await app["db"].get_file(fid)
+
+        db = app["db"]
+        rec = await db.get_file(fid)
+        filename_key = "original_name"
+
+        if not rec:
+            # check shared_files for private preview/download
+            rec = await db.fetchone(
+                "SELECT * FROM shared_files WHERE id = ?",
+                fid,
+            )
+            filename_key = "file_name"
+            if rec:
+                # validate membership
+                discord_id = req.get("user_id")
+                if not discord_id:
+                    raise web.HTTPForbidden()
+                member = await db.fetchone(
+                    "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+                    rec["folder_id"], discord_id,
+                )
+                if not member:
+                    raise web.HTTPForbidden()
+
         if not rec:
             raise web.HTTPNotFound()
+
         path = Path(rec["path"])
-        mime, _ = mimetypes.guess_type(rec["original_name"])
+        mime, _ = mimetypes.guess_type(rec[filename_key])
         headers = {
             "Content-Type": mime or "application/octet-stream",
-            "Content-Disposition": f'attachment; filename="{rec["original_name"]}"'
+            "Content-Disposition": f'attachment; filename="{rec[filename_key]}"'
         }
         return web.FileResponse(path, headers=headers)
 

@@ -41,8 +41,8 @@
               <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-outline-secondary p-0 border-0"
                         style="width:60px;height:60px"
-                        onclick="showFull('{{ f.preview_url }}'); return false;">
-                  <img src="{{ f.preview_url }}"
+                        onclick="showFull('{{ f.preview_url }}?preview=1'); return false;">
+                  <img src="{{ f.preview_url }}?preview=1"
                       class="img-fluid rounded"
                       style="max-height:60px;">
                 </button>
@@ -52,8 +52,8 @@
               <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-outline-secondary p-0 border-0"
                         style="width:60px;height:60px"
-                        onclick="showFull('{{ f.preview_url }}', true); return false;">
-                  <video src="{{ f.preview_url }}"
+                        onclick="showFull('{{ f.preview_url }}?preview=1', true); return false;">
+                  <video src="{{ f.preview_url }}?preview=1"
                           class="w-100 h-100 rounded object-fit-cover"
                           style="max-width:60px;max-height:60px;"
                           muted autoplay loop playsinline></video>
@@ -64,7 +64,7 @@
               <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-outline-secondary p-0 border-0"
                         style="width:60px;height:60px"
-                        onclick="window.open('{{ f.preview_url }}?preview=1', '_blank'); return false;">
+                        onclick="window.open('{{ f.preview_url }}', '_blank'); return false;">
                   <i class="bi bi-file-earmark-text" style="font-size:2rem;"></i>
                 </button>
                 <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
@@ -74,7 +74,7 @@
             <td class="text-end" title="{{ f.size }} B">{{ f.size|human_size }}</td>
 
             <td class="text-center">
-              <a href="{{ f.download_url }}?dl=1" download class="btn btn-sm btn-outline-primary ripple" data-mdb-ripple-init title="ダウンロード">
+              <a href="{{ f.download_url }}" class="btn btn-sm btn-outline-primary ripple" data-mdb-ripple-init title="ダウンロード">
                 <i class="bi bi-download"></i>
               </a>
             </td>
