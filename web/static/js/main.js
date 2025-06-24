@@ -337,6 +337,9 @@ async function handleToggle(toggle, expiration) {
             </div>`
         : `<span class="text-muted">非共有</span>`;
     }
+
+    // 共有状態が変わった際はプレビューURLも変わるため一覧を再取得
+    await reloadFileList();
   } catch (err) {
     alert("共有切替エラー: " + err.message);
   }
