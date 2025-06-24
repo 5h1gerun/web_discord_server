@@ -532,9 +532,11 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
       filterTable(e.target.value.toLowerCase());
     } else if (e.target.classList.contains("tag-input")) {
       const fid  = e.target.dataset.fileId;
+      const isShared = e.target.dataset.shared === "1";
       const form = new FormData();
       form.append("tags", e.target.value);
-      fetch(`/tags/${fid}`, {
+      const url = isShared ? `/shared/tags/${fid}` : `/tags/${fid}`;
+      fetch(url, {
         method: "POST",
         body: form,
         headers: { "X-CSRF-Token": getCsrfToken() },

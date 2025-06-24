@@ -317,6 +317,35 @@ def setup_commands(bot: discord.Client):
         await db.update_tags(file_id, tags)
         await i.followup.send("✅ タグを更新しました。", ephemeral=True)
 
+    @tree.command(name="shared_delete_all", description="共有フォルダ内の全ファイルを削除します。")
+    async def _shared_delete_all(i: discord.Interaction, channel: discord.TextChannel):
+        db = i.client.db
+        await i.response.defer(ephemeral=True)
+        rec = await db.get_shared_folder_by_channel(channel.id)
+        if not rec:
+            return await i.followup.send("❌ このチャンネルは共有フォルダではありません。", ephemeral=True)
+        perm = channel.permissions_for(i.user)
+        if not (perm.view_channel and perm.send_messages):
+            return await i.followup.send("❌ あなたはこの共有フォルダに参加していません。", ephemeral=True)
+        await db.delete_all_shared_files(rec["id"])
+        await i.followup.send("🗑️ フォルダ内のファイルを削除しました。", ephemeral=True)
+
+    @tree.command(name="set_shared_tags", description="共有フォルダ内ファイルのタグを設定します。")
+    async def _set_shared_tags(i: discord.Interaction, file_id: str, tags: str):
+        db = i.client.db
+        await i.response.defer(ephemeral=True)
+        sf = await db.get_shared_file(file_id)
+        if not sf:
+            return await i.followup.send("❌ 見つかりません。", ephemeral=True)
+        member = await db.fetchone(
+            "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            sf["folder_id"], i.user.id
+        )
+        if member is None:
+            return await i.followup.send("❌ 権限がありません。", ephemeral=True)
+        await db.update_shared_tags(file_id, tags)
+        await i.followup.send("✅ タグを更新しました。", ephemeral=True)
+
     @tree.command(name="getfile", description="指定したファイルを取得します。")
     async def _getfile(i: discord.Interaction, file_id: str):
         db = i.client.db

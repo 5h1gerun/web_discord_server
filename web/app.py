@@ -908,6 +908,27 @@ def create_app() -> web.Application:
         await req.app["db"].update_tags(file_id, tags)
         return web.json_response({"status": "ok", "tags": tags})
 
+    async def shared_update_tags(req: web.Request):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            return web.json_response({"error": "unauthorized"}, status=403)
+        file_id = req.match_info["id"]
+        db = req.app["db"]
+        sf = await db.fetchone("SELECT folder_id FROM shared_files WHERE id = ?", file_id)
+        if not sf:
+            return web.json_response({"error": "not_found"}, status=404)
+        member = await db.fetchone(
+            "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            sf["folder_id"], discord_id,
+        )
+        if member is None:
+            return web.json_response({"error": "forbidden"}, status=403)
+        data = await req.post()
+        tags = data.get("tags", "")
+        await db.update_shared_tags(file_id, tags)
+        return web.json_response({"status": "ok", "tags": tags})
+
     async def shared_upload(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1031,6 +1052,24 @@ def create_app() -> web.Application:
         await db.commit()
 
         raise web.HTTPFound(f"/shared/{rec['folder_id']}")
+
+    async def shared_delete_all(req: web.Request):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+
+        folder_id = req.match_info.get("folder_id")
+        db = req.app["db"]
+        member = await db.fetchone(
+            "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            folder_id, discord_id,
+        )
+        if member is None:
+            raise web.HTTPForbidden()
+
+        await db.delete_all_shared_files(int(folder_id))
+        raise web.HTTPFound(f"/shared/{folder_id}")
 
     # ─────────────── Shared ファイルの共有トグル API ───────────────
     async def shared_toggle(request: web.Request):
@@ -1266,6 +1305,8 @@ def create_app() -> web.Application:
     app.router.add_post("/shared/upload", shared_upload)
     app.router.add_get("/shared/download/{token}", shared_download)
     app.router.add_post("/shared/delete/{file_id}", shared_delete)
+    app.router.add_post("/shared/delete_all/{folder_id}", shared_delete_all)
+    app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)
     app.router.add_post("/rename/{id}", rename_file)
     app.router.add_get ("/totp",  totp_get)   # 6桁入力フォーム表示
