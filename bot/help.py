@@ -48,6 +48,23 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
             }
         ]
     },
+    "delete_all": {
+        "description": (
+            "🗑️ **delete_all** コマンドは、自分がアップロードしたすべてのファイルを一括削除します。",
+            " 容量整理や退会時に便利ですが、削除後は復元できません。"
+        ),
+        "options": []
+    },
+    "set_tags": {
+        "description": (
+            "🏷️ **set_tags** コマンドは、指定したファイルに任意のタグ文字列を設定します。",
+            " 検索や整理のために複数タグをカンマ区切りで付与できます。"
+        ),
+        "options": [
+            {"name": "file_id", "type": "String", "required": True, "description": "タグを付与するファイルID"},
+            {"name": "tags",    "type": "String", "required": True, "description": "設定するタグ（カンマ区切り）"}
+        ]
+    },
     "getfile": {
         "description": (
             "📤 **getfile** コマンドは、保存済みのファイルを再度Discordに送信します。"
@@ -60,6 +77,25 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
                 "required": True,
                 "description": "再送信したいファイルのIDを指定してください。"
             }
+        ]
+    },
+    "shared_delete_all": {
+        "description": (
+            "🧺 **shared_delete_all** コマンドは、指定した共有フォルダ内のファイルをすべて削除します。",
+            " フォルダ管理者やメンバーが整理したい際に利用します。"
+        ),
+        "options": [
+            {"name": "channel", "type": "TextChannel", "required": True, "description": "対象となる共有フォルダチャンネル"}
+        ]
+    },
+    "set_shared_tags": {
+        "description": (
+            "🏷️ **set_shared_tags** コマンドは、共有フォルダ内のファイルにタグを設定します。",
+            " 権限を持つメンバーが整理しやすいようにタグ付けを行います。"
+        ),
+        "options": [
+            {"name": "file_id", "type": "String", "required": True, "description": "タグを変更するファイルID"},
+            {"name": "tags",    "type": "String", "required": True, "description": "設定するタグ（カンマ区切り）"}
         ]
     },
     "share": {

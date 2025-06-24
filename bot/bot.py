@@ -70,6 +70,10 @@ class WebDiscordBot(discord.Client):
         # ③ commands.py の関数をツリーに登録
         setup_commands(self)                             # 必ず tree 生成後に呼ぶ
 
+    async def on_ready(self):
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="/help"))
+        log.info("Bot ready")
+
     # --------------- lifecycle ---------------
     async def setup_hook(self):
         # ❶ DB 物理接続
