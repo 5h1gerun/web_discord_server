@@ -1,0 +1,12 @@
+# Python 3.9
+aiosqlite
+aiohttp
+aiohttp_jinja2
+aiohttp_session
+aiolimiter
+discord.py
+python-dotenv
+pyotp
+qrcode
+Pillow
+scrypt
