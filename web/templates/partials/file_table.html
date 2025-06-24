@@ -14,6 +14,10 @@
             class="form-control border-0"
             placeholder="検索..."
             autocomplete="off">
+      <form method="post" action="/delete_all" class="ms-2" onsubmit="return confirm('本当に全て削除しますか？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-danger btn-sm">全削除</button>
+      </form>
     </div>
   </div>
   <div class="card-body p-0">
@@ -172,8 +176,4 @@
     </div>
     {% endif %}
   </div>
-  <form method="post" action="/delete_all" class="ms-2" onsubmit="return confirm('本当に全て削除しますか？');">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="btn btn-danger btn-sm">全削除</button>
-  </form>
 </div>
