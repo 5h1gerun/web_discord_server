@@ -376,14 +376,6 @@ function copyLink(id) {
     }
   });
 }
-function showFull(url) {
-  const imgEl = document.getElementById('modal-img');
-  const mdl   = document.getElementById('modal');
-  if (imgEl && mdl) {
-    imgEl.src = url;
-    new mdb.Modal(mdl).show();
-  }
-}
 // ── XMLHttpRequest で進捗を拾う関数 ───────────────────
 function uploadWithProgress(url, formData) {
   return new Promise((resolve, reject) => {
