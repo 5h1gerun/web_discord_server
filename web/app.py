@@ -186,8 +186,11 @@ def create_app() -> web.Application:
 
     env.globals["icon_by_ext"] = icon_by_ext    # テンプレートから呼べるように
 
-    def _file_to_dict(row: Row, request: web.Request) -> dict:
-        """DB Row → テンプレ用 dict"""
+    async def _file_to_dict(row: Row, request: web.Request) -> dict:
+        """DB Row → テンプレ用 dict
+
+        共有期限切れの場合は自動的に非共有化する。
+        """
         d = dict(row)
         token = d.get("token")
 
@@ -204,8 +207,23 @@ def create_app() -> web.Application:
                 _, exp_raw, _ = raw.split(b":", 2)
                 exp_ts  = int(exp_raw)
                 now_ts  = int(time.time())
-                d["expiration"] = 0 if exp_ts == 0 else max(exp_ts - now_ts, 0)
-            except:
+
+                # 期限切れなら即座に非共有化
+                if exp_ts != 0 and now_ts > exp_ts:
+                    table = "shared_files" if d.get("folder_id") else "files"
+                    await request.app["db"].execute(
+                        f"UPDATE {table} SET is_shared=0, token=NULL, expiration_sec=? WHERE id=?",
+                        URL_EXPIRES_SEC,
+                        d["id"],
+                    )
+                    d["is_shared"] = 0
+                    d["token"] = None
+                    token = None
+                    d["expiration"] = 0
+                    d["expiration_str"] = "期限切れ"
+                else:
+                    d["expiration"] = 0 if exp_ts == 0 else max(exp_ts - now_ts, 0)
+            except Exception:
                 # トークン異常時はTTL丸ごと残す
                 d["expiration"] = d["expiration_sec"]
         else:
@@ -214,17 +232,18 @@ def create_app() -> web.Application:
 
         # ─── 残り期限のヒューマンリーダブル文字列を追加 ───
         sec = d["expiration"]
-        if sec == 0:
-            d["expiration_str"] = "無期限"
-        else:
-            days = sec // 86400
-            hrs  = (sec % 86400) // 3600
-            mins = (sec % 3600) // 60
-            parts = []
-            if days: parts.append(f"{days}日")
-            if hrs:  parts.append(f"{hrs}時間")
-            if mins: parts.append(f"{mins}分")
-            d["expiration_str"] = "".join(parts) if parts else "0分"
+        if "expiration_str" not in d:
+            if sec == 0:
+                d["expiration_str"] = "無期限"
+            else:
+                days = sec // 86400
+                hrs  = (sec % 86400) // 3600
+                mins = (sec % 3600) // 60
+                parts = []
+                if days: parts.append(f"{days}日")
+                if hrs:  parts.append(f"{hrs}時間")
+                if mins: parts.append(f"{mins}分")
+                d["expiration_str"] = "".join(parts) if parts else "0分"
 
         # 共有URL
         if not token:
@@ -291,7 +310,7 @@ def create_app() -> web.Application:
 
         for row in rows:
             # ① 共有 URL／download_url を含む共通フィールドを生成
-            f = _file_to_dict(row, request)
+            f = await _file_to_dict(row, request)
 
             # ② ここから先は画面ごとに必要な追加フィールドを足す
             mime, _ = mimetypes.guess_type(f["original_name"])
@@ -365,7 +384,7 @@ def create_app() -> web.Application:
 
         file_objs: list[dict] = []
         for rec in raw_files:
-            f = _file_to_dict(rec, request)
+            f = await _file_to_dict(rec, request)
             # ── プレビュー／ダウンロード URL を整備 ──
             if f["is_shared"]:
                 # 1) DBに保存されたトークンを使う
@@ -555,7 +574,7 @@ def create_app() -> web.Application:
         files  = []
 
         for r in rows:                           # ← １回だけ回す
-            f = _file_to_dict(r, req)            # share_url / download_url を付与
+            f = await _file_to_dict(r, req)            # share_url / download_url を付与
             f["user_id"]   = discord_id
             f["url"]       = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
 
