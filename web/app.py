@@ -381,13 +381,13 @@ def create_app() -> web.Application:
                     await db.commit()
                     f["token"] = token
                 # 2) 共有用URL
-                f["preview_url"]  = f"/shared/download/{token}?dl=1"
-                f["download_url"] = f"/shared/download/{token}?dl=1"
+                f["preview_url"]  = f"/shared/download/{token}"
+                f["download_url"] = f"/shared/download/{token}"
             else:
                 # 非共有時はHMAC付きトークンでプライベートルートを生成
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["preview_url"]  = f"/download/{private_token}?dl=1"
-                f["download_url"] = f"/download/{private_token}?dl=1"
+                f["preview_url"]  = f"/download/{private_token}"
+                f["download_url"] = f"/download/{private_token}"
 
             # 2) ファイル名表示用
             f["original_name"] = f.get("file_name", "")  # partial では {{ f.original_name }} を使うため
