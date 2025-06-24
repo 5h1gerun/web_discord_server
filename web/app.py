@@ -873,49 +873,6 @@ def create_app() -> web.Application:
 
         raise web.HTTPFound("/")
 
-    async def file_list_api(request):
-        # 1) セッションから Discord の user_id（discord_id）を取得
-        discord_id = request.get("user_id")
-        if not discord_id:
-            # 未ログインなら /login へリダイレクト
-            raise web.HTTPFound("/login")
-
-        # 2) DB から内部的な numeric user_id を取得
-        user_id = await request.app["db"].get_user_pk(discord_id)
-        if not user_id:
-            raise web.HTTPFound("/login")
-
-        now_ts = int(datetime.now(timezone.utc).timestamp())
-        await request.app["db"].execute(
-            "UPDATE files SET is_shared=0, token=NULL "
-            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
-            now_ts,
-        )
-        await request.app["db"].execute(
-            "UPDATE shared_files SET is_shared=0, token=NULL "
-            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
-            now_ts,
-        )
-
-        # 3) ファイル一覧を取得
-        files = await request.app["db"].list_files(user_id)
-
-        # 4) CSRF トークンをセッションから発行・取得
-        token = await issue_csrf(request)
-
-        # 5) テンプレートに渡すコンテキストを準備
-        context = {
-            "files": files,
-            "csrf_token": token,
-            "user_id": discord_id,
-        }
-
-        # 6) 部分テンプレートをレンダリングして返却
-        env = aiohttp_jinja2.get_env(request.app)
-        template = env.get_template("partials/file_table.html")
-        content  = template.render(context)
-        return web.Response(text=content, content_type="text/html")
-
     async def shared_upload(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1277,7 +1234,6 @@ def create_app() -> web.Application:
     app.router.add_post("/rename/{id}", rename_file)
     app.router.add_get ("/totp",  totp_get)   # 6桁入力フォーム表示
     app.router.add_post("/totp", totp_post)   # コード検証
-    app.router.add_post("/rename/{id}", rename_file)
     app.router.add_post("/shared/rename_file/{file_id}", rename_shared_file)
     app.router.add_get("/f/{token}", public_file)
 
