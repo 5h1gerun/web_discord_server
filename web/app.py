@@ -402,7 +402,6 @@ def create_app() -> web.Application:
                 # 1) DBに保存されたトークンを使う
                 token = f["token"]
                 if not token:
-                    # トークンがまだ無ければ生成してDBへ永続化
                     exp = now_ts + f["expiration_sec"]
                     token = _sign_token(f["id"], exp)
                     await db.execute(
