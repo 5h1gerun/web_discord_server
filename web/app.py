@@ -1089,6 +1089,11 @@ def create_app() -> web.Application:
         # Row → dict へ変換してテンプレートへ
         file_dict = dict(rec)
         file_dict["original_name"] = file_dict.get("file_name", "")   # ← 追加
+        preview_file = PREVIEW_DIR / f"{file_dict['id']}.jpg"
+        if preview_file.exists():
+            file_dict["preview_url"] = f"/previews/{preview_file.name}"
+        else:
+            file_dict["preview_url"] = f"{req.path}?preview=1"
 
         return _render(req, "public/confirm_download.html", {
             "file":    file_dict,
@@ -1395,8 +1400,14 @@ def create_app() -> web.Application:
             )
 
         # 確認ページをレンダリング
+        file_dict = dict(rec)
+        preview_file = PREVIEW_DIR / f"{file_dict['id']}.jpg"
+        if preview_file.exists():
+            file_dict["preview_url"] = f"/previews/{preview_file.name}"
+        else:
+            file_dict["preview_url"] = f"{req.path}?preview=1"
         return _render(req, "public/confirm_download.html", {
-            "file": dict(rec),   # Row → dict でテンプレートから参照しやすく
+            "file": file_dict,   # Row → dict でテンプレートから参照しやすく
             "request": req
         })
 

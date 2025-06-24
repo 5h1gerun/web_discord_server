@@ -10,6 +10,8 @@
   <meta property="og:type" content="article">
   {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
   <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}?dl=1">
+  {% elif ext in ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"] %}
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ file.preview_url }}">
   {% endif %}
 {% endblock %}
 
@@ -23,7 +25,7 @@
       <p class="fw-bold mb-1">{{ file.original_name }}</p>
       <p class="text-muted">{{ file.size|human_size }}</p>
 
-      <!-- プレビュー（画像・HTMLのみ） -->
+      <!-- プレビュー（画像・HTML・PDF/Office） -->
 
       <div class="my-4">
         {# 画像 #}
@@ -50,6 +52,11 @@
               Your browser does not support the video tag.
             </video>
           </div>
+        {# PDF・Office 文書 #}
+        {% elif ext in ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"] %}
+          <img src="{{ file.preview_url }}"
+               class="img-fluid rounded shadow-sm"
+               alt="preview">
         {% endif %}
       </div>
 
