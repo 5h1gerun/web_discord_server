@@ -1,0 +1,12 @@
+{% if files %}
+<ul class="list-group">
+  {% for f in files %}
+  <li class="list-group-item d-flex justify-content-between align-items-center">
+    <span>{{ f.original_name }} <small class="text-muted">{{ f.tags }}</small></span>
+    <a href="{{ f.download_url }}" class="btn btn-sm btn-outline-primary">DL</a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">該当ファイルがありません。</p>
+{% endif %}
