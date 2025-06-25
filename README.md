@@ -3,9 +3,12 @@
 ## 概要
 Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイル共有システムです。ボットが起動すると内部で Web サーバーも自動的に立ち上がり、アップロードされたファイルをブラウザから閲覧・ダウンロードできます。
 
+### 自動タグ付け
+Gemini を利用し、アップロードされたファイルからキーワードを抽出してタグ付けします。
+
 ## 必要な環境
 - Python 3.9 以上
-- `pip` で以下の主要ライブラリをインストールしてください（例: `pip install discord.py aiohttp aiohttp-session aiolimiter python-dotenv pyotp qrcode pillow`）
+- `pip` で以下の主要ライブラリをインストールしてください（例: `pip install discord.py aiohttp aiohttp-session aiolimiter python-dotenv pyotp qrcode pillow google-generativeai`）
 
 ## 環境変数
 `.env` ファイルに下記の変数を設定するか、実行環境で指定します。
@@ -24,6 +27,7 @@ Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイ�
 | `STATIC_DIR` | 静的ファイルの格納場所。既定値 `./static` |
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
+| `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
