@@ -5,6 +5,7 @@ Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイ�
 
 ### 自動タグ付け
 Gemini を利用し、アップロードされたファイルからキーワードを抽出してタグ付けします。
+`GEMINI_API_KEY` を設定しない場合は自動タグ付けはスキップされます。
 
 ## 必要な環境
 - Python 3.9 以上
@@ -28,6 +29,12 @@ Gemini を利用し、アップロードされたファイルからキーワー�
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
+
+`COOKIE_SECRET` は次のコマンドで生成できます。
+```bash
+python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+```
+`pdf2image` を利用するため、システムに `poppler` がインストールされている必要があります。
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
@@ -58,6 +65,11 @@ Gemini を利用し、アップロードされたファイルからキーワー�
 - ダウンロードリンクには HMAC 署名付きトークンを採用し、有効期限を設定できます。
 - `AsyncLimiter` によるレートリミットで DoS やブルートフォース攻撃を抑制します。
 - 全ページのレスポンスに Content-Security-Policy ヘッダーを設定し、外部 CDN と自サイトからのリソースのみを許可しています。
+
+## その他ドキュメント
+サブディレクトリにも詳細な説明があります。
+- `bot/README.md` … ボットコマンドの概要
+- `web/README.md` … Web UI の利用方法
 
 ## ライセンス
 このプロジェクトは MIT ライセンスです。
