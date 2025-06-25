@@ -38,40 +38,31 @@ def generate_tags(file_path: Path) -> str:
         return ""
 
     # 1) プレーンテキスト処理
-    if mime == "application/pdf":
-        reader = PdfReader(str(file_path))
-        pages = [p.extract_text() or "" for p in reader.pages]
-        full_text = "\n".join(pages)
-        if full_text.strip():
-            # テキストが取れたら従来通り
-            prompt = (
-                "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
-                "カンマ区切りで出力してください:\n" + full_text[:16000]
-            )
-            resp = model.generate_content(prompt)
-            return resp.text.strip()
-        # テキスト取得失敗時はBlobにフォールバック
-        # （モデルがapplication/pdfをサポートしていればこちらで試す）
-        # ※GEMINIがapplication/pdfをサポートしていない場合は
-        # OCRライブラリでテキスト抽出する必要があります。
-        b64 = base64.b64encode(data).decode()
+    if mime and mime.startswith("text"):
+        text = data.decode(errors="ignore")
         prompt = (
-            "与えられたPDFの内容を解析し、関連するキーワードを5個"
-            " 日本語で抽出してカンマ区切りで返してください。"
+            "以下のテキストから重要と思われるキーワードを5個抽出し、"
+            "カンマ区切りで出力してください:\n" + text[:16000]
         )
-        resp = model.generate_content([
-            {"mime_type": "application/pdf", "data": b64},
-            {"text": prompt},
-        ])
+        resp = model.generate_content(prompt)
         return resp.text.strip()
 
-    # 2) PDF は先にテキスト抽出してプレーンテキスト処理に合流
+    # 2) PDF はテキスト抽出を試み、失敗時はバイナリ解析
     if mime == "application/pdf":
         reader = PdfReader(str(file_path))
         pages = [p.extract_text() or "" for p in reader.pages]
         full_text = "\n".join(pages)
         if not full_text.strip():
-            return ""
+            b64 = base64.b64encode(data).decode()
+            prompt = (
+                "与えられたPDFの内容を解析し、関連するキーワードを5個"
+                " 日本語で抽出してカンマ区切りで返してください。"
+            )
+            resp = model.generate_content([
+                {"mime_type": "application/pdf", "data": b64},
+                {"text": prompt},
+            ])
+            return resp.text.strip()
         prompt = (
             "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
             "カンマ区切りで出力してください:\n" + full_text[:16000]
