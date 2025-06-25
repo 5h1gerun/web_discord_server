@@ -11,3 +11,5 @@ qrcode
 Pillow
 scrypt
 pdf2image
+boto3
+authlib

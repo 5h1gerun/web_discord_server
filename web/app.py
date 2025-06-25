@@ -31,6 +31,8 @@ import io, qrcode, pyotp      # ← 二要素用
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
+from storage import save_bytes, delete, generate_download_url, open_bytes, STORAGE_BACKEND
+from authlib.integrations.base_client import AsyncOAuth2Client
 
 from bot.db import init_db  # スキーマ初期化用
 Database = import_module("bot.db").Database  # type: ignore
@@ -60,6 +62,11 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
     os.getenv("FILE_HMAC_SECRET", base64.urlsafe_b64encode(os.urandom(32)).decode())
 )
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
+
+GOOGLE_CLIENT_ID = os.getenv("OAUTH_GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("OAUTH_GOOGLE_CLIENT_SECRET")
+GITHUB_CLIENT_ID = os.getenv("OAUTH_GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("OAUTH_GITHUB_CLIENT_SECRET")
 
 # ─────────────── Helpers ───────────────
 def _render(req: web.Request, tpl: str, ctx: Dict[str, object]):
@@ -93,6 +100,15 @@ async def issue_csrf(request: web.Request) -> str:
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(16)
     return session["csrf_token"]
+
+def _get_oauth_client(provider: str) -> AsyncOAuth2Client:
+    if provider == "google" and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+        redirect = f"https://{PUBLIC_DOMAIN}/oauth/google/callback"
+        return AsyncOAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirect_uri=redirect, scope="openid email profile")
+    if provider == "github" and GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET:
+        redirect = f"https://{PUBLIC_DOMAIN}/oauth/github/callback"
+        return AsyncOAuth2Client(GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, redirect_uri=redirect, scope="read:user user:email")
+    raise web.HTTPNotFound()
 
 # ─────────────── Middleware ───────────────
 @web.middleware
@@ -580,6 +596,51 @@ def create_app() -> web.Application:
         sess["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
 
+    async def oauth_login(req: web.Request):
+        provider = req.match_info.get("provider")
+        client = _get_oauth_client(provider)
+        auth_url, state = client.create_authorization_url(
+            "https://accounts.google.com/o/oauth2/v2/auth" if provider == "google" else "https://github.com/login/oauth/authorize"
+        )
+        sess = await new_session(req)
+        sess["oauth_state"] = state
+        sess["oauth_provider"] = provider
+        raise web.HTTPFound(auth_url)
+
+    async def oauth_callback(req: web.Request):
+        provider = req.match_info.get("provider")
+        sess = await get_session(req)
+        if sess.get("oauth_provider") != provider:
+            raise web.HTTPForbidden()
+        client = _get_oauth_client(provider)
+        if provider == "google":
+            token = await client.fetch_token(
+                "https://oauth2.googleapis.com/token",
+                authorization_response=str(req.url),
+            )
+            resp = await client.get("https://www.googleapis.com/oauth2/v2/userinfo")
+            data = await resp.json()
+            username = data.get("email")
+        else:
+            token = await client.fetch_token(
+                "https://github.com/login/oauth/access_token",
+                authorization_response=str(req.url),
+            )
+            resp = await client.get("https://api.github.com/user")
+            j = await resp.json()
+            username = j.get("login")
+        if not username:
+            raise web.HTTPForbidden()
+        db = app["db"]
+        row = await db.fetchone("SELECT discord_id FROM users WHERE username = ?", username)
+        if not row:
+            discord_id = int.from_bytes(os.urandom(8), "big")
+            await db.add_user(discord_id, username, secrets.token_urlsafe(12))
+            row = await db.fetchone("SELECT discord_id FROM users WHERE username = ?", username)
+        sess = await new_session(req)
+        sess["user_id"] = row["discord_id"]
+        raise web.HTTPFound("/")
+
     # ── GET: フォーム表示 ──────────────────────
     async def totp_get(req):
         sess = await get_session(req)
@@ -691,61 +752,59 @@ def create_app() -> web.Application:
         # 受け取った各ファイルごとに保存＆DB 登録
         for filefield in filefields:
             fid = str(uuid.uuid4())
-            path = DATA_DIR / fid
-            size = 0
-            # 実ファイル書き込み
-            with path.open("wb") as f:
-                while True:
-                    chunk = filefield.file.read(8192)
-                    if not chunk:
-                        break
-                    size += len(chunk)
-                    f.write(chunk)
-            # ハッシュ計算
-            sha256sum = hashlib.sha256(path.read_bytes()).hexdigest()
+            data = filefield.file.read()
+            size = len(data)
+            path_or_key = save_bytes(fid, data)
+            sha256sum = hashlib.sha256(data).hexdigest()
             # プレビュー生成
             mime, _ = mimetypes.guess_type(filefield.filename)
             preview_path = PREVIEW_DIR / f"{fid}.jpg"
+            tmp_path = DATA_DIR / fid
             try:
                 if mime and mime.startswith("image"):
-                    img = Image.open(path)
+                    img = Image.open(io.BytesIO(data))
                     img.thumbnail((320, 320))
                     img.convert("RGB").save(preview_path, "JPEG")
-                elif mime and mime.startswith("video"):
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
-                        "-vframes", "1", str(preview_path)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif mime == "application/pdf":
-                    pages = convert_from_path(str(path), first_page=1, last_page=1)
-                    if pages:
-                        img = pages[0]
-                        img.thumbnail((320, 320))
-                        img.save(preview_path, "JPEG")
-                elif mime and mime.startswith("application/vnd"):
-                    tmp_pdf = path.with_suffix(".pdf")
-                    subprocess.run([
-                        "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    if tmp_pdf.exists():
-                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                else:
+                    tmp_path.write_bytes(data)
+                    if mime and mime.startswith("video"):
+                        subprocess.run([
+                            "ffmpeg", "-y", "-i", str(tmp_path), "-ss", "00:00:01",
+                            "-vframes", "1", str(preview_path)
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    elif mime == "application/pdf":
+                        pages = convert_from_path(str(tmp_path), first_page=1, last_page=1)
                         if pages:
                             img = pages[0]
                             img.thumbnail((320, 320))
                             img.save(preview_path, "JPEG")
-                        tmp_pdf.unlink(missing_ok=True)
-                else:
-                    preview_path = None
+                    elif mime and mime.startswith("application/vnd"):
+                        tmp_pdf = tmp_path.with_suffix(".pdf")
+                        subprocess.run([
+                            "libreoffice", "--headless", "--convert-to", "pdf", str(tmp_path), "--outdir", str(tmp_path.parent)
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if tmp_pdf.exists():
+                            pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                            if pages:
+                                img = pages[0]
+                                img.thumbnail((320, 320))
+                                img.save(preview_path, "JPEG")
+                            tmp_pdf.unlink(missing_ok=True)
+                    else:
+                        preview_path = None
             except Exception as e:
                 log.warning("preview generation failed: %s", e)
                 if preview_path and preview_path.exists():
                     preview_path.unlink(missing_ok=True)
+            finally:
+                if STORAGE_BACKEND == "s3":
+                    tmp_path.unlink(missing_ok=True)
             # DB 登録
             await app["db"].add_file(
                 fid,
                 user_id,
                 filefield.filename,
-                str(path),
+                path_or_key,
                 size,
                 sha256sum
             )
@@ -836,12 +895,15 @@ def create_app() -> web.Application:
         if not rec:
             raise web.HTTPNotFound()
 
-        path = Path(rec["path"])
         mime, _ = mimetypes.guess_type(rec[filename_key])
+        if STORAGE_BACKEND == "s3":
+            url = generate_download_url(rec["path"], rec[filename_key])
+            raise web.HTTPFound(url)
         headers = {
             "Content-Type": mime or "application/octet-stream",
             "Content-Disposition": f'attachment; filename="{rec[filename_key]}"'
         }
+        path = Path(rec["path"])
         return web.FileResponse(path, headers=headers)
 
     async def upload_chunked(req: web.Request):
@@ -861,10 +923,10 @@ def create_app() -> web.Application:
         part_path.write_bytes(chunk)
         if is_last:
             target_id = str(uuid.uuid4())
+            target_data = b"".join(part_file.read_bytes() for part_file in sorted(tmp_dir.iterdir()))
+            path_or_key = save_bytes(target_id, target_data)
             target_path = DATA_DIR / target_id
-            with target_path.open("wb") as out:
-                for part_file in sorted(tmp_dir.iterdir()):
-                    out.write(part_file.read_bytes())
+            target_path.write_bytes(target_data)
             for part_file in tmp_dir.iterdir():
                 part_file.unlink()
             tmp_dir.rmdir()
@@ -879,34 +941,37 @@ def create_app() -> web.Application:
             preview_path = PREVIEW_DIR / f"{target_id}.jpg"
             try:
                 if mime and mime.startswith("image"):
-                    img = Image.open(target_path)
+                    img = Image.open(io.BytesIO(target_data))
                     img.thumbnail((320, 320))
                     img.convert("RGB").save(preview_path, "JPEG")
-                elif mime and mime.startswith("video"):
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(target_path), "-ss", "00:00:01",
-                        "-vframes", "1", str(preview_path)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif mime == "application/pdf":
-                    pages = convert_from_path(str(target_path), first_page=1, last_page=1)
-                    if pages:
-                        img = pages[0]
-                        img.thumbnail((320, 320))
-                        img.save(preview_path, "JPEG")
-                elif mime and mime.startswith("application/vnd"):
-                    tmp_pdf = target_path.with_suffix(".pdf")
-                    subprocess.run([
-                        "libreoffice", "--headless", "--convert-to", "pdf", str(target_path), "--outdir", str(target_path.parent)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    if tmp_pdf.exists():
-                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                else:
+                    if not target_path.exists():
+                        target_path.write_bytes(target_data)
+                    if mime and mime.startswith("video"):
+                        subprocess.run([
+                            "ffmpeg", "-y", "-i", str(target_path), "-ss", "00:00:01",
+                            "-vframes", "1", str(preview_path)
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    elif mime == "application/pdf":
+                        pages = convert_from_path(str(target_path), first_page=1, last_page=1)
                         if pages:
                             img = pages[0]
                             img.thumbnail((320, 320))
                             img.save(preview_path, "JPEG")
-                        tmp_pdf.unlink(missing_ok=True)
-                else:
-                    preview_path = None
+                    elif mime and mime.startswith("application/vnd"):
+                        tmp_pdf = target_path.with_suffix(".pdf")
+                        subprocess.run([
+                            "libreoffice", "--headless", "--convert-to", "pdf", str(target_path), "--outdir", str(target_path.parent)
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if tmp_pdf.exists():
+                            pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                            if pages:
+                                img = pages[0]
+                                img.thumbnail((320, 320))
+                                img.save(preview_path, "JPEG")
+                            tmp_pdf.unlink(missing_ok=True)
+                    else:
+                        preview_path = None
             except Exception as e:
                 log.warning("preview generation failed: %s", e)
                 if preview_path and preview_path.exists():
@@ -914,9 +979,11 @@ def create_app() -> web.Application:
 
             await req.app["db"].add_file(
                 target_id, user_id, field.filename,
-                str(target_path), target_path.stat().st_size,
-                hashlib.sha256(target_path.read_bytes()).hexdigest()
+                path_or_key, len(target_data),
+                hashlib.sha256(target_data).hexdigest()
             )
+            if STORAGE_BACKEND == "s3":
+                target_path.unlink(missing_ok=True)
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
 
@@ -935,7 +1002,7 @@ def create_app() -> web.Application:
 
         # 実ファイル削除
         try:
-            Path(rec["path"]).unlink(missing_ok=True)
+            delete(rec["path"])
         except Exception as e:
             log.warning("Failed to delete file: %s", e)
 
@@ -957,7 +1024,7 @@ def create_app() -> web.Application:
         )
         for r in rows:
             try:
-                Path(r["path"]).unlink(missing_ok=True)
+                delete(r["path"])
             except Exception as e:
                 log.warning("Failed to delete file: %s", e)
         await req.app["db"].delete_all_files(user_id)
@@ -1021,15 +1088,9 @@ def create_app() -> web.Application:
             raise web.HTTPForbidden(text="Not a member")
 
         fid = os.urandom(8).hex()
-        path = DATA_DIR / fid
-        with path.open("wb") as f:
-            while True:
-                chunk = filefield.file.read(8192)
-                if not chunk:
-                    break
-                f.write(chunk)
-
-        await db.add_shared_file(fid, folder_id, filefield.filename, str(path))
+        data = filefield.file.read()
+        path_or_key = save_bytes(fid, data)
+        await db.add_shared_file(fid, folder_id, filefield.filename, path_or_key)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
             "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
@@ -1068,6 +1129,9 @@ def create_app() -> web.Application:
         mime, _ = mimetypes.guess_type(rec["file_name"])
         # ① プレビュー表示用 (preview=1)
         if req.query.get("preview") == "1":
+            if STORAGE_BACKEND == "s3":
+                data = open_bytes(rec["path"])
+                return web.Response(body=data, headers={"Content-Type": mime or "application/octet-stream"})
             return web.FileResponse(
                 rec["path"],
                 headers={
@@ -1077,6 +1141,9 @@ def create_app() -> web.Application:
 
         # ② ダウンロード要求 (dl=1)
         if req.query.get("dl") == "1":
+            if STORAGE_BACKEND == "s3":
+                url = generate_download_url(rec["path"], rec["file_name"])
+                raise web.HTTPFound(url)
             return web.FileResponse(
                 rec["path"],
                 headers={
@@ -1121,7 +1188,7 @@ def create_app() -> web.Application:
 
         # ファイル削除
         try:
-            Path(rec["path"]).unlink(missing_ok=True)
+            delete(rec["path"])
         except Exception:
             pass
         await db.execute("DELETE FROM shared_files WHERE id = ?", file_id)
@@ -1171,7 +1238,11 @@ def create_app() -> web.Application:
             with zipfile.ZipFile(zip_path, "w") as zf:
                 for r in rows:
                     try:
-                        zf.write(r["path"], arcname=r["file_name"])
+                        if STORAGE_BACKEND == "s3":
+                            data = open_bytes(r["path"])
+                            zf.writestr(r["file_name"], data)
+                        else:
+                            zf.write(r["path"], arcname=r["file_name"])
                     except FileNotFoundError:
                         pass
             return zip_path, tmp_dir
@@ -1390,6 +1461,9 @@ def create_app() -> web.Application:
         # ?dl=1 が付いていれば直接ダウンロード
         if req.query.get("dl") == "1":
             mime, _ = mimetypes.guess_type(rec["original_name"])
+            if STORAGE_BACKEND == "s3":
+                url = generate_download_url(rec["path"], rec["original_name"])
+                raise web.HTTPFound(url)
             return web.FileResponse(
                 rec["path"],
                 headers={
@@ -1427,6 +1501,8 @@ def create_app() -> web.Application:
     app.router.add_get("/search", search_files_api)
     app.router.add_get("/static/api/files", file_list_api)
     app.router.add_get("/partial/files", file_list_api)
+    app.router.add_get("/oauth/{provider}", oauth_login)
+    app.router.add_get("/oauth/{provider}/callback", oauth_callback)
     app.router.add_get("/shared", shared_index)
     app.router.add_get("/shared/{id}", shared_folder_view)
     app.router.add_post("/shared/upload", shared_upload)

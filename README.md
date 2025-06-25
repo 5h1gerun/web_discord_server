@@ -24,6 +24,12 @@ Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイ�
 | `STATIC_DIR` | 静的ファイルの格納場所。既定値 `./static` |
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
+| `STORAGE_BACKEND` | `local` または `s3` を指定。`s3` の場合は下記バケット設定を使用 |
+| `S3_BUCKET` | S3 バケット名。`STORAGE_BACKEND` が `s3` の時必須 |
+| `OAUTH_GOOGLE_CLIENT_ID` | Google OAuth 用クライアント ID |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | Google OAuth 用クライアントシークレット |
+| `OAUTH_GITHUB_CLIENT_ID` | GitHub OAuth 用クライアント ID |
+| `OAUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth 用クライアントシークレット |
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
@@ -49,6 +55,7 @@ Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイ�
 
 - パスワードは `scrypt` でハッシュ化して保存されます。
 - 二要素認証 (TOTP) を任意で有効にできます。
+- Google や GitHub での OAuth ログインをサポートしています。
 - セッション情報は暗号化した Cookie に保存し、`Secure`、`HttpOnly`、`SameSite=Lax` 属性を付与しています。
 - `POST` 系リクエストでは CSRF トークンを検証します。
 - ダウンロードリンクには HMAC 署名付きトークンを採用し、有効期限を設定できます。

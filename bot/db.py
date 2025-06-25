@@ -327,9 +327,10 @@ class Database:
             "SELECT path FROM files WHERE user_id=?",
             user_id
         )
+        from storage import delete
         for r in rows:
             try:
-                Path(r["path"]).unlink(missing_ok=True)
+                delete(r["path"])
             except Exception:
                 pass
         await self.execute("DELETE FROM files WHERE user_id=?", user_id)

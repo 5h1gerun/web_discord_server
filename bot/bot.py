@@ -21,6 +21,7 @@ load_dotenv()
 # ── local ──────────────────────────────
 from web.app import create_app, _sign_token                  # type: ignore
 from bot.db import Database                                  # type: ignore
+from storage import save_bytes
 from bot.commands import setup_commands
 import pyotp, qrcode# スラッシュコマンド本体
 import base64
@@ -165,12 +166,11 @@ class WebDiscordBot(discord.Client):
         for attachment in message.attachments:
             file_data = await attachment.read()
             fid = str(uuid.uuid4())
-            file_path = DATA_DIR / fid
-            file_path.write_bytes(file_data)
+            path_or_key = save_bytes(fid, file_data)
 
             await self.db.execute(
                 "INSERT INTO shared_files (id, folder_id, file_name, path) VALUES (?, ?, ?, ?)",
-                fid, folder_id, attachment.filename, str(file_path)
+                fid, folder_id, attachment.filename, path_or_key
             )
 
         await self.db.commit()
