@@ -33,9 +33,8 @@ def generate_tags(file_path: Path) -> str:
     mime, _ = mimetypes.guess_type(file_path)
     data = file_path.read_bytes()
 
-    # 未知の MIME タイプはスキップ
-    if not mime or mime == "application/octet-stream":
-        return ""
+    if not mime:
+        mime = "application/octet-stream"
 
     # 1) プレーンテキスト処理
     if mime and mime.startswith("text"):
@@ -70,7 +69,21 @@ def generate_tags(file_path: Path) -> str:
         resp = model.generate_content(prompt)
         return resp.text.strip()
 
-    # 3) 画像やその他バイナリ
+    # 3) MIME 未判定だがテキストとして解釈できる場合
+    if b"\x00" not in data:
+        try:
+            text = data.decode()
+        except UnicodeDecodeError:
+            text = None
+        if text and text.strip():
+            prompt = (
+                "以下のテキストから重要と思われるキーワードを5個抽出し、"
+                "カンマ区切りで出力してください:\n" + text[:16000]
+            )
+            resp = model.generate_content(prompt)
+            return resp.text.strip()
+
+    # 4) 画像やその他バイナリ
     b64 = base64.b64encode(data).decode()
     prompt = (
         f"与えられた {mime or 'ファイル'} の内容を解析し、関連するキーワードを5個"
