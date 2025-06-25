@@ -30,9 +30,10 @@
       <div class="my-4">
         {# 画像 #}
         {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
-          <img src="{{ request.path }}?dl=1"
+          <img src="{{ request.path }}?dl=1" loading="lazy"
               class="img-fluid rounded shadow-sm"
-              alt="preview">
+              alt="preview" onerror="previewError(this)">
+          <i class="bi {{ icon_by_ext(file.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
 
         {# HTML #}
         {% elif ext in ["html", "htm"] %}
@@ -44,19 +45,19 @@
         {# ★ 動画（mp4 / webm / mov / m4v / ogg など）★ #}
         {% elif ext in ["mp4", "webm", "mov", "m4v", "ogg"] %}
           <div class="ratio ratio-16x9 border rounded shadow-sm">
-            <video src="{{ request.path }}?dl=1"
+            <video src="{{ request.path }}?dl=1" preload="metadata" loading="lazy"
                   class="w-100 h-100 rounded"
                   controls
-                  preload="metadata"
-                  playsinline>
+                  playsinline onerror="previewError(this)">
               Your browser does not support the video tag.
             </video>
           </div>
         {# PDF・Office 文書 #}
         {% elif ext in ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"] %}
-          <img src="{{ file.preview_url }}"
+          <img src="{{ file.preview_url }}" loading="lazy"
                class="img-fluid rounded shadow-sm"
-               alt="preview">
+               alt="preview" onerror="previewError(this)">
+          <i class="bi {{ icon_by_ext(file.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
         {% endif %}
       </div>
 
