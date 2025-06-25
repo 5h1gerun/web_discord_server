@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
+import io
 import mimetypes
 import os
 
 import google.generativeai as genai
 from google.generativeai import GenerationConfig
 from PyPDF2 import PdfReader
+from PIL import Image, UnidentifiedImageError
 
 
 def generate_tags(file_path: Path) -> str:
@@ -84,14 +86,27 @@ def generate_tags(file_path: Path) -> str:
             return resp.text.strip()
 
     # 4) 画像やその他バイナリ
+    if not mime or mime == "application/octet-stream":
+        # MIME が未判定の場合は画像として扱えるか試みる
+        try:
+            img = Image.open(file_path)
+            with io.BytesIO() as buf:
+                img.save(buf, format="PNG")
+                data = buf.getvalue()
+            mime = "image/png"
+        except (UnidentifiedImageError, OSError):
+            # Gemini では application/octet-stream を受け付けないため
+            # 未対応ファイルはタグ生成をスキップする
+            return ""
+
     b64 = base64.b64encode(data).decode()
     prompt = (
-        f"与えられた {mime or 'ファイル'} の内容を解析し、関連するキーワードを5個"
+        f"与えられた {mime} の内容を解析し、関連するキーワードを5個"
         " 日本語で抽出してカンマ区切りで返してください。"
     )
     resp = model.generate_content([
         {
-            "mime_type": mime or "application/octet-stream",  # Blob 用にスネークケース
+            "mime_type": mime,  # サポートされている MIME タイプのみ送信
             "data": b64,
         },
         {

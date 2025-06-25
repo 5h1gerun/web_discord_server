@@ -1,6 +1,7 @@
 from pathlib import Path
 import types
 import sys
+from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 dummy_google = types.ModuleType("google.generativeai")
@@ -54,7 +55,8 @@ def test_generate_tags(monkeypatch, tmp_path):
 
 def test_generate_tags_binary(monkeypatch, tmp_path):
     f = tmp_path / "unknown.bin"
-    f.write_bytes(b"\x00\x01\x02")
+    img = Image.new("RGB", (1, 1), color="red")
+    img.save(f, format="PNG")
     dummy_genai = types.SimpleNamespace(
         configure=lambda **kw: None,
         GenerativeModel=lambda *a, **kw: DummyModel(),
