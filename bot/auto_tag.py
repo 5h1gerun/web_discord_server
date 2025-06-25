@@ -8,6 +8,8 @@ import mimetypes
 import os
 
 import google.generativeai as genai
+from google.generativeai import GenerationConfig
+from PyPDF2 import PdfReader
 
 
 def generate_tags(file_path: Path) -> str:
@@ -15,32 +17,81 @@ def generate_tags(file_path: Path) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return ""
+
+    # API キー設定＆モデル準備（温度や出力トークン数もここでまとめて指定）
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    gen_cfg = GenerationConfig(
+        temperature=0.2,
+        max_output_tokens=256,
+    )
+    model = genai.GenerativeModel(
+        "gemini-2.0-flash",
+        generation_config=gen_cfg,
+    )
 
+    # ファイル読み込み
     mime, _ = mimetypes.guess_type(file_path)
-    with file_path.open("rb") as f:
-        data = f.read()
+    data = file_path.read_bytes()
 
-    if mime and mime.startswith("text"):
-        text = data.decode(errors="ignore")
+    # 未知の MIME タイプはスキップ
+    if not mime or mime == "application/octet-stream":
+        return ""
+
+    # 1) プレーンテキスト処理
+    if mime == "application/pdf":
+        reader = PdfReader(str(file_path))
+        pages = [p.extract_text() or "" for p in reader.pages]
+        full_text = "\n".join(pages)
+        if full_text.strip():
+            # テキストが取れたら従来通り
+            prompt = (
+                "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
+                "カンマ区切りで出力してください:\n" + full_text[:16000]
+            )
+            resp = model.generate_content(prompt)
+            return resp.text.strip()
+        # テキスト取得失敗時はBlobにフォールバック
+        # （モデルがapplication/pdfをサポートしていればこちらで試す）
+        # ※GEMINIがapplication/pdfをサポートしていない場合は
+        # OCRライブラリでテキスト抽出する必要があります。
+        b64 = base64.b64encode(data).decode()
         prompt = (
-            "以下のテキストから重要と思われるキーワードを5個抽出し、"\
-            "カンマ区切りで出力してください:\n" + text[:16000]
+            "与えられたPDFの内容を解析し、関連するキーワードを5個"
+            " 日本語で抽出してカンマ区切りで返してください。"
+        )
+        resp = model.generate_content([
+            {"mime_type": "application/pdf", "data": b64},
+            {"text": prompt},
+        ])
+        return resp.text.strip()
+
+    # 2) PDF は先にテキスト抽出してプレーンテキスト処理に合流
+    if mime == "application/pdf":
+        reader = PdfReader(str(file_path))
+        pages = [p.extract_text() or "" for p in reader.pages]
+        full_text = "\n".join(pages)
+        if not full_text.strip():
+            return ""
+        prompt = (
+            "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
+            "カンマ区切りで出力してください:\n" + full_text[:16000]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
 
+    # 3) 画像やその他バイナリ
     b64 = base64.b64encode(data).decode()
     prompt = (
-        f"与えられた{mime or 'ファイル'}の内容を解析し、関連するキーワードを5個"\
-        "日本語で抽出してカンマ区切りで返してください。"
+        f"与えられた {mime or 'ファイル'} の内容を解析し、関連するキーワードを5個"
+        " 日本語で抽出してカンマ区切りで返してください。"
     )
     resp = model.generate_content([
         {
-            "mime_type": mime or "application/octet-stream",
+            "mime_type": mime or "application/octet-stream",  # Blob 用にスネークケース
             "data": b64,
         },
-        prompt,
+        {
+            "text": prompt,  # Part として扱われるプロンプト
+        },
     ])
     return resp.text.strip()
