@@ -26,6 +26,13 @@ function showFull(url, isVideoExplicit = false) {
   bsModal.show();
 }
 
+// プレビュー読み込み失敗時のフォールバック
+function previewError(img) {
+  const icon = img.parentNode?.querySelector('.fallback-icon');
+  if (icon) icon.classList.remove('d-none');
+  img.classList.add('d-none');
+}
+
 /*─────────────────────────────
     History-API / AJAX ナビゲータ
 ─────────────────────────────*/
