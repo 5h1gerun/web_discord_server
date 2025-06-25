@@ -265,8 +265,11 @@ def setup_commands(bot: discord.Client):
         await i.response.defer(thinking=True, ephemeral=True)
         data = await file.read()
         fid = str(uuid.uuid4())
-        (DATA_DIR / fid).write_bytes(data)
-        await db.add_file(fid, pk, file.filename, str(DATA_DIR / fid), len(data), hashlib.sha256(data).hexdigest())
+        path = DATA_DIR / fid
+        path.write_bytes(data)
+        from .auto_tag import generate_tags
+        tags = generate_tags(path)
+        await db.add_file(fid, pk, file.filename, str(path), len(data), hashlib.sha256(data).hexdigest(), tags)
         now = int(datetime.now(timezone.utc).timestamp())
         url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(fid, now+URL_EXPIRES_SEC)}"
         emb = discord.Embed(title="✅ アップロード完了", description=f"[DL]({url})", colour=0x2ecc71)
@@ -607,7 +610,9 @@ def setup_commands(bot: discord.Client):
         fid = str(uuid.uuid4())
         path = DATA_DIR / fid
         path.write_bytes(data)
-        await db.add_shared_file(fid, folder_id, file.filename, str(path))
+        from .auto_tag import generate_tags
+        tags = generate_tags(path)
+        await db.add_shared_file(fid, folder_id, file.filename, str(path), tags)
 
         # 5) 実際のチャンネルにファイルを送信
         await channel.send(

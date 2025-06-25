@@ -740,6 +740,9 @@ def create_app() -> web.Application:
                 log.warning("preview generation failed: %s", e)
                 if preview_path and preview_path.exists():
                     preview_path.unlink(missing_ok=True)
+            # 自動タグ生成
+            from bot.auto_tag import generate_tags
+            tags = generate_tags(path)
             # DB 登録
             await app["db"].add_file(
                 fid,
@@ -747,7 +750,8 @@ def create_app() -> web.Application:
                 filefield.filename,
                 str(path),
                 size,
-                sha256sum
+                sha256sum,
+                tags,
             )
         # すべてのファイルを正常受信できた
         return web.json_response({"success": True})
@@ -912,10 +916,13 @@ def create_app() -> web.Application:
                 if preview_path and preview_path.exists():
                     preview_path.unlink(missing_ok=True)
 
+            from bot.auto_tag import generate_tags
+            tags = generate_tags(target_path)
             await req.app["db"].add_file(
                 target_id, user_id, field.filename,
                 str(target_path), target_path.stat().st_size,
-                hashlib.sha256(target_path.read_bytes()).hexdigest()
+                hashlib.sha256(target_path.read_bytes()).hexdigest(),
+                tags,
             )
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
@@ -1029,7 +1036,9 @@ def create_app() -> web.Application:
                     break
                 f.write(chunk)
 
-        await db.add_shared_file(fid, folder_id, filefield.filename, str(path))
+        from bot.auto_tag import generate_tags
+        tags = generate_tags(path)
+        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
             "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
