@@ -375,3 +375,15 @@ body.dark-mode #fileSearch {
   transform: translateY(0);
   opacity: 1;
 }
+
+/* ── Send Modal Dark Mode ── */
+.dark-mode #sendModal .modal-content {
+  background-color: var(--input-bg-dark);
+  color: var(--input-text-dark);
+}
+.dark-mode #sendModal .form-select,
+.dark-mode #sendModal .form-control {
+  background-color: var(--input-bg-dark);
+  color: var(--input-text-dark);
+  border-color: var(--card-border-dark);
+}

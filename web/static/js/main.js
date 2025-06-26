@@ -133,10 +133,7 @@ async function loadUserList() {
     const res = await fetch('/users', { credentials: 'same-origin' });
     if (!res.ok) return;
     userList = await res.json();
-    const sel = document.getElementById('sendUserSelect');
-    if (sel) {
-      sel.innerHTML = userList.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-    }
+    filterUsers(document.getElementById('userFilterInput')?.value || '');
   } catch (err) {
     console.error('failed to load users', err);
   }
@@ -467,6 +464,16 @@ function filterTable(term) {
   });
 }
 
+function filterUsers(term) {
+  const sel = document.getElementById('sendUserSelect');
+  if (!sel) return;
+  const t = term.toLowerCase();
+  sel.innerHTML = userList
+    .filter(u => u.name.toLowerCase().includes(t))
+    .map(u => `<option value="${u.id}">${u.name}</option>`)
+    .join('');
+}
+
 function initProgressElems() {
   progWrap = document.getElementById("uploadProgressWrap");
   progBar  = document.getElementById("uploadProgressBar");
@@ -488,6 +495,10 @@ function rebindDynamicHandlers() {
       document.body.classList.toggle('dark-mode', sw.checked);
       localStorage.setItem('theme', sw.checked ? 'dark' : 'light');
     });
+  }
+  const userFilter = document.getElementById('userFilterInput');
+  if (userFilter) {
+    userFilter.addEventListener('input', e => filterUsers(e.target.value));
   }
   /* ───── フォルダジャンプ ───── */
   const sel = document.getElementById("folderJump");
