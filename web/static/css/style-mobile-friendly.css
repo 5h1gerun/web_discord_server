@@ -1,0 +1,27 @@
+body {
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  background: #f2f4f6;
+  color: #212529;
+  font-size: 1.1rem;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.card {
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.btn {
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+}
+
+.table th, .table td {
+  padding: 0.75rem;
+  font-size: 0.95rem;
+}

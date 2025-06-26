@@ -1,0 +1,18 @@
+{% extends "mobile/base_friendly.html" %}
+{% block title %}ホーム | WDS Friendly{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3 text-center">ファイルアップロード</h1>
+<form id="uploadForm" class="mb-4" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="mb-3">
+    <input type="file" name="file" class="form-control form-control-lg" required>
+  </div>
+  <button class="btn btn-primary w-100 btn-lg" type="submit">アップロード</button>
+</form>
+
+<h2 class="h5 mb-3">ファイル一覧</h2>
+<div id="fileListContainer">
+  {% include 'partials/file_table.html' %}
+</div>
+{% endblock %}
