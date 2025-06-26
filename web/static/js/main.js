@@ -72,6 +72,7 @@ window.addEventListener("popstate", e => {
 let isUploading = false;
 let progWrap = null;
 let progBar  = null;
+let userList = [];
 
 // ―― ファイル一覧を再描画 ――
 async function reloadFileList() {
@@ -125,6 +126,20 @@ async function reloadFileList() {
       handleToggle(toggle, expiration);
     });
   });
+}
+
+async function loadUserList() {
+  try {
+    const res = await fetch('/users', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    userList = await res.json();
+    const sel = document.getElementById('sendUserSelect');
+    if (sel) {
+      sel.innerHTML = userList.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+    }
+  } catch (err) {
+    console.error('failed to load users', err);
+  }
 }
 
 // アップロード & 共有トグルのイベントを毎回付け直す
@@ -460,6 +475,7 @@ function initProgressElems() {
 // ―― DOMContentLoaded 後にイベント登録 ――
 function rebindDynamicHandlers() {
   // ダークモード切替
+  loadUserList();
   const sw = document.getElementById('darkModeSwitch');
   if (sw) {
     const stored     = localStorage.getItem('theme');
@@ -498,26 +514,9 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
   const sendBtn = e.target.closest(".send-btn");
   if (sendBtn) {
     const fid = sendBtn.dataset.fileId;
-    const uid = prompt("送信先ユーザーID");
-    if (!uid) return;
-    try {
-      sendBtn.disabled = true;
-      const res = await fetch("/sendfile", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": getCsrfToken(),
-        },
-        body: JSON.stringify({ file_id: fid, user_id: uid })
-      });
-      if (!res.ok) throw new Error(await res.text());
-      alert("送信しました");
-    } catch (err) {
-      alert("送信失敗: " + err.message);
-    } finally {
-      sendBtn.disabled = false;
-    }
+    document.getElementById('sendFileId').value = fid;
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('sendModal'));
+    modal.show();
     return;
   }
 
@@ -578,13 +577,41 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
     }
   });
 
-  document.addEventListener("click", e => {
-    const a = e.target.closest("a[data-ajax]");
-    if (a && a.origin === location.origin) {
-      e.preventDefault();
-      ajaxNavigate(a.href);
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-ajax]");
+  if (a && a.origin === location.origin) {
+    e.preventDefault();
+    ajaxNavigate(a.href);
+  }
+});
+
+const sendExecBtn = document.getElementById('sendExecBtn');
+if (sendExecBtn) {
+  sendExecBtn.addEventListener('click', async () => {
+    const uid = document.getElementById('sendUserSelect').value;
+    const fid = document.getElementById('sendFileId').value;
+    if (!uid) return;
+    sendExecBtn.disabled = true;
+    try {
+      const res = await fetch('/sendfile', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken(),
+        },
+        body: JSON.stringify({ file_id: fid, user_id: uid })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      bootstrap.Modal.getInstance(document.getElementById('sendModal')).hide();
+      alert('送信しました');
+    } catch (err) {
+      alert('送信失敗: ' + err.message);
+    } finally {
+      sendExecBtn.disabled = false;
     }
   });
+}
 
 ;(function() {
   const btn = document.getElementById('scrollToTop');
