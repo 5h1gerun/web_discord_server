@@ -12,6 +12,9 @@ import google.generativeai as genai
 from google.generativeai import GenerationConfig
 from PyPDF2 import PdfReader
 from PIL import Image, UnidentifiedImageError
+from docx import Document
+from pptx import Presentation
+from openpyxl import load_workbook
 
 
 def generate_tags(file_path: Path) -> str:
@@ -66,6 +69,46 @@ def generate_tags(file_path: Path) -> str:
             return resp.text.strip()
         prompt = (
             "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
+            "カンマ区切りで出力してください:\n" + full_text[:16000]
+        )
+        resp = model.generate_content(prompt)
+        return resp.text.strip()
+
+    # 2-2) Office 系ファイルはテキストへ変換して解析
+    if mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        doc = Document(str(file_path))
+        full_text = "\n".join(p.text for p in doc.paragraphs)
+        prompt = (
+            "以下の文書から重要と思われるキーワードを5個抽出し、"
+            "カンマ区切りで出力してください:\n" + full_text[:16000]
+        )
+        resp = model.generate_content(prompt)
+        return resp.text.strip()
+
+    if mime == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+        pres = Presentation(str(file_path))
+        texts: list[str] = []
+        for slide in pres.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    texts.append(shape.text)
+        full_text = "\n".join(texts)
+        prompt = (
+            "以下のプレゼンテーションから重要と思われるキーワードを5個抽出し、"
+            "カンマ区切りで出力してください:\n" + full_text[:16000]
+        )
+        resp = model.generate_content(prompt)
+        return resp.text.strip()
+
+    if mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        wb = load_workbook(file_path, data_only=True)
+        texts: list[str] = []
+        for ws in wb.worksheets:
+            for row in ws.iter_rows(values_only=True):
+                texts.append(" ".join(str(c) for c in row if c is not None))
+        full_text = "\n".join(texts)
+        prompt = (
+            "以下の表計算シートから重要と思われるキーワードを5個抽出し、"
             "カンマ区切りで出力してください:\n" + full_text[:16000]
         )
         resp = model.generate_content(prompt)
