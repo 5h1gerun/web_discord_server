@@ -1036,14 +1036,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         path = Path(rec["path"])
         size = rec["size"]
+        sender_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        sender_name = sender_row["username"] if sender_row else str(discord_id)
         try:
             if size <= (25 << 20):
-                await user.send(file=discord.File(path, filename=rec["original_name"]))
+                await user.send(
+                    content=f"📨 {sender_name} からのファイルです",
+                    file=discord.File(path, filename=rec["original_name"])
+                )
             else:
                 now = int(datetime.now(timezone.utc).timestamp())
                 tok = _sign_token(file_id, now + URL_EXPIRES_SEC)
                 url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{tok}"
-                await user.send(f"🔗 ダウンロードリンク: {url}")
+                await user.send(f"📨 {sender_name} からのファイルです\n🔗 ダウンロードリンク: {url}")
             return web.json_response({"status": "ok"})
         except discord.Forbidden:
             return web.json_response({"error": "forbidden"}, status=403)
