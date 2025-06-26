@@ -9,6 +9,13 @@ Gemini を利用し、アップロードされたファイルからキーワー�
 Gemini が非対応の形式はテキストへ変換してから解析を行います。
 `GEMINI_API_KEY` を設定しない場合は自動タグ付けはスキップされます。
 
+
+## ディレクトリ構成
+- `bot/` ... Discord ボット関連コード
+- `web/` ... aiohttp 製 Web アプリ
+- `tree_export.py` ... フォルダ構成をテキスト出力する補助スクリプト
+例: `python tree_export.py web -o structure.txt` とすると構成を `structure.txt` に保存できます。
+
 ## 必要な環境
 - Python 3.9 以上
 - `pip` で以下の主要ライブラリをインストールしてください（例: `pip install discord.py aiohttp aiohttp-session aiolimiter python-dotenv pyotp qrcode pillow google-generativeai`）
@@ -54,8 +61,9 @@ python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decod
 初回起動時に自動的に SQLite のスキーマが作成されます。既にデータベースが存在する場合はそのまま使用されます。
 
 ## テスト
-依存パッケージが未インストールの場合は `./run_tests.sh` を実行してください。
-`pip install -r requirements.txt` 実行後に `pytest` が起動します。
+テストは `pytest` で実行できます。
+依存パッケージを `pip install -r requirements.txt` でインストールした後、`pytest` を起動してください。
+現在テストスクリプトは同梱されていません。
 
 ## セキュリティ
 本システムでは以下の対策を行っています。
