@@ -479,9 +479,10 @@ def setup_commands(bot: discord.Client):
             overwrites=overwrites,
             category=category
         )
+        webhook = await channel.create_webhook(name="WDS Notify")
 
-        # 2) DB に name と channel_id を同時登録
-        shared_id = await db.create_shared_folder(folder_name, channel.id)
+        # 2) DB に name, channel_id, webhook URL を登録
+        shared_id = await db.create_shared_folder(folder_name, channel.id, webhook.url)
 
         # メンバー登録
         for m in member_objs:
@@ -614,11 +615,8 @@ def setup_commands(bot: discord.Client):
         tags = generate_tags(path)
         await db.add_shared_file(fid, folder_id, file.filename, str(path), tags)
 
-        # 5) 実際のチャンネルにファイルを送信
-        await channel.send(
-            f"📥 **{interaction.user.display_name}** が `{file.filename}` をアップロードしました。",
-            file=discord.File(path, filename=file.filename)
-        )
+        # 5) Webhook で通知
+        await interaction.client.notify_shared_upload(folder_id, interaction.user, file.filename)
 
         # 6) 成功通知を返す
         await interaction.followup.send("✅ 共有フォルダにアップロードしました。", ephemeral=True)
