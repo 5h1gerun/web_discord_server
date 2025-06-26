@@ -1050,8 +1050,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def user_list(req: web.Request):
         rows = await req.app["db"].list_users()
+        # Return user IDs as strings to avoid precision loss in JavaScript
         return web.json_response([
-            {"id": r["discord_id"], "name": r["username"]} for r in rows
+            {"id": str(r["discord_id"]), "name": r["username"]} for r in rows
         ])
 
     async def shared_update_tags(req: web.Request):
