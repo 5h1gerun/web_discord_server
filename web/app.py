@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from aiohttp import web
+import aiohttp
 from aiohttp_session import new_session, setup as session_setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import aiohttp_session
@@ -93,6 +94,15 @@ async def issue_csrf(request: web.Request) -> str:
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(16)
     return session["csrf_token"]
+
+async def notify_shared_upload(db: Database, folder_id: int, username: str, file_name: str) -> None:
+    """共有フォルダへのアップロードをWebhookで通知"""
+    rec = await db.get_shared_folder(int(folder_id))
+    url = rec.get("webhook_url") if rec else None
+    if not url:
+        return
+    async with aiohttp.ClientSession() as session:
+        await session.post(url, json={"content": f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"})
 
 # ─────────────── Middleware ───────────────
 @web.middleware
@@ -1045,6 +1055,9 @@ def create_app() -> web.Application:
             fid
         )
         await db.commit()
+        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        username = user_row["username"] if user_row else str(discord_id)
+        await notify_shared_upload(db, int(folder_id), username, filefield.filename)
         raise web.HTTPFound(f"/shared/{folder_id}")
 
     async def shared_download(req: web.Request):
