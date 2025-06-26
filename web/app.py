@@ -16,6 +16,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import discord
+
 from aiohttp import web
 import aiohttp
 from aiohttp_session import new_session, setup as session_setup
@@ -153,7 +155,7 @@ async def rl_mw(req, handler):
         return await handler(req)
 
 # ─────────────── APP Factory ───────────────
-def create_app() -> web.Application:
+def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # allow up to 50GiB
     app = web.Application(client_max_size=50 * 1024**3)
 
@@ -177,6 +179,8 @@ def create_app() -> web.Application:
     # jinja2 setup
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)))
     env = aiohttp_jinja2.get_env(app)
+    if bot:
+        app["bot"] = bot
 
     # ── バイト数を可読サイズへ変換 ──────────────────────────
     def human_size(size: int) -> str:
@@ -1001,6 +1005,49 @@ def create_app() -> web.Application:
         await req.app["db"].update_tags(file_id, tags)
         return web.json_response({"status": "ok", "tags": tags})
 
+    async def send_file_dm(req: web.Request):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            return web.json_response({"error": "unauthorized"}, status=403)
+
+        data = await req.json()
+        file_id = data.get("file_id")
+        target  = int(data.get("user_id", 0))
+        if not file_id or not target:
+            return web.json_response({"error": "bad_request"}, status=400)
+
+        db = req.app["db"]
+        user_pk = await db.get_user_pk(discord_id)
+        rec = await db.get_file(str(file_id))
+        if not rec or rec["user_id"] != user_pk:
+            return web.json_response({"error": "not_found"}, status=404)
+
+        bot = req.app.get("bot")
+        if not bot:
+            return web.json_response({"error": "bot_unavailable"}, status=500)
+
+        try:
+            user = bot.get_user(target) or await bot.fetch_user(target)
+        except Exception:
+            user = None
+        if not user:
+            return web.json_response({"error": "user_not_found"}, status=404)
+
+        path = Path(rec["path"])
+        size = rec["size"]
+        try:
+            if size <= (25 << 20):
+                await user.send(file=discord.File(path, filename=rec["original_name"]))
+            else:
+                now = int(datetime.now(timezone.utc).timestamp())
+                tok = _sign_token(file_id, now + URL_EXPIRES_SEC)
+                url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{tok}"
+                await user.send(f"🔗 ダウンロードリンク: {url}")
+            return web.json_response({"status": "ok"})
+        except discord.Forbidden:
+            return web.json_response({"error": "forbidden"}, status=403)
+
     async def shared_update_tags(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1464,6 +1511,7 @@ def create_app() -> web.Application:
     app.router.add_post("/delete/{id}", delete_file)
     app.router.add_post("/delete_all", delete_all)
     app.router.add_post("/tags/{id}", update_tags)
+    app.router.add_post("/sendfile", send_file_dm)
     app.router.add_get("/search", search_files_api)
     app.router.add_get("/static/api/files", file_list_api)
     app.router.add_get("/partial/files", file_list_api)
