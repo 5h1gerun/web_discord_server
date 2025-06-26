@@ -2,6 +2,7 @@ from pathlib import Path
 import types
 import sys
 from PIL import Image
+import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 dummy_google = types.ModuleType("google.generativeai")
@@ -57,6 +58,25 @@ def test_generate_tags_binary(monkeypatch, tmp_path):
     f = tmp_path / "unknown.bin"
     img = Image.new("RGB", (1, 1), color="red")
     img.save(f, format="PNG")
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: DummyModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+    tags = auto_tag.generate_tags(f)
+    assert tags == "tagA, tagB"
+
+
+def test_generate_tags_docx(monkeypatch, tmp_path):
+    try:
+        from docx import Document
+    except Exception:
+        pytest.skip("python-docx not installed")
+    doc = Document()
+    doc.add_paragraph("hello docx")
+    f = tmp_path / "test.docx"
+    doc.save(f)
     dummy_genai = types.SimpleNamespace(
         configure=lambda **kw: None,
         GenerativeModel=lambda *a, **kw: DummyModel(),

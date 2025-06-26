@@ -12,3 +12,6 @@ Pillow
 scrypt
 pdf2image
 google-generativeai
+python-docx
+python-pptx
+openpyxl
