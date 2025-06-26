@@ -20,3 +20,6 @@ web/static/api/files/
 
 # nginx 実運用設定ファイル（機密情報含む可能性あり）
 nginx/sites-enabled/web_discord_server.conf
+
+#テスト用
+tests/
