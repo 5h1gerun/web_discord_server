@@ -95,14 +95,19 @@ async def issue_csrf(request: web.Request) -> str:
         session["csrf_token"] = secrets.token_urlsafe(16)
     return session["csrf_token"]
 
-async def notify_shared_upload(db: Database, folder_id: int, username: str, file_name: str) -> None:
-    """共有フォルダへのアップロードをWebhookで通知"""
+async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> None:
+    """指定フォルダの Webhook にメッセージを送信"""
     rec = await db.get_shared_folder(int(folder_id))
     url = rec["webhook_url"] if rec else None
     if not url:
         return
     async with aiohttp.ClientSession() as session:
-        await session.post(url, json={"content": f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"})
+        await session.post(url, json={"content": message})
+
+async def notify_shared_upload(db: Database, folder_id: int, username: str, file_name: str) -> None:
+    """共有フォルダへのアップロードをWebhookで通知"""
+    message = f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"
+    await _send_shared_webhook(db, folder_id, message)
 
 # ─────────────── Middleware ───────────────
 @web.middleware
@@ -1129,7 +1134,7 @@ def create_app() -> web.Application:
 
         file_id = req.match_info["file_id"]
         db = req.app["db"]
-        rec = await db.fetchone("SELECT folder_id, path FROM shared_files WHERE id = ?", file_id)
+        rec = await db.fetchone("SELECT folder_id, path, file_name FROM shared_files WHERE id = ?", file_id)
         if not rec:
             raise web.HTTPNotFound()
 
@@ -1148,6 +1153,10 @@ def create_app() -> web.Application:
             pass
         await db.execute("DELETE FROM shared_files WHERE id = ?", file_id)
         await db.commit()
+
+        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        username = user_row["username"] if user_row else str(discord_id)
+        await _send_shared_webhook(db, rec["folder_id"], f"\N{WASTEBASKET} {username} が `{rec['file_name']}` を削除しました。")
 
         raise web.HTTPFound(f"/shared/{rec['folder_id']}")
 
@@ -1266,6 +1275,11 @@ def create_app() -> web.Application:
             )
         await db.commit()
 
+        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        username = user_row["username"] if user_row else str(discord_id)
+        action = "共有しました" if new_state else "共有を解除しました"
+        await _send_shared_webhook(db, rec["folder_id"], f"\N{LINK SYMBOL} {username} が `{rec['file_name']}` を{action}。")
+
         payload = {"status": "ok", "is_shared": new_state, "expiration": exp_sec}
         if token:
             # 共有フォルダ用リンクは /shared/download/<token>
@@ -1372,6 +1386,10 @@ def create_app() -> web.Application:
             new_name, file_id
         )
         await db.commit()
+
+        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        username = user_row["username"] if user_row else str(discord_id)
+        await _send_shared_webhook(db, sf["folder_id"], f"\N{PENCIL} {username} が `{sf['file_name']}` を `{new_name}` にリネームしました。")
 
         return web.json_response({"status": "ok", "new_name": new_name})
 
