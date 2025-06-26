@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS shared_files (
     tags           TEXT NOT NULL DEFAULT '',
     FOREIGN KEY(folder_id) REFERENCES shared_folders(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS send_logs (
+    sender_discord_id INTEGER NOT NULL,
+    target_discord_id INTEGER NOT NULL,
+    file_id           TEXT    NOT NULL,
+    sent_at           INTEGER NOT NULL,
+    PRIMARY KEY(sender_discord_id, target_discord_id, file_id)
+);
 """
 
 # ── scrypt util ────────────────────────────
@@ -379,6 +386,27 @@ class Database:
             except Exception:
                 pass
         await self.execute("DELETE FROM shared_files WHERE folder_id=?", folder_id)
+
+    async def get_last_send(self, sender: int, target: int, file_id: str) -> Optional[int]:
+        row = await self.fetchone(
+            "SELECT sent_at FROM send_logs WHERE sender_discord_id=? AND target_discord_id=? AND file_id=?",
+            sender,
+            target,
+            file_id,
+        )
+        return row["sent_at"] if row else None
+
+    async def update_send_log(self, sender: int, target: int, file_id: str) -> None:
+        await self.conn.execute(
+            """
+            INSERT INTO send_logs(sender_discord_id, target_discord_id, file_id, sent_at)
+            VALUES(?,?,?,strftime('%s','now'))
+            ON CONFLICT(sender_discord_id, target_discord_id, file_id)
+            DO UPDATE SET sent_at=strftime('%s','now')
+            """,
+            (sender, target, file_id),
+        )
+        await self.conn.commit()
 
 # ───────────────────────────────────────────
 # CLI

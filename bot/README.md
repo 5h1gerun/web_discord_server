@@ -21,6 +21,7 @@
 - `set_tags` – ファイルにタグを設定
 - `getfile` – 保存済みファイルを再送信
 - `sendfile` – 指定ユーザーへファイルをDM送信
+  (同一ファイルの連続送信は `SEND_INTERVAL_SEC` 秒の間隔が必要)
 - `share` / `getlink` – 共有状態切替とダウンロードリンク取得
 - `create_shared_folder` – 共有フォルダ作成
 - `manage_shared_folder` – 共有フォルダのメンバー管理

@@ -53,6 +53,9 @@ def make_otp_link(uri: str) -> str:
 # Discord 添付アップロード制限 (Nitroプラン別)
 SIZE_LIMIT = {2: 500 << 20, 1: 100 << 20, 0: 25 << 20}
 
+# 連続送信抑制インターバル (秒)
+SEND_INTERVAL_SEC = int(os.getenv("SEND_INTERVAL_SEC", 60))
+
 # ダウンロードリンク署名
 
 def _sign(fid: str, exp: int) -> str:
@@ -377,6 +380,12 @@ def setup_commands(bot: discord.Client):
         if not rec or rec["user_id"] != pk:
             await i.followup.send("❌ 見つからないか権限なし。", ephemeral=True)
             return
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        last = await db.get_last_send(i.user.id, user.id, file_id)
+        if last and now_ts - last < SEND_INTERVAL_SEC:
+            wait_sec = SEND_INTERVAL_SEC - (now_ts - last)
+            await i.followup.send(f"❌ 連続送信は {SEND_INTERVAL_SEC} 秒待つ必要があります。あと {wait_sec} 秒お待ちください。", ephemeral=True)
+            return
         path = Path(rec["path"])
         size = rec["size"]
         try:
@@ -386,6 +395,7 @@ def setup_commands(bot: discord.Client):
                 now = int(datetime.now(timezone.utc).timestamp())
                 url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(file_id, now+URL_EXPIRES_SEC)}"
                 await user.send(f"🔗 ダウンロードリンク: {url}")
+            await db.update_send_log(i.user.id, user.id, file_id)
             await i.followup.send(f"✅ {user.display_name} に送信しました。", ephemeral=True)
         except discord.Forbidden:
             await i.followup.send("❌ 相手が DM を拒否しています。", ephemeral=True)

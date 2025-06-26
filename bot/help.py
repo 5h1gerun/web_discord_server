@@ -1,6 +1,9 @@
 import discord
 from discord import app_commands
 from typing import Dict, Any
+import os
+
+SEND_INTERVAL_SEC = int(os.getenv("SEND_INTERVAL_SEC", 60))
 
 
 def _desc(text: Any) -> str:
@@ -88,7 +91,8 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
     "sendfile": {
         "description": (
             "📨 **sendfile** コマンドは、指定したユーザーへ保存済みファイルをDMで送ります。",
-            " サイズが大きい場合は一時的なダウンロードリンクを代わりに送信します。"
+            " サイズが大きい場合は一時的なダウンロードリンクを代わりに送信します。",
+            f" 同一ユーザーへの同一ファイル再送信は {SEND_INTERVAL_SEC} 秒の間隔が必要です。"
         ),
         "options": [
             {"name": "user", "type": "User", "required": True, "description": "送信先ユーザー"},
