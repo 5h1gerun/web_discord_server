@@ -621,6 +621,32 @@ def setup_commands(bot: discord.Client):
         # 6) 成功通知を返す
         await interaction.followup.send("✅ 共有フォルダにアップロードしました。", ephemeral=True)
 
+    @tree.command(
+        name="add_shared_webhook",
+        description="既存の共有フォルダにWebhook通知を設定します。"
+    )
+    @app_commands.describe(channel="Webhookを設定する共有フォルダのチャンネル")
+    async def add_shared_webhook(
+        interaction: discord.Interaction,
+        channel: discord.TextChannel
+    ):
+        await interaction.response.defer(ephemeral=True)
+        db = interaction.client.db
+
+        rec = await db.get_shared_folder_by_channel(channel.id)
+        if not rec:
+            await interaction.followup.send("❌ 指定されたチャンネルは共有フォルダではありません。", ephemeral=True)
+            return
+
+        perm = channel.permissions_for(interaction.user)
+        if not perm.manage_channels:
+            await interaction.followup.send("❌ この共有フォルダを管理する権限がありません。", ephemeral=True)
+            return
+
+        webhook = await channel.create_webhook(name="WDS Notify")
+        await db.set_folder_webhook(rec["id"], webhook.url)
+        await interaction.followup.send("✅ Webhook を設定しました。", ephemeral=True)
+
     @tree.command(name="cleanup_shared", description="空の共有フォルダをまとめて削除します。")
     async def cleanup_shared(i: discord.Interaction):
         await i.response.defer(ephemeral=True)
