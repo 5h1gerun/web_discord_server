@@ -192,6 +192,15 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
             {"name": "file",    "type": "Attachment",  "required": True, "description": "共有フォルダにアップロードするファイル。"}
         ]
     },
+    "add_shared_webhook": {
+        "description": (
+            "🔔 **add_shared_webhook** コマンドは、既存の共有フォルダにWebhook通知を設定します。",
+            " 管理権限を持つメンバーのみ実行可能です。"
+        ),
+        "options": [
+            {"name": "channel", "type": "TextChannel", "required": True, "description": "Webhookを設定する共有フォルダチャンネル。"}
+        ]
+    },
     "cleanup_shared": {
         "description": (
             "🧹 **cleanup_shared** コマンドは、空の共有フォルダを一括削除し、不要なチャンネルを整理します。"

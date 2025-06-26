@@ -28,6 +28,7 @@
 - `upload_shared` – 共有フォルダへファイルアップロード
 - `shared_delete_all` – 共有フォルダ内の全ファイル削除
 - `set_shared_tags` – 共有フォルダ内ファイルのタグ設定
+- `add_shared_webhook` – 既存共有フォルダにWebhookを設定
 - `cleanup_shared` – 空の共有フォルダを一括削除
 - `enable_totp` – 二要素認証を有効化
 - `admin_reset_totp` – 管理者によるTOTPリセット
