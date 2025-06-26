@@ -33,6 +33,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `BOT_GUILD_ID` | コマンド同期を行うギルド ID。開発サーバーを指定する際に使用します |
 | `FILE_HMAC_SECRET` | 署名付きリンク生成に用いる Base64 文字列。未指定の場合ランダム値 |
 | `UPLOAD_EXPIRES_SEC` | ダウンロード URL の有効期限 (秒)。既定値 `86400` (1 日) |
+| `SEND_INTERVAL_SEC` | 同一ファイルを同じ相手へ再送するまでの待ち時間 (秒)。既定値 `60` |
 | `DATA_DIR` | アップロードファイルを保存するディレクトリ。既定値 `./data` |
 | `STATIC_DIR` | 静的ファイルの格納場所。既定値 `./static` |
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
