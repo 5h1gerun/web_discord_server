@@ -295,6 +295,12 @@ class Database:
         row = await self.fetchone("SELECT 1 FROM users WHERE discord_id=?", discord_id)
         return bool(row)
 
+    async def list_users(self):
+        """Return all users ordered by username."""
+        return await self.fetchall(
+            "SELECT discord_id, username FROM users ORDER BY username"
+        )
+
     # ファイル
     async def add_file(
         self,

@@ -1048,6 +1048,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         except discord.Forbidden:
             return web.json_response({"error": "forbidden"}, status=403)
 
+    async def user_list(req: web.Request):
+        rows = await req.app["db"].list_users()
+        return web.json_response([
+            {"id": r["discord_id"], "name": r["username"]} for r in rows
+        ])
+
     async def shared_update_tags(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1503,6 +1509,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
     app.router.add_get("/logout", logout)
+    app.router.add_get("/users", user_list)
     app.router.add_get("/", index)
     app.router.add_post("/upload", upload)
     app.router.add_get("/download/{token}", download)
