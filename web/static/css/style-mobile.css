@@ -1,0 +1,27 @@
+/* 基本レイアウトはシンプルな1カラム構成 */
+body {
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  background: #f8f9fa;
+  color: #212529;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* ファイルテーブルのスタイル調整 */
+.table th, .table td {
+  padding: 0.5rem;
+}
+
+/* 小さい画面でボタンを押しやすく */
+.btn {
+  padding: 0.6rem 1rem;
+}
+
+/* モバイル専用ヘッダー余白調整 */
+.navbar-brand {
+  font-weight: bold;
+}
+

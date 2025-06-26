@@ -693,6 +693,66 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "request": req
         })
 
+    async def mobile_index(req):
+        """スマホ向けのシンプルな一覧ページ"""
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPFound("/login")
+
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        await app["db"].execute(
+            "UPDATE files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+        await app["db"].execute(
+            "UPDATE shared_files SET is_shared=0, token=NULL "
+            "WHERE is_shared=1 AND expires_at!=0 AND expires_at < ?",
+            now_ts,
+        )
+
+        user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        username = user_row["username"] if user_row else "Unknown"
+        rows = await app["db"].fetchall(
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
+            user_id,
+        )
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        files = []
+        for r in rows:
+            f = await _file_to_dict(r, req)
+            f["user_id"] = discord_id
+            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+
+            mime, _ = mimetypes.guess_type(f["original_name"])
+            f["mime"] = mime or "application/octet-stream"
+            f["is_image"] = bool(mime and mime.startswith("image/"))
+            f["is_video"] = bool(mime and mime.startswith("video/"))
+
+            preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
+            if preview_file.exists():
+                f["preview_url"] = f"/previews/{preview_file.name}"
+            else:
+                f["preview_url"] = f["url"] + "?preview=1"
+
+            f["is_shared"] = bool(r["is_shared"])
+            if f["is_shared"]:
+                f["token"] = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+
+            files.append(f)
+
+        token = await issue_csrf(req)
+        return _render(req, "mobile/index.html", {
+            "files": files,
+            "csrf_token": token,
+            "username": username,
+            "static_version": int(time.time()),
+            "request": req
+        })
+
     async def upload(req):
         discord_id = req.get("user_id")
         if not discord_id:
@@ -1517,6 +1577,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/logout", logout)
     app.router.add_get("/users", user_list)
     app.router.add_get("/", index)
+    app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
     app.router.add_get("/download/{token}", download)
     app.router.add_post("/upload_chunked", upload_chunked)
