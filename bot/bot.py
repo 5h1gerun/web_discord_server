@@ -16,6 +16,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 from aiohttp import web
+import aiohttp
 from dotenv import load_dotenv
 load_dotenv()
 # ── local ──────────────────────────────
@@ -69,6 +70,15 @@ class WebDiscordBot(discord.Client):
 
         # ③ commands.py の関数をツリーに登録
         setup_commands(self)                             # 必ず tree 生成後に呼ぶ
+
+    async def notify_shared_upload(self, folder_id: int, user: discord.abc.User, file_name: str) -> None:
+        """共有フォルダへのアップロードを Webhook 経由で通知"""
+        rec = await self.db.get_shared_folder(folder_id)
+        url = rec.get("webhook_url") if rec else None
+        if not url:
+            return
+        async with aiohttp.ClientSession() as session:
+            await session.post(url, json={"content": f"📥 {user.display_name} が `{file_name}` をアップロードしました。"})
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="/help"))
@@ -172,6 +182,7 @@ class WebDiscordBot(discord.Client):
                 "INSERT INTO shared_files (id, folder_id, file_name, path) VALUES (?, ?, ?, ?)",
                 fid, folder_id, attachment.filename, str(file_path)
             )
+            await self.notify_shared_upload(folder_id, message.author, attachment.filename)
 
         await self.db.commit()
 

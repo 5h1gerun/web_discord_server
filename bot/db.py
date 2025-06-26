@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # ── 標準ライブラリ ─────────────────────────
-import asyncio, os, secrets, hashlib
+import asyncio, os, secrets, hashlib, sqlite3
 import datetime as dt
 from pathlib import Path
 from typing import Any, List, Optional
@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE TABLE IF NOT EXISTS shared_folders (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
-    channel_id INTEGER
+    channel_id INTEGER,
+    webhook_url TEXT
 );
 CREATE TABLE IF NOT EXISTS shared_folder_members (
     folder_id      INTEGER,
@@ -141,13 +142,13 @@ class Database:
         self.conn = await aiosqlite.connect(self.db_path)
         self.conn.row_factory = aiosqlite.Row
 
-    async def create_shared_folder(self, folder_name: str, channel_id: int) -> int:
+    async def create_shared_folder(self, folder_name: str, channel_id: int, webhook_url: str = "") -> int:
         """
-        shared_folders テーブルに name と channel_id を同時に INSERT する。
+        shared_folders テーブルに name, channel_id, webhook_url を INSERT する。
         """
         cursor = await self.conn.execute(
-            "INSERT INTO shared_folders (name, channel_id) VALUES (?, ?)",
-            (folder_name, channel_id)
+            "INSERT INTO shared_folders (name, channel_id, webhook_url) VALUES (?, ?, ?)",
+            (folder_name, channel_id, webhook_url)
         )
         await self.conn.commit()
         return cursor.lastrowid
@@ -156,6 +157,13 @@ class Database:
         await self.conn.execute(
             "UPDATE shared_folders SET channel_id = ? WHERE id = ?",
             (channel_id, folder_id)
+        )
+        await self.conn.commit()
+
+    async def set_folder_webhook(self, folder_id: int, webhook_url: str) -> None:
+        await self.conn.execute(
+            "UPDATE shared_folders SET webhook_url = ? WHERE id = ?",
+            (webhook_url, folder_id)
         )
         await self.conn.commit()
 
@@ -175,7 +183,7 @@ class Database:
         shared_folders テーブルからレコードを取得
         """
         cursor = await self.conn.execute(
-            "SELECT id, name, channel_id FROM shared_folders WHERE id = ?",
+            "SELECT id, name, channel_id, webhook_url FROM shared_folders WHERE id = ?",
             (folder_id,),
         )
         return await cursor.fetchone()
@@ -212,7 +220,7 @@ class Database:
         channel_id から shared_folders レコードを取得。
         """
         cursor = await self.conn.execute(
-            "SELECT id, name FROM shared_folders WHERE channel_id = ?",
+            "SELECT id, name, webhook_url FROM shared_folders WHERE channel_id = ?",
             (channel_id,),
         )
         return await cursor.fetchone()
