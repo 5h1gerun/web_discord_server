@@ -98,7 +98,7 @@ async def issue_csrf(request: web.Request) -> str:
 async def notify_shared_upload(db: Database, folder_id: int, username: str, file_name: str) -> None:
     """共有フォルダへのアップロードをWebhookで通知"""
     rec = await db.get_shared_folder(int(folder_id))
-    url = rec.get("webhook_url") if rec else None
+    url = rec["webhook_url"] if rec else None
     if not url:
         return
     async with aiohttp.ClientSession() as session:
