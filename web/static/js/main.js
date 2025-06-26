@@ -495,6 +495,32 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
 
 
   document.addEventListener("click", async (e) => {
+  const sendBtn = e.target.closest(".send-btn");
+  if (sendBtn) {
+    const fid = sendBtn.dataset.fileId;
+    const uid = prompt("送信先ユーザーID");
+    if (!uid) return;
+    try {
+      sendBtn.disabled = true;
+      const res = await fetch("/sendfile", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+        },
+        body: JSON.stringify({ file_id: fid, user_id: uid })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      alert("送信しました");
+    } catch (err) {
+      alert("送信失敗: " + err.message);
+    } finally {
+      sendBtn.disabled = false;
+    }
+    return;
+  }
+
   const btn = e.target.closest(".rename-btn");
   if (!btn) return;
 

@@ -27,7 +27,7 @@ from .help import setup_help
 
 import discord
 from discord import app_commands
-from discord import Embed, Member
+from discord import Embed, Member, User
 from discord.app_commands import describe
 
 import io                # 画像バッファ用
@@ -366,6 +366,29 @@ def setup_commands(bot: discord.Client):
             now = int(datetime.now(timezone.utc).timestamp())
             url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(file_id, now+URL_EXPIRES_SEC)}"
             await i.followup.send(f"🔗 ダウンロードリンク: {url}", ephemeral=True)
+
+    @tree.command(name="sendfile", description="指定ユーザーにファイルを送信します。")
+    @app_commands.describe(user="送信先ユーザー", file_id="送信するファイル ID")
+    async def _sendfile(i: discord.Interaction, user: User, file_id: str):
+        db = i.client.db
+        await i.response.defer(ephemeral=True)
+        rec = await db.get_file(file_id)
+        pk = await db.get_user_pk(i.user.id)
+        if not rec or rec["user_id"] != pk:
+            await i.followup.send("❌ 見つからないか権限なし。", ephemeral=True)
+            return
+        path = Path(rec["path"])
+        size = rec["size"]
+        try:
+            if size <= (25 << 20):
+                await user.send(file=discord.File(path, filename=rec["original_name"]))
+            else:
+                now = int(datetime.now(timezone.utc).timestamp())
+                url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(file_id, now+URL_EXPIRES_SEC)}"
+                await user.send(f"🔗 ダウンロードリンク: {url}")
+            await i.followup.send(f"✅ {user.display_name} に送信しました。", ephemeral=True)
+        except discord.Forbidden:
+            await i.followup.send("❌ 相手が DM を拒否しています。", ephemeral=True)
 
     @tree.command(name="share", description="ファイルの共有状態を切り替えます（所有者のみ）")
     @app_commands.describe(file_id="操作対象のファイル ID")

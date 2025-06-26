@@ -29,6 +29,7 @@
             <th>ファイル名</th>
             <th class="text-end">サイズ</th>
             <th class="text-center">ダウンロード</th>
+            <th class="text-center">送信</th>
             <th class="text-center">共有切替</th>
             <th class="text-center">共有リンク</th>
             <th class="text-center">タグ</th>
@@ -95,6 +96,18 @@
                   title="ダウンロード">
                 <i class="bi bi-download"></i>
               </a>
+            </td>
+            <td class="text-center">
+              {% if f.user_id == user_id %}
+              <button class="btn btn-sm btn-outline-secondary ripple send-btn"
+                      data-file-id="{{ f.id }}"
+                      data-mdb-ripple-init
+                      title="送信">
+                <i class="bi bi-send"></i>
+              </button>
+              {% else %}
+              <span class="text-muted">–</span>
+              {% endif %}
             </td>
             <td class="text-center">
               {% if f.user_id == user_id %}

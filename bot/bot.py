@@ -90,7 +90,7 @@ class WebDiscordBot(discord.Client):
         await self.db.open()
 
         # ❷ Web サーバー
-        runner = web.AppRunner(create_app())
+        runner = web.AppRunner(create_app(self))
         await runner.setup()
         await web.TCPSite(runner, "0.0.0.0", WEB_PORT).start()
 

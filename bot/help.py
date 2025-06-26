@@ -79,6 +79,16 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
             }
         ]
     },
+    "sendfile": {
+        "description": (
+            "📨 **sendfile** コマンドは、指定したユーザーへ保存済みファイルをDMで送ります。",
+            " サイズが大きい場合は一時的なダウンロードリンクを代わりに送信します。"
+        ),
+        "options": [
+            {"name": "user", "type": "User", "required": True, "description": "送信先ユーザー"},
+            {"name": "file_id", "type": "String", "required": True, "description": "送信するファイルID"}
+        ]
+    },
     "shared_delete_all": {
         "description": (
             "🧺 **shared_delete_all** コマンドは、指定した共有フォルダ内のファイルをすべて削除します。",
