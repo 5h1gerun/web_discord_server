@@ -2,6 +2,12 @@ import discord
 from discord import app_commands
 from typing import Dict, Any
 
+
+def _desc(text: Any) -> str:
+    if isinstance(text, (list, tuple)):
+        text = "".join(text)
+    return str(text)
+
 # —————————————————————————————————————
 # 詳細なコマンド仕様を一から定義（全コマンド含む）
 # —————————————————————————————————————
@@ -239,11 +245,16 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
 class HelpView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=180)
+
         options = [
             discord.SelectOption(
                 label=f"/{name}",
                 value=name,
-                description=(spec["description"].replace("**", "")[:80] + "…" if len(spec["description"]) > 80 else spec["description"])  
+                description=(
+                    _desc(spec["description"]).replace("**", "")[:80] + "…"
+                    if len(_desc(spec["description"])) > 80
+                    else _desc(spec["description"])
+                ),
             )
             for name, spec in COMMAND_SPECS.items()
         ]
@@ -259,10 +270,11 @@ class HelpView(discord.ui.View):
     async def on_select(self, interaction: discord.Interaction):
         name = interaction.data["values"][0]
         spec = COMMAND_SPECS[name]
+        desc = _desc(spec["description"])
         embed = discord.Embed(
             title=f"/{name}",
-            description=spec["description"],
-            color=discord.Color.blue()
+            description=desc,
+            color=discord.Color.blue(),
         )
         if spec["options"]:
             for opt in spec["options"]:
