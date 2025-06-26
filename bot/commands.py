@@ -643,8 +643,12 @@ def setup_commands(bot: discord.Client):
             await interaction.followup.send("❌ この共有フォルダを管理する権限がありません。", ephemeral=True)
             return
 
-        webhook = await channel.create_webhook(name="WDS Notify")
-        await db.set_folder_webhook(rec["id"], webhook.url)
+        webhooks = await channel.webhooks()
+        hook = discord.utils.get(webhooks, name="WDS Notify")
+        if hook is None:
+            hook = await channel.create_webhook(name="WDS Notify")
+
+        await db.set_folder_webhook(rec["id"], hook.url)
         await interaction.followup.send("✅ Webhook を設定しました。", ephemeral=True)
 
     @tree.command(name="cleanup_shared", description="空の共有フォルダをまとめて削除します。")
