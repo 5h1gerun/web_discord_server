@@ -194,11 +194,11 @@ COMMAND_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "add_shared_webhook": {
         "description": (
-            "🔔 **add_shared_webhook** コマンドは、既存の共有フォルダにWebhook通知を設定します。",
-            " 管理権限を持つメンバーのみ実行可能です。"
+            "🔔 **add_shared_webhook** コマンドは、既存の共有フォルダ用チャンネルに",
+            " `WDS Notify` Webhook を作成(または再利用)し、URL を自動登録します。"
         ),
         "options": [
-            {"name": "channel", "type": "TextChannel", "required": True, "description": "Webhookを設定する共有フォルダチャンネル。"}
+            {"name": "channel", "type": "TextChannel", "required": True, "description": "Webhook を設定する共有フォルダチャンネル。"}
         ]
     },
     "cleanup_shared": {
