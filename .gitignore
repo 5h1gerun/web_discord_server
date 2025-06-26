@@ -23,3 +23,6 @@ nginx/sites-enabled/web_discord_server.conf
 
 #テスト用
 tests/
+
+#フォルダ構成
+folder_structure.txt
