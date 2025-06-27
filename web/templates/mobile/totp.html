@@ -1,0 +1,14 @@
+{% extends "mobile/base_phone.html" %}
+{% block title %}二要素認証 | WDS Phone{% endblock %}
+
+{% block content %}
+<h2 class="h5 text-center mb-3">Two-Factor Auth</h2>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input name="code" class="form-control text-center fs-4 mb-3" pattern="\d{6}" maxlength="6" placeholder="123456" autocomplete="one-time-code" required>
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+  <button class="btn btn-primary w-100">Verify</button>
+</form>
+{% endblock %}

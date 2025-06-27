@@ -1,0 +1,26 @@
+{% extends "mobile/base_phone.html" %}
+{% block title %}{{ folder_name }} | WDS Phone{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-2">
+  <ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a href="/shared">一覧</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+  </ol>
+</nav>
+
+<form id="uploadForm" class="mb-3" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="folder_id" value="{{ folder_id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="file" name="file" class="form-control mb-2" required>
+  <button type="submit" class="btn btn-primary w-100">アップロード</button>
+</form>
+
+<div id="fileListContainer">
+  {% include "partials/shared_folder_table.html" %}
+</div>
+
+<div class="mt-3 text-end">
+  <a href="/shared" class="btn btn-outline-primary btn-sm">戻る</a>
+</div>
+{% endblock %}
