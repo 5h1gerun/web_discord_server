@@ -1,0 +1,19 @@
+{% extends "mobile/base_phone.html" %}
+{% block title %}共有フォルダ | WDS Phone{% endblock %}
+
+{% block content %}
+<h2 class="h6 mb-2">共有フォルダ</h2>
+{% if folders %}
+<div class="list-group mb-3">
+  {% for f in folders %}
+  <a href="/shared/{{ f.id }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+    <span>{{ f.name }}</span>
+    <span class="badge bg-primary">{{ f.file_count }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info mb-3">共有フォルダがありません。</div>
+{% endif %}
+<a href="/" class="btn btn-outline-primary btn-sm w-100">ホームへ</a>
+{% endblock %}
