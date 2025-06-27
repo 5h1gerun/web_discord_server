@@ -9,6 +9,7 @@ import hmac
 import logging
 import mimetypes
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -65,8 +66,25 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
 
 # ─────────────── Helpers ───────────────
+MOBILE_TEMPLATES = {
+    "index.html": "mobile/index.html",
+    "login.html": "mobile/login.html",
+    "totp.html": "mobile/totp.html",
+    "shared/index.html": "mobile/shared_index.html",
+    "shared/folder_view.html": "mobile/folder_view.html",
+}
+
+def _is_mobile(user_agent: str) -> bool:
+    if not user_agent:
+        return False
+    pattern = r"iPhone|Android.*Mobile|Windows Phone|iPod|BlackBerry|Opera Mini|IEMobile"
+    return re.search(pattern, user_agent, re.I) is not None
+
 def _render(req: web.Request, tpl: str, ctx: Dict[str, object]):
     ctx.setdefault("user_id", req.get("user_id"))
+    ua = req.headers.get("User-Agent", "")
+    if _is_mobile(ua):
+        tpl = MOBILE_TEMPLATES.get(tpl, tpl)
     return aiohttp_jinja2.render_template(tpl, req, ctx)
 
 def _sign_token(fid: str, exp: int) -> str:
@@ -387,7 +405,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "term": term,
         }
 
-    @aiohttp_jinja2.template("shared/index.html")
     async def shared_index(request):
         db = request.app["db"]
         session = await get_session(request)  # ← 正しい方法でセッション取得
@@ -405,11 +422,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             GROUP BY sf.id
         """, user_id)
 
-        return {
+        return _render(request, "shared/index.html", {
             "folders": rows
-        }
+        })
 
-    @aiohttp_jinja2.template("shared/folder_view.html")
     async def shared_folder_view(request: web.Request):
         # ── 1. セッション＆認証チェック ──
         sess = await aiohttp_session.get_session(request)
@@ -540,7 +556,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             discord_id
         )
         # ── 5. コンテキスト返却 ──
-        return {
+        return _render(request, "shared/folder_view.html", {
             "folder_id":      folder_id,
             "user_id":        current_user_id,
             "request":        request,
@@ -548,10 +564,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "folder_name":    folder_name,     # テンプレートの <h4>{{ folder_name }}</h4> 用
             "files":          file_objs,       # partial/file_table.html に渡す files
             "shared_folders": shared_folders,  # フッターの他フォルダ移動リスト用
-            "all_folders": all_folders,
+            "all_folders":    all_folders,
             "csrf_token":     await issue_csrf(request),
-            "static_version": int(time.time()),# main.js/css のキャッシュバスター用
-        }
+            "static_version": int(time.time()),  # main.js/css のキャッシュバスター用
+        })
 
     # database
     db = Database(DB_PATH)
