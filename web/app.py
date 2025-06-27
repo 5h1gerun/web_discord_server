@@ -31,6 +31,7 @@ from aiohttp_session import get_session
 from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
 from aiolimiter import AsyncLimiter
+from collections import defaultdict
 import io, qrcode, pyotp      # ← 二要素用
 from PIL import Image
 import subprocess
@@ -165,10 +166,11 @@ async def csp_mw(request: web.Request, handler):
     resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
     return resp
 
-limiter = AsyncLimiter(30, 60)  # 60 秒あたり 30 リクエスト
+limiters = defaultdict(lambda: AsyncLimiter(30, 60))  # 60 秒あたり 30 リクエスト / IP
 @web.middleware
 async def rl_mw(req, handler):
     ip = req.remote
+    limiter = limiters[ip]
     async with limiter:
         return await handler(req)
 
@@ -854,7 +856,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     preview_path.unlink(missing_ok=True)
             # 自動タグ生成
             from bot.auto_tag import generate_tags
-            tags = generate_tags(path)
+            tags = await asyncio.to_thread(generate_tags, path)
             # DB 登録
             folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
@@ -1031,7 +1033,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     preview_path.unlink(missing_ok=True)
 
             from bot.auto_tag import generate_tags
-            tags = generate_tags(target_path)
+            tags = await asyncio.to_thread(generate_tags, target_path)
             folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
             await req.app["db"].add_file(
                 target_id, user_id, folder, field.filename,
@@ -1207,7 +1209,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 f.write(chunk)
 
         from bot.auto_tag import generate_tags
-        tags = generate_tags(path)
+        tags = await asyncio.to_thread(generate_tags, path)
         await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
