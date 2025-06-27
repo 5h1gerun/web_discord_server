@@ -31,6 +31,7 @@ from aiohttp_session import get_session
 from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
 from aiolimiter import AsyncLimiter
+from collections import defaultdict
 import io, qrcode, pyotp      # ← 二要素用
 from PIL import Image
 import subprocess
@@ -226,10 +227,11 @@ async def csp_mw(request: web.Request, handler):
     resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
     return resp
 
-limiter = AsyncLimiter(30, 60)  # 60 秒あたり 30 リクエスト
+limiters = defaultdict(lambda: AsyncLimiter(30, 60))  # 60 秒あたり 30 リクエスト / IP
 @web.middleware
 async def rl_mw(req, handler):
     ip = req.remote
+    limiter = limiters[ip]
     async with limiter:
         return await handler(req)
 
@@ -888,6 +890,47 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     size += len(chunk)
                     f.write(chunk)
             sha256sum = hashlib.sha256(path.read_bytes()).hexdigest()
+            # プレビュー生成
+            mime, _ = mimetypes.guess_type(filefield.filename)
+            preview_path = PREVIEW_DIR / f"{fid}.jpg"
+            try:
+                if mime and mime.startswith("image"):
+                    img = Image.open(path)
+                    img.thumbnail((320, 320))
+                    img.convert("RGB").save(preview_path, "JPEG")
+                elif mime and mime.startswith("video"):
+                    subprocess.run([
+                        "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
+                        "-vframes", "1", str(preview_path)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif mime == "application/pdf":
+                    pages = convert_from_path(str(path), first_page=1, last_page=1)
+                    if pages:
+                        img = pages[0]
+                        img.thumbnail((320, 320))
+                        img.save(preview_path, "JPEG")
+                elif mime and mime.startswith("application/vnd"):
+                    tmp_pdf = path.with_suffix(".pdf")
+                    subprocess.run([
+                        "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if tmp_pdf.exists():
+                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                        if pages:
+                            img = pages[0]
+                            img.thumbnail((320, 320))
+                            img.save(preview_path, "JPEG")
+                        tmp_pdf.unlink(missing_ok=True)
+                else:
+                    preview_path = None
+            except Exception as e:
+                log.warning("preview generation failed: %s", e)
+                if preview_path and preview_path.exists():
+                    preview_path.unlink(missing_ok=True)
+            # 自動タグ生成
+            from bot.auto_tag import generate_tags
+            tags = await asyncio.to_thread(generate_tags, path)
+            # DB 登録
             folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
                 fid,
@@ -1211,13 +1254,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     break
                 f.write(chunk)
 
-        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), "")
-        req.app["task_queue"].put_nowait({
-            "fid": fid,
-            "file_name": filefield.filename,
-            "path": path,
-            "shared": True,
-        })
+        from bot.auto_tag import generate_tags
+        tags = await asyncio.to_thread(generate_tags, path)
+        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
             "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
