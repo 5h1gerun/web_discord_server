@@ -59,6 +59,11 @@
       </div>
       {% endfor %}
     </div>
+    <form method="post" action="/delete_subfolders" class="mt-2" onsubmit="return confirm('本当に全て削除しますか？');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="parent_id" value="{{ folder_id }}">
+      <button type="submit" class="btn btn-danger btn-sm">サブフォルダ全削除</button>
+    </form>
   </div>
   {% endif %}
 

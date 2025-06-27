@@ -366,6 +366,11 @@ class Database:
         await self.execute("DELETE FROM files WHERE folder=?", str(folder_id))
         await self.execute("DELETE FROM user_folders WHERE id=?", folder_id)
 
+    async def delete_all_subfolders(self, user_id: int, parent_id: Optional[int] = None) -> None:
+        rows = await self.list_user_folders(user_id, parent_id)
+        for r in rows:
+            await self.delete_user_folder(r["id"])
+
 
     # ファイル
     async def add_file(
