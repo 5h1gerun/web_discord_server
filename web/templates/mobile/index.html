@@ -3,14 +3,25 @@
 
 {% block content %}
 <h2 class="h4 mb-3">アップロード</h2>
-<form id="uploadForm" class="mb-4" method="post" enctype="multipart/form-data">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <input type="file" name="file" class="form-control mb-2" required>
-  <button class="btn btn-primary w-100" type="submit">アップロード</button>
-</form>
+<div id="uploadArea">
+  <form id="uploadForm" class="mb-2" method="post" action="/upload" enctype="multipart/form-data" onsubmit="return false;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="file" name="file" class="form-control mb-2" required>
+    <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
+      <span id="uploadSpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
+    </button>
+  </form>
+  <div class="text-center text-muted small">ここにファイルをドラッグ＆ドロップしてアップロード</div>
+</div>
+<div class="progress mt-2" id="uploadProgressWrap" style="height:4px;display:none;">
+  <div id="uploadProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100"></div>
+</div>
 
 <h2 class="h4 mb-3">ファイル一覧</h2>
 <div id="fileListContainer">
-  {% include 'partials/file_table.html' %}
+  {% include 'mobile/partials/file_cards.html' %}
+</div>
+<div class="mt-3">
+  <a href="/shared" class="btn btn-outline-primary btn-sm w-100">共有フォルダへ</a>
 </div>
 {% endblock %}

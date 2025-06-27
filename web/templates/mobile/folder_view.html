@@ -9,18 +9,28 @@
   </ol>
 </nav>
 
-<form id="uploadForm" class="mb-3" method="post" enctype="multipart/form-data">
-  <input type="hidden" name="folder_id" value="{{ folder_id }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <input type="file" name="file" class="form-control mb-2" required>
-  <button type="submit" class="btn btn-primary w-100">アップロード</button>
-</form>
+<div id="uploadArea">
+  <form id="uploadForm" class="mb-2" method="post" action="/shared/upload" enctype="multipart/form-data" onsubmit="return false;">
+    <input type="hidden" name="folder_id" value="{{ folder_id }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="file" name="file" class="form-control mb-2" required>
+    <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
+      <span id="uploadSpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
+    </button>
+  </form>
+  <div class="text-center text-muted small">ここにファイルをドラッグ＆ドロップしてアップロード</div>
+</div>
+<div class="progress mt-2" id="uploadProgressWrap" style="height:4px;display:none;">
+  <div id="uploadProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100"></div>
+</div>
 
 <div id="fileListContainer">
-  {% include "partials/shared_folder_table.html" %}
+  {% include "mobile/partials/shared_folder_cards.html" %}
 </div>
 
 <div class="mt-3 text-end">
-  <a href="/shared" class="btn btn-outline-primary btn-sm">戻る</a>
+  <a href="/shared" class="btn btn-outline-primary btn-sm me-1">戻る</a>
+  <a href="/zip/{{ folder_id }}" class="btn btn-outline-secondary btn-sm me-1">ZIP</a>
+  <a href="/" class="btn btn-outline-primary btn-sm">ホーム</a>
 </div>
 {% endblock %}

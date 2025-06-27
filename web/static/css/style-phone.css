@@ -31,3 +31,63 @@ main {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
 }
+
+.file-card {
+  background: #fffdf8;
+  border: 1px solid #f0e6d2;
+}
+
+.file-card .card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem;
+}
+
+.file-card img,
+.file-card video {
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+  object-fit: cover;
+}
+
+.file-card .file-name {
+  font-weight: 600;
+  margin-top: 0.5rem;
+  word-break: break-all;
+  text-align: center;
+}
+
+.file-card .file-actions {
+  margin-top: 0.5rem;
+}
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.expiration-select {
+  margin-top: 0.25rem;
+}
+
+.shared-toggle {
+  cursor: pointer;
+  margin-top: 0.25rem;
+}
+
+#fileListContainer .input-group {
+  margin-top: 0.25rem;
+}
+
+.tag-input {
+  margin-top: 0.25rem;
+}
+
+.expiration-cell {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
