@@ -79,9 +79,13 @@ async function reloadFileList() {
   const container = document.getElementById("fileListContainer");
   if (!container) return;
 
-  // 共有フォルダ画面なら folder_id、そうでなければ現在のパスを再取得
-  const folderId = document.querySelector('input[name="folder_id"]')?.value;
-  const url      = folderId ? `/shared/${folderId}` : window.location.pathname;
+  // data-shared 属性で URL を切り替える
+  const fldInput = document.querySelector('input[name="folder_id"]');
+  const folderId = fldInput?.value;
+  const isShared = fldInput?.dataset.shared === "1";
+  const url      = isShared && folderId
+                     ? `/shared/${folderId}`
+                     : window.location.pathname + window.location.search;
 
   try {
     const res  = await fetch(url, { credentials: "same-origin" });
@@ -176,9 +180,11 @@ function bindUploadArea() {
       uploadBtn.disabled = true;
       spinner.style.display = "inline-block";
 
-      // folderId／URL はここで一度だけ宣言
-      const folderId = document.querySelector('input[name="folder_id"]')?.value;
-      const reqUrl   = folderId ? "/shared/upload" : "/upload";
+      // フォルダ情報と URL を決定
+      const fldInput = document.querySelector('input[name="folder_id"]');
+      const folderId = fldInput?.value;
+      const isShared = fldInput?.dataset.shared === "1";
+      const reqUrl   = isShared ? "/shared/upload" : "/upload";
 
       // FormData を一回だけ作る
       const formData = new FormData();
@@ -213,8 +219,9 @@ function bindUploadArea() {
       if (spinner) spinner.style.display = "inline-block";
 
       const formData = new FormData(form);
-      // フォルダIDがあれば shared、なければ通常 upload
-      const isShared = formData.has("folder_id");
+      // data-shared からアップロード先を判断
+      const fldInput = form.querySelector('input[name="folder_id"]');
+      const isShared = fldInput?.dataset.shared === "1";
       const url      = isShared ? "/shared/upload" : "/upload";
 
       try {

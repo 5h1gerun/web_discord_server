@@ -69,7 +69,7 @@
             enctype="multipart/form-data"
             onsubmit="return false;"
             class="row gx-3 align-items-end mb-4">
-        <input type="hidden" name="folder_id" value="{{ folder_id }}">
+        <input type="hidden" name="folder_id" value="{{ folder_id }}" data-shared="1">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="col-md-9">
           <input type="file" name="file" class="form-control" required>
