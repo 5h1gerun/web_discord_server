@@ -1,9 +1,9 @@
-{% extends "mobile/base_mobile.html" %}
-{% block title %}ホーム | WDS Mobile{% endblock %}
+{% extends "mobile/base_phone.html" %}
+{% block title %}ホーム | WDS Phone{% endblock %}
 
 {% block content %}
 <h2 class="h4 mb-3">アップロード</h2>
-<form id="uploadForm" class="mb-4" method="post" enctype="multipart/form-data">
+<form id="uploadForm" class="mb-4" method="post" action="/upload" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="file" name="file" class="form-control mb-2" required>
   <button class="btn btn-primary w-100" type="submit">アップロード</button>
@@ -11,6 +11,6 @@
 
 <h2 class="h4 mb-3">ファイル一覧</h2>
 <div id="fileListContainer">
-  {% include 'partials/file_table.html' %}
+  {% include 'mobile/partials/file_cards.html' %}
 </div>
 {% endblock %}

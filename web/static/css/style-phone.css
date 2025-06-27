@@ -1,0 +1,44 @@
+body {
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  background: #ffffff;
+  color: #212529;
+  margin: 0;
+}
+
+main {
+  padding: 1rem;
+  min-height: 100vh;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem;
+  font-size: 0.85rem;
+}
+
+#fileListContainer {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.file-card img,
+.file-card video {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+}
+
+.file-card .file-name {
+  font-weight: 500;
+}
