@@ -48,9 +48,15 @@
   <div class="mb-3">
     <div class="list-group">
       {% for f in subfolders %}
-      <a href="/?folder={{ f.id }}" class="list-group-item list-group-item-action" data-ajax>
-        <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
-      </a>
+      <div class="list-group-item d-flex justify-content-between align-items-center">
+        <a href="/?folder={{ f.id }}" class="flex-grow-1 text-decoration-none" data-ajax>
+          <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
+        </a>
+        <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
       {% endfor %}
     </div>
   </div>

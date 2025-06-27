@@ -646,7 +646,7 @@ def setup_commands(bot: discord.Client):
         path.write_bytes(data)
         from .auto_tag import generate_tags
         tags = generate_tags(path)
-        await db.add_shared_file(fid, folder_id, "", file.filename, str(path), tags)
+        await db.add_shared_file(fid, folder_id, file.filename, str(path), tags)
 
         # 5) Webhook で通知
         await interaction.client.notify_shared_upload(folder_id, interaction.user, file.filename)

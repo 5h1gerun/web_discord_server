@@ -180,13 +180,6 @@ class Database:
         await self.conn.commit()
         return cursor.lastrowid
 
-    async def create_shared_subfolder(self, parent_id: int, name: str) -> int:
-        cur = await self.conn.execute(
-            "INSERT INTO shared_folders (name, channel_id, webhook_url, parent_id) VALUES (?, NULL, NULL, ?)",
-            (name, parent_id),
-        )
-        await self.conn.commit()
-        return cur.lastrowid
 
     async def set_folder_channel(self, folder_id: int, channel_id: int) -> None:
         await self.conn.execute(
@@ -260,13 +253,13 @@ class Database:
         )
         return await cursor.fetchone()
 
-    async def add_shared_file(self, file_id: str, folder_id: int, folder: str, filename: str, path: str, tags: str = "") -> None:
+    async def add_shared_file(self, file_id: str, folder_id: int, filename: str, path: str, tags: str = "") -> None:
         """shared_files テーブルにレコードを追加"""
         await self.conn.execute(
             "INSERT INTO shared_files "
             "  (id, folder_id, folder, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
-            "VALUES (?, ?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
-            (file_id, folder_id, folder, filename, path, os.path.getsize(path), tags),
+            "VALUES (?, ?, '', ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
+            (file_id, folder_id, filename, path, os.path.getsize(path), tags),
         )
         await self.conn.commit()
 
@@ -354,11 +347,25 @@ class Database:
             parent_id,
         )
 
-    async def list_shared_subfolders(self, parent_id: int):
-        return await self.fetchall(
-            "SELECT id, name FROM shared_folders WHERE parent_id=? ORDER BY name",
-            parent_id,
+    async def delete_user_folder(self, folder_id: int) -> None:
+        rows = await self.fetchall(
+            "SELECT id FROM user_folders WHERE parent_id=?",
+            folder_id,
         )
+        for r in rows:
+            await self.delete_user_folder(r["id"])
+        frows = await self.fetchall(
+            "SELECT path FROM files WHERE folder=?",
+            str(folder_id),
+        )
+        for fr in frows:
+            try:
+                Path(fr["path"]).unlink(missing_ok=True)
+            except Exception:
+                pass
+        await self.execute("DELETE FROM files WHERE folder=?", str(folder_id))
+        await self.execute("DELETE FROM user_folders WHERE id=?", folder_id)
+
 
     # ファイル
     async def add_file(
@@ -421,11 +428,11 @@ class Database:
             user_id, folder, like,
         )
 
-    async def search_shared_files(self, folder_id: int, term: str, folder: str = ""):
+    async def search_shared_files(self, folder_id: int, term: str):
         like = f"%{term}%"
         return await self.fetchall(
-            "SELECT * FROM shared_files WHERE folder_id=? AND folder=? AND tags LIKE ?",
-            folder_id, folder, like,
+            "SELECT * FROM shared_files WHERE folder_id=? AND tags LIKE ?",
+            folder_id, like,
         )
 
     async def delete_all_shared_files(self, folder_id: int):
