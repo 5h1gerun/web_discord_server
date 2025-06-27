@@ -129,6 +129,67 @@ async def notify_shared_upload(db: Database, folder_id: int, username: str, file
     message = f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"
     await _send_shared_webhook(db, folder_id, message)
 
+# ─────────────── Background Processing ───────────────
+def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
+    """Create preview image and return tags."""
+    mime, _ = mimetypes.guess_type(file_name)
+    preview_path = PREVIEW_DIR / f"{fid}.jpg"
+    try:
+        if mime and mime.startswith("image"):
+            img = Image.open(path)
+            img.thumbnail((320, 320))
+            img.convert("RGB").save(preview_path, "JPEG")
+        elif mime and mime.startswith("video"):
+            subprocess.run([
+                "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
+                "-vframes", "1", str(preview_path)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif mime == "application/pdf":
+            pages = convert_from_path(str(path), first_page=1, last_page=1)
+            if pages:
+                img = pages[0]
+                img.thumbnail((320, 320))
+                img.save(preview_path, "JPEG")
+        elif mime and mime.startswith("application/vnd"):
+            tmp_pdf = path.with_suffix(".pdf")
+            subprocess.run([
+                "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if tmp_pdf.exists():
+                pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                if pages:
+                    img = pages[0]
+                    img.thumbnail((320, 320))
+                    img.save(preview_path, "JPEG")
+                tmp_pdf.unlink(missing_ok=True)
+        else:
+            preview_path = None
+    except Exception as e:
+        log.warning("preview generation failed: %s", e)
+        if preview_path and preview_path.exists():
+            preview_path.unlink(missing_ok=True)
+    from bot.auto_tag import generate_tags
+    return generate_tags(path)
+
+
+async def _task_worker(app: web.Application):
+    queue: asyncio.Queue = app["task_queue"]
+    while True:
+        job = await queue.get()
+        try:
+            tags = await asyncio.to_thread(
+                _generate_preview_and_tags,
+                job["path"], job["fid"], job["file_name"]
+            )
+            if job.get("shared"):
+                await app["db"].update_shared_tags(job["fid"], tags)
+            else:
+                await app["db"].update_tags(job["fid"], tags)
+        except Exception as e:
+            log.exception("Background task failed: %s", e)
+        finally:
+            queue.task_done()
+
 # ─────────────── Middleware ───────────────
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
@@ -571,13 +632,27 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "static_version": int(time.time()),
         })
 
-    # database
+    # database & worker
     db = Database(DB_PATH)
     app["db"] = db
+    app["task_queue"] = asyncio.Queue()
+
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
         await db.open()
+        app["worker"] = asyncio.create_task(_task_worker(app))
+
+    async def on_cleanup(app: web.Application):
+        worker = app.get("worker")
+        if worker:
+            worker.cancel()
+            try:
+                await worker
+            except asyncio.CancelledError:
+                pass
+
     app.on_startup.append(on_startup)
+    app.on_cleanup.append(on_cleanup)
 
     # static files
     if STATIC_DIR.exists():
@@ -805,7 +880,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             fid = str(uuid.uuid4())
             path = DATA_DIR / fid
             size = 0
-            # 実ファイル書き込み
             with path.open("wb") as f:
                 while True:
                     chunk = filefield.file.read(8192)
@@ -813,49 +887,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                         break
                     size += len(chunk)
                     f.write(chunk)
-            # ハッシュ計算
             sha256sum = hashlib.sha256(path.read_bytes()).hexdigest()
-            # プレビュー生成
-            mime, _ = mimetypes.guess_type(filefield.filename)
-            preview_path = PREVIEW_DIR / f"{fid}.jpg"
-            try:
-                if mime and mime.startswith("image"):
-                    img = Image.open(path)
-                    img.thumbnail((320, 320))
-                    img.convert("RGB").save(preview_path, "JPEG")
-                elif mime and mime.startswith("video"):
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
-                        "-vframes", "1", str(preview_path)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif mime == "application/pdf":
-                    pages = convert_from_path(str(path), first_page=1, last_page=1)
-                    if pages:
-                        img = pages[0]
-                        img.thumbnail((320, 320))
-                        img.save(preview_path, "JPEG")
-                elif mime and mime.startswith("application/vnd"):
-                    tmp_pdf = path.with_suffix(".pdf")
-                    subprocess.run([
-                        "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    if tmp_pdf.exists():
-                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
-                        if pages:
-                            img = pages[0]
-                            img.thumbnail((320, 320))
-                            img.save(preview_path, "JPEG")
-                        tmp_pdf.unlink(missing_ok=True)
-                else:
-                    preview_path = None
-            except Exception as e:
-                log.warning("preview generation failed: %s", e)
-                if preview_path and preview_path.exists():
-                    preview_path.unlink(missing_ok=True)
-            # 自動タグ生成
-            from bot.auto_tag import generate_tags
-            tags = generate_tags(path)
-            # DB 登録
             folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
                 fid,
@@ -865,8 +897,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 str(path),
                 size,
                 sha256sum,
-                tags,
+                "",
             )
+            app["task_queue"].put_nowait({
+                "fid": fid,
+                "file_name": filefield.filename,
+                "path": path,
+                "shared": False,
+            })
         # すべてのファイルを正常受信できた
         return web.json_response({"success": True})
 
@@ -993,52 +1031,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if not user_id:
                 raise web.HTTPForbidden()
 
-            mime, _ = mimetypes.guess_type(field.filename)
-            preview_path = PREVIEW_DIR / f"{target_id}.jpg"
-            try:
-                if mime and mime.startswith("image"):
-                    img = Image.open(target_path)
-                    img.thumbnail((320, 320))
-                    img.convert("RGB").save(preview_path, "JPEG")
-                elif mime and mime.startswith("video"):
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(target_path), "-ss", "00:00:01",
-                        "-vframes", "1", str(preview_path)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif mime == "application/pdf":
-                    pages = convert_from_path(str(target_path), first_page=1, last_page=1)
-                    if pages:
-                        img = pages[0]
-                        img.thumbnail((320, 320))
-                        img.save(preview_path, "JPEG")
-                elif mime and mime.startswith("application/vnd"):
-                    tmp_pdf = target_path.with_suffix(".pdf")
-                    subprocess.run([
-                        "libreoffice", "--headless", "--convert-to", "pdf", str(target_path), "--outdir", str(target_path.parent)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    if tmp_pdf.exists():
-                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
-                        if pages:
-                            img = pages[0]
-                            img.thumbnail((320, 320))
-                            img.save(preview_path, "JPEG")
-                        tmp_pdf.unlink(missing_ok=True)
-                else:
-                    preview_path = None
-            except Exception as e:
-                log.warning("preview generation failed: %s", e)
-                if preview_path and preview_path.exists():
-                    preview_path.unlink(missing_ok=True)
-
-            from bot.auto_tag import generate_tags
-            tags = generate_tags(target_path)
             folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
             await req.app["db"].add_file(
                 target_id, user_id, folder, field.filename,
                 str(target_path), target_path.stat().st_size,
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
-                tags,
+                "",
             )
+            req.app["task_queue"].put_nowait({
+                "fid": target_id,
+                "file_name": field.filename,
+                "path": target_path,
+                "shared": False,
+            })
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
 
@@ -1206,9 +1211,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     break
                 f.write(chunk)
 
-        from bot.auto_tag import generate_tags
-        tags = generate_tags(path)
-        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
+        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), "")
+        req.app["task_queue"].put_nowait({
+            "fid": fid,
+            "file_name": filefield.filename,
+            "path": path,
+            "shared": True,
+        })
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
             "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
