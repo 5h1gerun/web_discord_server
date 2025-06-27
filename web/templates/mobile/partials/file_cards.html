@@ -13,12 +13,12 @@
       <div class="file-name small" data-file-id="{{ f.id }}">{{ f.original_name }}</div>
       <div class="text-muted small">{{ f.size|human_size }}</div>
       <div class="file-actions">
-        <a href="{{ f.url }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i></a>
-        <button class="btn btn-sm btn-outline-secondary send-btn" data-file-id="{{ f.id }}"><i class="bi bi-send"></i></button>
-        <button class="btn btn-sm btn-outline-secondary rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}"><i class="bi bi-pencil-square"></i></button>
+        <a href="{{ f.url }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> ダウンロード</a>
+        <button class="btn btn-sm btn-outline-secondary send-btn" data-file-id="{{ f.id }}"><i class="bi bi-send"></i> 送信</button>
+        <button class="btn btn-sm btn-outline-secondary rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}"><i class="bi bi-pencil-square"></i> 名前変更</button>
         <form method="post" action="/delete/{{ f.id }}" class="d-inline-block" onsubmit="return confirm('本当に削除しますか？');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 削除</button>
         </form>
       </div>
       <select class="form-select form-select-sm expiration-select" data-file-id="{{ f.id }}">
@@ -34,7 +34,7 @@
         {% if f.share_url %}
         <div class="input-group input-group-sm">
           <input id="link-{{ f.id }}" type="text" class="form-control" readonly value="{{ f.share_url }}">
-          <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('{{ f.id }}')"><i class="bi bi-clipboard"></i></button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('{{ f.id }}')"><i class="bi bi-clipboard"></i> コピー</button>
         </div>
         {% else %}
         <span class="text-muted">非共有</span>
