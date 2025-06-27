@@ -21,6 +21,47 @@
     {% endif %}
   </div>
 </nav>
+<!-- コピー完了トースト -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">リンクをコピーしました！</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- プレビュー用モーダル -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body p-0" id="previewBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 送信モーダル -->
+<div class="modal fade" id="sendModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">ファイル送信</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="userFilterInput" class="form-control mb-2" placeholder="ユーザー検索...">
+        <select id="sendUserSelect" class="form-select" size="5"></select>
+        <input type="hidden" id="sendFileId" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="sendExecBtn">送信</button>
+      </div>
+    </div>
+  </div>
+</div>
 <main class="container">
   {% block content %}{% endblock %}
 </main>

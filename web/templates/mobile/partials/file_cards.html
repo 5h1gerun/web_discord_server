@@ -14,10 +14,35 @@
       <div class="text-muted small">{{ f.size|human_size }}</div>
       <div class="file-actions">
         <a href="{{ f.url }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i></a>
-        <form method="post" action="/delete/{{ f.id }}" class="d-inline-block ms-1" onsubmit="return confirm('本当に削除しますか？');">
+        <button class="btn btn-sm btn-outline-secondary send-btn" data-file-id="{{ f.id }}"><i class="bi bi-send"></i></button>
+        <button class="btn btn-sm btn-outline-secondary rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}"><i class="bi bi-pencil-square"></i></button>
+        <form method="post" action="/delete/{{ f.id }}" class="d-inline-block" onsubmit="return confirm('本当に削除しますか？');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
         </form>
+      </div>
+      <select class="form-select form-select-sm expiration-select" data-file-id="{{ f.id }}">
+        <option value="86400"   {% if f.expiration == 86400   %}selected{% endif %}>1日</option>
+        <option value="604800"  {% if f.expiration == 604800  %}selected{% endif %}>1週間</option>
+        <option value="2592000" {% if f.expiration == 2592000 %}selected{% endif %}>1か月</option>
+        <option value="0"       {% if f.expiration == 0       %}selected{% endif %}>無期限</option>
+      </select>
+      <span class="badge shared-toggle {{ 'bg-success' if f.share_url else 'bg-secondary' }}" data-file-id="{{ f.id }}" data-url="/toggle_shared/{{ f.id }}" data-shared="{{ '1' if f.share_url else '0' }}">
+        <i class="bi bi-link-45deg me-1"></i>{{ '共有中' if f.share_url else '非共有' }}
+      </span>
+      <div id="sharebox-{{ f.id }}">
+        {% if f.share_url %}
+        <div class="input-group input-group-sm">
+          <input id="link-{{ f.id }}" type="text" class="form-control" readonly value="{{ f.share_url }}">
+          <button class="btn btn-outline-secondary btn-sm" onclick="copyLink('{{ f.id }}')"><i class="bi bi-clipboard"></i></button>
+        </div>
+        {% else %}
+        <span class="text-muted">非共有</span>
+        {% endif %}
+      </div>
+      <input type="text" class="form-control form-control-sm tag-input" data-file-id="{{ f.id }}" value="{{ f.tags }}">
+      <div class="expiration-cell text-center" data-file-id="{{ f.id }}" data-expiration="{{ f.share_url and f.expiration or 0 }}">
+        <small class="text-muted">{{ f.share_url and f.expiration_str or '-' }}</small>
       </div>
     </div>
   </div>

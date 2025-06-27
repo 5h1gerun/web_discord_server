@@ -62,3 +62,32 @@ main {
 .file-card .file-actions {
   margin-top: 0.5rem;
 }
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.expiration-select {
+  margin-top: 0.25rem;
+}
+
+.shared-toggle {
+  cursor: pointer;
+  margin-top: 0.25rem;
+}
+
+#fileListContainer .input-group {
+  margin-top: 0.25rem;
+}
+
+.tag-input {
+  margin-top: 0.25rem;
+}
+
+.expiration-cell {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
