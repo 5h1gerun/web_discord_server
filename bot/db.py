@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id       INTEGER NOT NULL,
+    folder        TEXT    NOT NULL DEFAULT '',
     path          TEXT    NOT NULL,
     original_name TEXT    NOT NULL,
     size          INTEGER NOT NULL,
@@ -40,11 +41,21 @@ CREATE TABLE IF NOT EXISTS files (
     tags          TEXT    NOT NULL DEFAULT '',
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS user_folders (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL,
+    name      TEXT NOT NULL,
+    parent_id INTEGER,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(parent_id) REFERENCES user_folders(id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS shared_folders (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
     channel_id INTEGER,
-    webhook_url TEXT
+    webhook_url TEXT,
+    parent_id INTEGER,
+    FOREIGN KEY(parent_id) REFERENCES shared_folders(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS shared_folder_members (
     folder_id      INTEGER,
@@ -55,6 +66,7 @@ CREATE TABLE IF NOT EXISTS shared_folder_members (
 CREATE TABLE IF NOT EXISTS shared_files (
     id             TEXT PRIMARY KEY,
     folder_id      INTEGER NOT NULL,
+    folder         TEXT NOT NULL DEFAULT '',
     file_name      TEXT NOT NULL,
     path           TEXT NOT NULL,
     size           INTEGER NOT NULL,
@@ -149,6 +161,14 @@ class Database:
         self.conn = await aiosqlite.connect(self.db_path)
         self.conn.row_factory = aiosqlite.Row
 
+    async def create_user_folder(self, user_id: int, name: str, parent_id: Optional[int] = None) -> int:
+        cur = await self.conn.execute(
+            "INSERT INTO user_folders (user_id, name, parent_id) VALUES (?, ?, ?)",
+            (user_id, name, parent_id),
+        )
+        await self.conn.commit()
+        return cur.lastrowid
+
     async def create_shared_folder(self, folder_name: str, channel_id: int, webhook_url: str = "") -> int:
         """
         shared_folders テーブルに name, channel_id, webhook_url を INSERT する。
@@ -159,6 +179,14 @@ class Database:
         )
         await self.conn.commit()
         return cursor.lastrowid
+
+    async def create_shared_subfolder(self, parent_id: int, name: str) -> int:
+        cur = await self.conn.execute(
+            "INSERT INTO shared_folders (name, channel_id, webhook_url, parent_id) VALUES (?, NULL, NULL, ?)",
+            (name, parent_id),
+        )
+        await self.conn.commit()
+        return cur.lastrowid
 
     async def set_folder_channel(self, folder_id: int, channel_id: int) -> None:
         await self.conn.execute(
@@ -232,13 +260,13 @@ class Database:
         )
         return await cursor.fetchone()
 
-    async def add_shared_file(self, file_id: str, folder_id: int, filename: str, path: str, tags: str = "") -> None:
+    async def add_shared_file(self, file_id: str, folder_id: int, folder: str, filename: str, path: str, tags: str = "") -> None:
         """shared_files テーブルにレコードを追加"""
         await self.conn.execute(
             "INSERT INTO shared_files "
-            "  (id, folder_id, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
-            "VALUES (?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
-            (file_id, folder_id, filename, path, os.path.getsize(path), tags),
+            "  (id, folder_id, folder, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
+            "VALUES (?, ?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
+            (file_id, folder_id, folder, filename, path, os.path.getsize(path), tags),
         )
         await self.conn.commit()
 
@@ -308,11 +336,36 @@ class Database:
             "SELECT discord_id, username FROM users ORDER BY username"
         )
 
+    async def get_user_folder(self, folder_id: int) -> Optional[aiosqlite.Row]:
+        return await self.fetchone(
+            "SELECT id, name, parent_id FROM user_folders WHERE id=?",
+            folder_id,
+        )
+
+    async def list_user_folders(self, user_id: int, parent_id: Optional[int] = None):
+        if parent_id is None:
+            return await self.fetchall(
+                "SELECT id, name FROM user_folders WHERE user_id=? AND parent_id IS NULL ORDER BY name",
+                user_id,
+            )
+        return await self.fetchall(
+            "SELECT id, name FROM user_folders WHERE user_id=? AND parent_id=? ORDER BY name",
+            user_id,
+            parent_id,
+        )
+
+    async def list_shared_subfolders(self, parent_id: int):
+        return await self.fetchall(
+            "SELECT id, name FROM shared_folders WHERE parent_id=? ORDER BY name",
+            parent_id,
+        )
+
     # ファイル
     async def add_file(
         self,
         file_id: str,
         user_id: int,
+        folder: str,
         original_name: str,
         path: str,
         size: int,
@@ -321,20 +374,20 @@ class Database:
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, original_name, path, size, sha256, uploaded_at, expires_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
-            (file_id, user_id, original_name, path, size, sha256, tags),
+            (id, user_id, folder, path, original_name, size, sha256, uploaded_at, expires_at, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
+            (file_id, user_id, folder, path, original_name, size, sha256, tags),
         )
         await self.conn.commit()
 
 
-    async def list_files(self, user_id: int):
+    async def list_files(self, user_id: int, folder: str = ""):
         return await self.fetchall(
             "SELECT id, original_name, size, uploaded_at, tags "
             "FROM   files "
-            "WHERE  user_id=? "
+            "WHERE  user_id=? AND folder=? "
             "ORDER  BY uploaded_at DESC",
-            user_id
+            user_id, folder
         )
 
     async def get_file(self, file_id: str):
@@ -361,18 +414,18 @@ class Database:
     async def update_shared_tags(self, file_id: str, tags: str):
         await self.execute("UPDATE shared_files SET tags=? WHERE id=?", tags, file_id)
 
-    async def search_files(self, user_id: int, term: str):
+    async def search_files(self, user_id: int, term: str, folder: str = ""):
         like = f"%{term}%"
         return await self.fetchall(
-            "SELECT * FROM files WHERE user_id=? AND tags LIKE ?",
-            user_id, like,
+            "SELECT * FROM files WHERE user_id=? AND folder=? AND tags LIKE ?",
+            user_id, folder, like,
         )
 
-    async def search_shared_files(self, folder_id: int, term: str):
+    async def search_shared_files(self, folder_id: int, term: str, folder: str = ""):
         like = f"%{term}%"
         return await self.fetchall(
-            "SELECT * FROM shared_files WHERE folder_id=? AND tags LIKE ?",
-            folder_id, like,
+            "SELECT * FROM shared_files WHERE folder_id=? AND folder=? AND tags LIKE ?",
+            folder_id, folder, like,
         )
 
     async def delete_all_shared_files(self, folder_id: int):

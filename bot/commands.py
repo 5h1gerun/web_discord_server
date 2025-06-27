@@ -272,7 +272,7 @@ def setup_commands(bot: discord.Client):
         path.write_bytes(data)
         from .auto_tag import generate_tags
         tags = generate_tags(path)
-        await db.add_file(fid, pk, file.filename, str(path), len(data), hashlib.sha256(data).hexdigest(), tags)
+        await db.add_file(fid, pk, "", file.filename, str(path), len(data), hashlib.sha256(data).hexdigest(), tags)
         now = int(datetime.now(timezone.utc).timestamp())
         url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(fid, now+URL_EXPIRES_SEC)}"
         emb = discord.Embed(title="✅ アップロード完了", description=f"[DL]({url})", colour=0x2ecc71)
@@ -646,7 +646,7 @@ def setup_commands(bot: discord.Client):
         path.write_bytes(data)
         from .auto_tag import generate_tags
         tags = generate_tags(path)
-        await db.add_shared_file(fid, folder_id, file.filename, str(path), tags)
+        await db.add_shared_file(fid, folder_id, "", file.filename, str(path), tags)
 
         # 5) Webhook で通知
         await interaction.client.notify_shared_upload(folder_id, interaction.user, file.filename)

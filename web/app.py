@@ -349,9 +349,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # ファイル一覧取得
         # SELECT で expiration_sec も取得する
+        folder = request.query.get("folder", "")
         rows = await db.fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
-            user_id
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            user_id, folder
         )
         now = int(datetime.now(timezone.utc).timestamp())
         file_objs: List[Dict[str, object]] = []
@@ -395,7 +396,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
         term = request.query.get("q", "").strip()
-        rows = await db.search_files(user_id, term) if term else []
+        folder = request.query.get("folder", "")
+        rows = await db.search_files(user_id, term, folder) if term else []
         file_objs = [await _file_to_dict(r, request) for r in rows]
         token = await issue_csrf(request)
         return {
@@ -458,8 +460,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
 
         # フォルダ名取得
-        row = await db.fetchone("SELECT name FROM shared_folders WHERE id = ?", folder_id)
+        row = await db.fetchone("SELECT name, parent_id FROM shared_folders WHERE id = ?", folder_id)
         folder_name = row["name"] if row else "(不明なフォルダ)"
+        parent_id = row["parent_id"] if row else None
+        subfolders = await db.list_shared_subfolders(int(folder_id))
+        breadcrumbs = []
+        cur = int(folder_id)
+        while True:
+            rec = await db.fetchone("SELECT name, parent_id FROM shared_folders WHERE id=?", cur)
+            if not rec:
+                break
+            breadcrumbs.insert(0, {"id": cur, "name": rec["name"]})
+            if rec["parent_id"] is None:
+                break
+            cur = rec["parent_id"]
 
         # ── 3. フォルダ内ファイル一覧取得 & 各種フィールド整形 ──
         raw_files = await db.fetchall("SELECT * FROM shared_files WHERE folder_id = ?", folder_id)
@@ -561,12 +575,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "user_id":        current_user_id,
             "request":        request,
             "base_url":       base_url,
-            "folder_name":    folder_name,     # テンプレートの <h4>{{ folder_name }}</h4> 用
-            "files":          file_objs,       # partial/file_table.html に渡す files
-            "shared_folders": shared_folders,  # フッターの他フォルダ移動リスト用
+            "folder_name":    folder_name,
+            "files":          file_objs,
+            "shared_folders": shared_folders,
             "all_folders":    all_folders,
+            "subfolders":     subfolders,
+            "breadcrumbs":    breadcrumbs,
             "csrf_token":     await issue_csrf(request),
-            "static_version": int(time.time()),  # main.js/css のキャッシュバスター用
+            "static_version": int(time.time()),
         })
 
     # database
@@ -670,10 +686,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
         username = user_row["username"] if user_row else "Unknown"
         # expiration_sec を含めて取得するように
+        folder = req.query.get("folder", "")
         rows   = await app["db"].fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
-            user_id
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            user_id, folder
         )
+        parent_id = int(folder) if folder else None
+        subfolders = await app["db"].list_user_folders(user_id, parent_id)
+        breadcrumbs = []
+        cur = parent_id
+        while cur:
+            rec = await app["db"].get_user_folder(cur)
+            if not rec:
+                break
+            breadcrumbs.insert(0, {"id": cur, "name": rec["name"]})
+            cur = rec["parent_id"]
         now_ts = int(datetime.now(timezone.utc).timestamp())
         files  = []
 
@@ -705,6 +732,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "files": files,
             "csrf_token": token,
             "username": username,
+            "folder_id": folder,
+            "subfolders": subfolders,
+            "breadcrumbs": breadcrumbs,
             "static_version": int(time.time()),
             "request": req
         })
@@ -732,9 +762,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
         username = user_row["username"] if user_row else "Unknown"
+        folder = req.query.get("folder", "")
         rows = await app["db"].fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ?",
-            user_id,
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            user_id, folder,
         )
         now_ts = int(datetime.now(timezone.utc).timestamp())
         files = []
@@ -839,9 +870,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             from bot.auto_tag import generate_tags
             tags = generate_tags(path)
             # DB 登録
+            folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
                 fid,
                 user_id,
+                folder,
                 filefield.filename,
                 str(path),
                 size,
@@ -1013,8 +1046,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
             from bot.auto_tag import generate_tags
             tags = generate_tags(target_path)
+            folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
             await req.app["db"].add_file(
-                target_id, user_id, field.filename,
+                target_id, user_id, folder, field.filename,
                 str(target_path), target_path.stat().st_size,
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
                 tags,
@@ -1188,7 +1222,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         from bot.auto_tag import generate_tags
         tags = generate_tags(path)
-        await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
+        folder = data.get("folder", "")
+        await db.add_shared_file(fid, folder_id, folder, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
             "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
@@ -1312,6 +1347,26 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         await db.delete_all_shared_files(int(folder_id))
         raise web.HTTPFound(f"/shared/{folder_id}")
+
+    async def create_shared_subfolder(req: web.Request):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        data = await req.post()
+        parent_id = data.get("parent_id")
+        name = data.get("name", "").strip()
+        if not parent_id or not name:
+            raise web.HTTPBadRequest()
+        db = req.app["db"]
+        member = await db.fetchone(
+            "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
+            parent_id, discord_id,
+        )
+        if not member:
+            raise web.HTTPForbidden()
+        await db.create_shared_subfolder(int(parent_id), name)
+        raise web.HTTPFound(f"/shared/{parent_id}")
 
     async def download_zip(req: web.Request):
         sess = await get_session(req)
@@ -1528,6 +1583,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         return web.json_response({"status": "ok", "new_name": new_name})
 
+    async def create_folder(request: web.Request):
+        discord_id = request.get("user_id")
+        if not discord_id:
+            raise web.HTTPForbidden()
+        data = await request.post()
+        name = data.get("name", "").strip()
+        parent = data.get("parent_id")
+        db = request.app["db"]
+        user_id = await db.get_user_pk(discord_id)
+        if not user_id or not name:
+            raise web.HTTPBadRequest()
+        parent_id = int(parent) if parent else None
+        await db.create_user_folder(user_id, name, parent_id)
+        raise web.HTTPFound(request.headers.get("Referer", "/"))
+
     # ─────────────── Public download confirm ───────────────
     async def public_file(req: web.Request):
         """
@@ -1611,6 +1681,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/shared/download/{token}", shared_download)
     app.router.add_post("/shared/delete/{file_id}", shared_delete)
     app.router.add_post("/shared/delete_all/{folder_id}", shared_delete_all)
+    app.router.add_post("/create_folder", create_folder)
+    app.router.add_post("/shared/create_folder", create_shared_subfolder)
     app.router.add_get("/zip/{folder_id}", download_zip)
     app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)

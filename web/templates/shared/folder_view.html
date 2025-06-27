@@ -10,7 +10,13 @@
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="/">ホーム</a></li>
       <li class="breadcrumb-item"><a href="/shared">共有フォルダ</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+      {% for bc in breadcrumbs %}
+        {% if not loop.last %}
+        <li class="breadcrumb-item"><a href="/shared/{{ bc.id }}">{{ bc.name }}</a></li>
+        {% else %}
+        <li class="breadcrumb-item active" aria-current="page">{{ bc.name }}</li>
+        {% endif %}
+      {% endfor %}
     </ol>
   </nav>
 
@@ -61,6 +67,26 @@
 
     <!-- ボディ：アップロードフォーム + ファイル一覧 -->
     <div class="card-body" id="uploadArea">
+      {% if subfolders %}
+      <div class="mb-3">
+        <div class="list-group">
+          {% for sf in subfolders %}
+          <a href="/shared/{{ sf.id }}" class="list-group-item list-group-item-action" data-ajax>
+            <i class="bi bi-folder-fill me-2"></i>{{ sf.name }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/shared/create_folder" class="mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="parent_id" value="{{ folder_id }}">
+        <div class="input-group">
+          <input type="text" name="name" class="form-control" placeholder="新しいサブフォルダ名" required>
+          <button class="btn btn-outline-primary" type="submit">作成</button>
+        </div>
+      </form>
       <!-- クリック & D&D 共通フォーム -->
       <form id="uploadForm"
             action="/shared/upload"
