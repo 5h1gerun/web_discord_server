@@ -15,8 +15,13 @@
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="/">ホーム</a></li>
-      <li class="breadcrumb-item"><a href="/shared">共有フォルダ</a></li>
-      <li class="breadcrumb-item active" aria-current="page">{{ folder_name }}</li>
+      {% for bc in breadcrumbs %}
+        {% if not loop.last %}
+        <li class="breadcrumb-item"><a href="/?folder={{ bc.id }}">{{ bc.name }}</a></li>
+        {% else %}
+        <li class="breadcrumb-item active" aria-current="page">{{ bc.name }}</li>
+        {% endif %}
+      {% endfor %}
     </ol>
   </nav>
 
@@ -39,6 +44,33 @@
     </div>
   </div>
 
+  {% if subfolders %}
+  <div class="mb-3">
+    <div class="list-group">
+      {% for f in subfolders %}
+      <div class="list-group-item d-flex justify-content-between align-items-center">
+        <a href="/?folder={{ f.id }}" class="flex-grow-1 text-decoration-none" data-ajax>
+          <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
+        </a>
+        <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/create_folder" class="mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="parent_id" value="{{ folder_id }}">
+    <div class="input-group">
+      <input type="text" name="name" class="form-control" placeholder="新しいフォルダ名" required>
+      <button class="btn btn-outline-primary" type="submit">作成</button>
+    </div>
+  </form>
+
   <!-- アップロードセクション -->
   <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow" data-tilt data-tilt-max="10" style="border-radius: 1rem;">
     <div class="card-header bg-primary text-white">
@@ -51,6 +83,7 @@
                 method="post"
                 enctype="multipart/form-data"
                 onsubmit="return false;">     <!-- ネイティブ送信を止める -->
+            <input type="hidden" name="folder_id" value="{{ folder_id }}">
             <div class="row gx-3 align-items-end mb-4">
               <div class="col-sm-8">
                 <!-- multiple を付ける -->
