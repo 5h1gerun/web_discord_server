@@ -1586,6 +1586,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.delete_user_folder(folder_id)
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
+    async def delete_subfolders(request: web.Request):
+        discord_id = request.get("user_id")
+        if not discord_id:
+            raise web.HTTPForbidden()
+        data = await request.post()
+        parent = data.get("parent_id")
+        db = request.app["db"]
+        user_id = await db.get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPForbidden()
+        parent_id = int(parent) if parent else None
+        await db.delete_all_subfolders(user_id, parent_id)
+        raise web.HTTPFound(request.headers.get("Referer", "/"))
+
     # ─────────────── Public download confirm ───────────────
     async def public_file(req: web.Request):
         """
@@ -1671,6 +1685,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/shared/delete_all/{folder_id}", shared_delete_all)
     app.router.add_post("/create_folder", create_folder)
     app.router.add_post("/delete_folder/{folder_id}", delete_folder)
+    app.router.add_post("/delete_subfolders", delete_subfolders)
     app.router.add_get("/zip/{folder_id}", download_zip)
     app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)
