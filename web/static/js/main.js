@@ -85,7 +85,7 @@ async function reloadFileList() {
   const isShared = fldInput?.dataset.shared === "1";
   const url      = isShared && folderId
                      ? `/shared/${folderId}`
-                     : window.location.pathname;
+                     : window.location.pathname + window.location.search;
 
   try {
     const res  = await fetch(url, { credentials: "same-origin" });
