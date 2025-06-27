@@ -11,7 +11,7 @@
 
 <div id="uploadArea">
   <form id="uploadForm" class="mb-2" method="post" action="/shared/upload" enctype="multipart/form-data" onsubmit="return false;">
-    <input type="hidden" name="folder_id" value="{{ folder_id }}">
+    <input type="hidden" name="folder_id" value="{{ folder_id }}" data-shared="1">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="file" name="file" class="form-control mb-2" required>
     <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
