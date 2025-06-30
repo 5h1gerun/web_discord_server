@@ -940,7 +940,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 str(path),
                 size,
                 sha256sum,
-                "",
+                tags,
             )
             app["task_queue"].put_nowait({
                 "fid": fid,
