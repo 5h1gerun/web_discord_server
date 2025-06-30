@@ -39,12 +39,14 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
+| `GOOGLE_DRIVE_CREDENTIALS` | Google Drive API 用サービスアカウント JSON のパス |
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 ```
 `pdf2image` を利用するため、システムに `poppler` がインストールされている必要があります。
+Google Drive 連携を行う場合は、サービスアカウントを作成し取得した JSON キーのパスを `GOOGLE_DRIVE_CREDENTIALS` に設定してください。
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。

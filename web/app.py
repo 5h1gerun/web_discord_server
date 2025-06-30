@@ -36,6 +36,9 @@ import io, qrcode, pyotp      # ← 二要素用
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from bot.db import init_db  # スキーマ初期化用
 Database = import_module("bot.db").Database  # type: ignore
@@ -66,6 +69,8 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
     os.getenv("FILE_HMAC_SECRET", base64.urlsafe_b64encode(os.urandom(32)).decode())
 )
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
+GOOGLE_DRIVE_CRED = os.getenv("GOOGLE_DRIVE_CREDENTIALS")
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -130,6 +135,39 @@ async def notify_shared_upload(db: Database, folder_id: int, username: str, file
     """共有フォルダへのアップロードをWebhookで通知"""
     message = f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"
     await _send_shared_webhook(db, folder_id, message)
+
+# ─────────────── Google Drive Helpers ───────────────
+def _init_drive_service():
+    if not GOOGLE_DRIVE_CRED or not Path(GOOGLE_DRIVE_CRED).exists():
+        return None
+    creds = Credentials.from_service_account_file(GOOGLE_DRIVE_CRED, scopes=DRIVE_SCOPES)
+    return build("drive", "v3", credentials=creds)
+
+async def drive_upload(service, path: Path, name: str) -> Optional[str]:
+    if not service:
+        return None
+    def _do():
+        media = MediaFileUpload(str(path))
+        file = service.files().create(media_body=media, body={"name": name}).execute()
+        return file.get("id")
+    return await asyncio.to_thread(_do)
+
+async def drive_download(service, file_id: str) -> bytes:
+    if not service:
+        return b""
+    def _do():
+        request = service.files().get_media(fileId=file_id)
+        return request.execute()
+    return await asyncio.to_thread(_do)
+
+async def drive_share(service, file_id: str) -> Optional[str]:
+    if not service:
+        return None
+    def _do():
+        service.permissions().create(fileId=file_id, body={"role": "reader", "type": "anyone"}).execute()
+        meta = service.files().get(fileId=file_id, fields="webViewLink").execute()
+        return meta.get("webViewLink")
+    return await asyncio.to_thread(_do)
 
 # ─────────────── Background Processing ───────────────
 def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
@@ -673,6 +711,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # database setup
     db = Database(DB_PATH)
     app["db"] = db
+    app["drive_service"] = _init_drive_service()
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -969,6 +1008,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 log.warning("preview generation failed: %s", e)
                 if preview_path and preview_path.exists():
                     preview_path.unlink(missing_ok=True)
+            drive_id = None
+            if app.get("drive_service"):
+                drive_id = await drive_upload(app["drive_service"], path, filefield.filename)
             # 自動タグ生成
             from bot.auto_tag import generate_tags
             tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
@@ -980,6 +1022,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 folder,
                 filefield.filename,
                 str(path),
+                drive_id,
                 size,
                 sha256sum,
                 tags,
@@ -1079,7 +1122,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "Content-Type": mime or "application/octet-stream",
             "Content-Disposition": f'attachment; filename="{rec[filename_key]}"'
         }
-        return web.FileResponse(path, headers=headers)
+        if path.exists():
+            return web.FileResponse(path, headers=headers)
+        if rec.get("drive_id") and app.get("drive_service"):
+            data = await drive_download(app["drive_service"], rec["drive_id"])
+            return web.Response(body=data, headers=headers)
+        raise web.HTTPNotFound()
 
     async def upload_chunked(req: web.Request):
         upload_id = req.headers.get("X-Upload-Id")
@@ -1115,9 +1163,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
             from bot.auto_tag import generate_tags
             tags = await asyncio.to_thread(generate_tags, target_path, field.filename)
+            drive_id = None
+            if req.app.get("drive_service"):
+                drive_id = await drive_upload(req.app["drive_service"], target_path, field.filename)
             await req.app["db"].add_file(
                 target_id, user_id, folder, field.filename,
-                str(target_path), target_path.stat().st_size,
+                str(target_path), drive_id,
+                target_path.stat().st_size,
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
                 tags,
             )

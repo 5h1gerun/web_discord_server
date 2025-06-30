@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS files (
     user_id       INTEGER NOT NULL,
     folder        TEXT    NOT NULL DEFAULT '',
     path          TEXT    NOT NULL,
+    drive_id      TEXT,
     original_name TEXT    NOT NULL,
     size          INTEGER NOT NULL,
     sha256        TEXT    NOT NULL,
@@ -380,15 +381,16 @@ class Database:
         folder: str,
         original_name: str,
         path: str,
+        drive_id: Optional[str],
         size: int,
         sha256: str,
         tags: str = "",
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, folder, path, original_name, size, sha256, uploaded_at, expires_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
-            (file_id, user_id, folder, path, original_name, size, sha256, tags),
+            (id, user_id, folder, path, drive_id, original_name, size, sha256, uploaded_at, expires_at, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
+            (file_id, user_id, folder, path, drive_id, original_name, size, sha256, tags),
         )
         await self.conn.commit()
 
