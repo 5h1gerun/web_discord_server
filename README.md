@@ -94,6 +94,9 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 サブディレクトリにも詳細な説明があります。
 - `bot/README.md` … ボットコマンドの概要
 - `web/README.md` … Web UI の利用方法
+- `docs/architecture.mmd` … システム構成図
+- `docs/sequence_system.mmd` … 全体のシーケンス図
+- `docs/sequence_discord.mmd` … Discord 上のシーケンス図
 
 ## ライセンス
 このプロジェクトは MIT ライセンスです。
