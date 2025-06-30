@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wds-cache-v1';
+const CACHE_NAME = 'wds-cache-v2';
 const OFFLINE_PAGE = '/offline';
 const OFFLINE_URLS = [
   '/',
@@ -28,13 +28,69 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(OFFLINE_PAGE))
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then(res => res || fetch(event.request))
-    );
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (request.mode === 'navigate') {
+    event.respondWith(handleNavigate(request));
+    return;
   }
+
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then(res => res || fetch(request))
+  );
+});
+
+async function handleNavigate(request) {
+  try {
+    const res = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, res.clone());
+    return res;
+  } catch (_) {
+    const cached = await caches.match(request);
+    return cached || caches.match(OFFLINE_PAGE);
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request).then(res => {
+    cache.put(request, res.clone());
+    return res;
+  }).catch(() => cached);
+  return cached || fetchPromise;
+}
+
+self.addEventListener('push', event => {
+  let data = {};
+  if (event.data) {
+    try { data = event.data.json(); } catch (_) { data = { title: event.data.text() }; }
+  }
+  const title = data.title || '通知';
+  const options = {
+    body: data.body,
+    icon: '/favicon.png',
+    data: data.url || '/'
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', event => {
+  const url = event.notification.data;
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(winClients => {
+      for (const client of winClients) {
+        if (client.url === url && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
 });

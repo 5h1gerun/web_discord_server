@@ -103,8 +103,23 @@
 <script src="/static/js/main.js?v={{ static_version }}"></script>
 <script>
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+    window.addEventListener('load', async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/service-worker.js');
+        if ('PushManager' in window) {
+          if (Notification.permission === 'default') {
+            await Notification.requestPermission();
+          }
+          if (Notification.permission === 'granted') {
+            const sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+              try { await reg.pushManager.subscribe({ userVisibleOnly: true }); } catch (e) { console.error('push subscribe failed', e); }
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
     });
   }
 </script>
