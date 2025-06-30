@@ -634,15 +634,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "static_version": int(time.time()),
         })
 
-    # database & worker
+    # database setup
     db = Database(DB_PATH)
     app["db"] = db
-    app["task_queue"] = asyncio.Queue()
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
         await db.open()
-        app["worker"] = asyncio.create_task(_task_worker(app))
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -930,7 +928,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             # 自動タグ生成
             from bot.auto_tag import generate_tags
             tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
-            # DB 登録
+            # DB 登録（タグを即時保存）
             folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
                 fid,
@@ -940,14 +938,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 str(path),
                 size,
                 sha256sum,
-                "",
+                tags,
             )
-            app["task_queue"].put_nowait({
-                "fid": fid,
-                "file_name": filefield.filename,
-                "path": path,
-                "shared": False,
-            })
         # すべてのファイルを正常受信できた
         return web.json_response({"success": True})
 
@@ -1075,18 +1067,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 raise web.HTTPForbidden()
 
             folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
+            from bot.auto_tag import generate_tags
+            tags = await asyncio.to_thread(generate_tags, target_path, field.filename)
             await req.app["db"].add_file(
                 target_id, user_id, folder, field.filename,
                 str(target_path), target_path.stat().st_size,
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
-                "",
+                tags,
             )
-            req.app["task_queue"].put_nowait({
-                "fid": target_id,
-                "file_name": field.filename,
-                "path": target_path,
-                "shared": False,
-            })
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
 
