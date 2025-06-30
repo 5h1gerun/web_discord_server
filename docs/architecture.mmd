@@ -1,0 +1,24 @@
+%% Web Discord Server System Overview
+graph TD
+    subgraph User
+        A[Discord User]
+        B[Browser]
+    end
+    subgraph Discord
+        Bot((Discord Bot))
+    end
+    subgraph Web_Server
+        Web[aiohttp Web App]
+        DB[(SQLite DB)]
+        Files[(File Storage)]
+    end
+    Gemini{{Gemini API}}
+
+    A --"Slash Commands"--> Bot
+    B --"HTTP"--> Web
+    Bot --"Starts"--> Web
+    Bot --"DB Access"--> DB
+    Web --"Read/Write"--> DB
+    Web --"Store Files"--> Files
+    Web --"Auto Tag"--> Gemini
+    Bot --"Send Files"--> A
