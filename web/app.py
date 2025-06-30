@@ -1100,7 +1100,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # DB削除
         await req.app["db"].delete_file(file_id)
 
-        raise web.HTTPFound("/")
+        referer = req.headers.get("Referer", "/")
+        raise web.HTTPFound(referer)
 
     async def delete_all(req: web.Request):
         discord_id = req.get("user_id")
@@ -1119,7 +1120,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             except Exception as e:
                 log.warning("Failed to delete file: %s", e)
         await req.app["db"].delete_all_files(user_id)
-        raise web.HTTPFound("/")
+        referer = req.headers.get("Referer", "/")
+        raise web.HTTPFound(referer)
 
     async def update_tags(req: web.Request):
         discord_id = req.get("user_id")
