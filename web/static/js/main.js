@@ -15,11 +15,22 @@ function showFull(url, isVideoExplicit = false) {
   if (!modal || !body) return;
 
   // URL の拡張子で画像か動画か判定
-  const isVideo = isVideoExplicit || /\.(mp4|webm|ogg)$/i.test(url);
+  const isHls   = url.endsWith('.m3u8');
+  const isVideo = isVideoExplicit || /\.(mp4|webm|ogg)$/i.test(url) || isHls;
 
-  body.innerHTML = isVideo
-    ? `<video src="${url}" class="w-100" controls autoplay></video>`
-    : `<img src="${url}" class="img-fluid" />`;
+  if (isVideo) {
+    body.innerHTML = `<video id="hlsPlayer" class="w-100" controls autoplay></video>`;
+    const video = document.getElementById('hlsPlayer');
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(url);
+      hls.attachMedia(video);
+    } else {
+      video.src = url;
+    }
+  } else {
+    body.innerHTML = `<img src="${url}" class="img-fluid" />`;
+  }
 
   // Bootstrap 5 のモーダル操作
   const bsModal = bootstrap.Modal.getOrCreateInstance(modal);

@@ -48,8 +48,9 @@ TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", ROOT / "templates"))
 DB_PATH      = Path(os.getenv("DB_PATH", ROOT / "data" / "web_discord_server.db"))
 CHUNK_DIR    = DATA_DIR / "chunks"
 PREVIEW_DIR  = DATA_DIR / "previews"
+HLS_DIR      = DATA_DIR / "hls"
 
-for d in (DATA_DIR, STATIC_DIR, TEMPLATE_DIR, CHUNK_DIR, PREVIEW_DIR):
+for d in (DATA_DIR, STATIC_DIR, TEMPLATE_DIR, CHUNK_DIR, PREVIEW_DIR, HLS_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
@@ -171,6 +172,35 @@ def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
             preview_path.unlink(missing_ok=True)
     from bot.auto_tag import generate_tags
     return generate_tags(path, file_name)
+
+
+async def _generate_hls(path: Path, fid: str) -> None:
+    """Create HLS streams for the given video."""
+    variants = [
+        ("360p", 640, 360, 800_000),
+        ("720p", 1280, 720, 2_400_000),
+    ]
+    out_dir = HLS_DIR / fid
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name, w, h, br in variants:
+        out = out_dir / f"{name}.m3u8"
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", str(path),
+            "-vf", f"scale=w={w}:h={h}",
+            "-c:v", "libx264", "-c:a", "aac",
+            "-b:v", str(br),
+            "-hls_time", "4", "-hls_playlist_type", "vod",
+            str(out),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+    master = out_dir / "master.m3u8"
+    with master.open("w") as f:
+        f.write("#EXTM3U\n#EXT-X-VERSION:3\n")
+        for name, w, h, br in variants:
+            f.write(f"#EXT-X-STREAM-INF:BANDWIDTH={br},RESOLUTION={w}x{h}\n")
+            f.write(f"{name}.m3u8\n")
 
 
 async def _task_worker(app: web.Application):
@@ -358,6 +388,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         else:
             base = "/shared/download" if d.get("folder_id") else "/f"
             d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
+        # HLS マスタープレイリストの有無を確認
+        master_path = HLS_DIR / f"{d['id']}" / "master.m3u8"
+        if master_path.exists():
+            d["hls_url"] = f"/hls/{d['id']}/master.m3u8"
+        else:
+            d["hls_url"] = ""
         # ログインユーザ専用の直接 DL URL
         d["download_url"] = f"/download/{d['id']}"
         return d
@@ -659,6 +695,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         app.router.add_static("/static/", str(STATIC_DIR), name="static")
     if PREVIEW_DIR.exists():
         app.router.add_static("/previews/", str(PREVIEW_DIR), name="previews")
+    if HLS_DIR.exists():
+        app.router.add_static("/hls/", str(HLS_DIR), name="hls")
 
     # handlers
     async def health(req):
@@ -940,6 +978,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 sha256sum,
                 tags,
             )
+            if mime and mime.startswith("video"):
+                asyncio.create_task(_generate_hls(path, fid))
         # すべてのファイルを正常受信できた
         return web.json_response({"success": True})
 
@@ -1075,6 +1115,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
                 tags,
             )
+            mime, _ = mimetypes.guess_type(field.filename)
+            if mime and mime.startswith("video"):
+                asyncio.create_task(_generate_hls(target_path, target_id))
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
 
@@ -1253,6 +1296,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             fid
         )
         await db.commit()
+        mime, _ = mimetypes.guess_type(filefield.filename)
+        if mime and mime.startswith("video"):
+            asyncio.create_task(_generate_hls(path, fid))
         user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
         username = user_row["username"] if user_row else str(discord_id)
         await notify_shared_upload(db, int(folder_id), username, filefield.filename)
