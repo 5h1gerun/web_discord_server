@@ -272,7 +272,7 @@ def setup_commands(bot: discord.Client):
         path = DATA_DIR / fid
         path.write_bytes(data)
         from .auto_tag import generate_tags
-        tags = await asyncio.to_thread(generate_tags, path)
+        tags = await asyncio.to_thread(generate_tags, path, file.filename)
         await db.add_file(fid, pk, "", file.filename, str(path), len(data), hashlib.sha256(data).hexdigest(), tags)
         now = int(datetime.now(timezone.utc).timestamp())
         url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(fid, now+URL_EXPIRES_SEC)}"
@@ -646,7 +646,7 @@ def setup_commands(bot: discord.Client):
         path = DATA_DIR / fid
         path.write_bytes(data)
         from .auto_tag import generate_tags
-        tags = await asyncio.to_thread(generate_tags, path)
+        tags = await asyncio.to_thread(generate_tags, path, file.filename)
         await db.add_shared_file(fid, folder_id, file.filename, str(path), tags)
 
         # 5) Webhook で通知

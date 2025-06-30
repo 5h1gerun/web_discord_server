@@ -170,7 +170,7 @@ def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
         if preview_path and preview_path.exists():
             preview_path.unlink(missing_ok=True)
     from bot.auto_tag import generate_tags
-    return generate_tags(path)
+    return generate_tags(path, file_name)
 
 
 async def _task_worker(app: web.Application):
@@ -928,6 +928,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 if preview_path and preview_path.exists():
                     preview_path.unlink(missing_ok=True)
             # 自動タグ生成
+<<<<<<< HEAD
             from bot.auto_tag import generate_tags
             tags = await asyncio.to_thread(generate_tags, path)
             # DB 登録
@@ -942,6 +943,22 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 sha256sum,
                 tags,
             )
+=======
+            from bot.auto_tag import generate_tags
+            tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
+            # DB 登録
+            folder = data.get("folder") or data.get("folder_id", "")
+            await app["db"].add_file(
+                fid,
+                user_id,
+                folder,
+                filefield.filename,
+                str(path),
+                size,
+                sha256sum,
+                "",
+            )
+>>>>>>> codex/pdfおよびオフィス文書のタグ付け問題調査
             app["task_queue"].put_nowait({
                 "fid": fid,
                 "file_name": filefield.filename,
@@ -1255,7 +1272,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 f.write(chunk)
 
         from bot.auto_tag import generate_tags
-        tags = await asyncio.to_thread(generate_tags, path)
+        tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
         await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(

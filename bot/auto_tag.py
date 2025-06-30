@@ -17,8 +17,17 @@ from pptx import Presentation
 from openpyxl import load_workbook
 
 
-def generate_tags(file_path: Path) -> str:
-    """Analyze the file and return comma separated tags using Gemini."""
+def generate_tags(file_path: Path, original_name: str | None = None) -> str:
+    """Analyze the file and return comma separated tags using Gemini.
+
+    Parameters
+    ----------
+    file_path:
+        実際に保存されているファイルへのパス。
+    original_name:
+        元のファイル名。拡張子を保持していない場合に MIME 判定へ
+        利用します。
+    """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return ""
@@ -35,7 +44,7 @@ def generate_tags(file_path: Path) -> str:
     )
 
     # ファイル読み込み
-    mime, _ = mimetypes.guess_type(file_path)
+    mime, _ = mimetypes.guess_type(original_name or str(file_path))
     data = file_path.read_bytes()
 
     if not mime:
