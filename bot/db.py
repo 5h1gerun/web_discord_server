@@ -257,8 +257,8 @@ class Database:
         """shared_files テーブルにレコードを追加"""
         await self.conn.execute(
             "INSERT INTO shared_files "
-            "  (id, folder_id, folder, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
-            "VALUES (?, ?, '', ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
+            "  (id, folder_id, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
+            "VALUES (?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
             (file_id, folder_id, filename, path, os.path.getsize(path), tags),
         )
         await self.conn.commit()
