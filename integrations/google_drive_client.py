@@ -10,7 +10,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 _SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 _CRED_PATH = os.getenv("GDRIVE_CREDENTIALS")
-_TOKEN_PATH = os.getenv("GDRIVE_TOKEN", "token.json")
+_TOKEN_PATH = os.getenv("GDRIVE_TOKEN", "u22webserver-a942d0ba3688.json")
 _service = None
 
 
