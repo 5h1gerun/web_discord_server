@@ -39,6 +39,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
+| `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
+| `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
