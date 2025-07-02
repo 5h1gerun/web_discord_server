@@ -240,8 +240,8 @@ function bindUploadArea() {
         form.reset();
         if (spinner) spinner.style.display = "none";
       }
-      if (wrap) wrap.style.display = "none";
-      if (bar)  bar.style.width    = "0%";
+      if (progWrap) progWrap.style.display = "none";
+      if (progBar)  progBar.style.width    = "0%";
     });
   }
 }
