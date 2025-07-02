@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const result = document.getElementById('gdriveResult');
   const list = document.getElementById('driveFileList');
   const refreshBtn = document.getElementById('refreshFiles');
+  const searchInput = document.getElementById('searchQuery');
   if (!form) return;
 
   function extractFileId(value) {
@@ -48,11 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fileId) importFile(fileId, filename);
   });
 
-  async function loadFiles() {
+  async function loadFiles(query = '') {
     if (!list) return;
     list.textContent = 'loading...';
     try {
-      const res = await fetch('/gdrive_files', {credentials: 'same-origin'});
+      const url = query ? `/gdrive_files?q=${encodeURIComponent(query)}` : '/gdrive_files';
+      const res = await fetch(url, {credentials: 'same-origin'});
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'error');
       list.textContent = '';
@@ -74,6 +76,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (refreshBtn) refreshBtn.addEventListener('click', loadFiles);
+  if (refreshBtn) refreshBtn.addEventListener('click', () => loadFiles());
+  if (searchInput) {
+    let timer;
+    const triggerSearch = () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => loadFiles(searchInput.value.trim()),
+        500
+      );
+    };
+    searchInput.addEventListener('input', triggerSearch);
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+  }
   loadFiles();
 });
