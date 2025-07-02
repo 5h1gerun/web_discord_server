@@ -12,6 +12,7 @@ import os
 import re
 import secrets
 import uuid
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
@@ -71,6 +72,8 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
 GDRIVE_CREDENTIALS = os.getenv("GDRIVE_CREDENTIALS")
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "").strip()
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -856,6 +859,82 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPFound("/totp")
 
         sess["user_id"] = row["discord_id"]
+        raise web.HTTPFound("/")
+
+    async def discord_login(req: web.Request):
+        if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
+            raise web.HTTPFound("/login")
+        state = secrets.token_urlsafe(16)
+        sess = await aiohttp_session.get_session(req)
+        sess["discord_state"] = state
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        redirect_uri = f"https://{public_domain}/discord_callback"
+        params = {
+            "client_id": DISCORD_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "identify",
+            "state": state,
+        }
+        url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
+        raise web.HTTPFound(url)
+
+    async def discord_callback(req: web.Request):
+        if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
+            raise web.HTTPFound("/login")
+        sess = await aiohttp_session.get_session(req)
+        state = req.query.get("state")
+        if not state or state != sess.pop("discord_state", None):
+            return web.Response(text="invalid state", status=400)
+        code = req.query.get("code")
+        if not code:
+            raise web.HTTPFound("/login")
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        redirect_uri = f"https://{public_domain}/discord_callback"
+        data = {
+            "client_id": DISCORD_CLIENT_ID,
+            "client_secret": DISCORD_CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        async with aiohttp.ClientSession() as session:
+            async with session.post("https://discord.com/api/oauth2/token", data=data, headers=headers) as resp:
+                if resp.status != 200:
+                    log.error("OAuth token error: %s", await resp.text())
+                    raise web.HTTPFound("/login")
+                tok = await resp.json()
+            async with session.get(
+                "https://discord.com/api/users/@me",
+                headers={"Authorization": f"Bearer {tok['access_token']}"},
+            ) as uresp:
+                if uresp.status != 200:
+                    log.error("OAuth user error: %s", await uresp.text())
+                    raise web.HTTPFound("/login")
+                udata = await uresp.json()
+
+        discord_id = int(udata["id"])
+        row = await db.fetchone(
+            "SELECT totp_enabled FROM users WHERE discord_id=?",
+            discord_id,
+        )
+        if not row:
+            return _render(
+                req,
+                "login.html",
+                {
+                    "error": "No user found",
+                    "csrf_token": await issue_csrf(req),
+                    "request": req,
+                },
+            )
+
+        if row["totp_enabled"]:
+            sess["tmp_user_id"] = discord_id
+            raise web.HTTPFound("/totp")
+
+        sess["user_id"] = discord_id
         raise web.HTTPFound("/")
 
     # ── GET: フォーム表示 ──────────────────────
@@ -2257,6 +2336,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
+    app.router.add_get("/discord_login", discord_login)
+    app.router.add_get("/discord_callback", discord_callback)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/gdrive_auth", gdrive_auth)
