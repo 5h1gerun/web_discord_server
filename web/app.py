@@ -287,6 +287,10 @@ async def csrf_protect_mw(request: web.Request, handler):
             token = form.get("csrf_token")
 
         if token != session.get("csrf_token"):
+            if "application/json" in request.headers.get("Accept", ""):
+                return web.json_response(
+                    {"success": False, "error": "invalid csrf"}, status=403
+                )
             raise HTTPForbidden(text="Invalid CSRF token")
     return await handler(request)
 
@@ -1169,7 +1173,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def import_gdrive(req: web.Request):
         discord_id = req.get("user_id")
         if not discord_id:
-            raise web.HTTPForbidden()
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
         if not GDRIVE_CREDENTIALS:
             return web.json_response(
                 {"success": False, "error": "gdrive disabled"}, status=400
@@ -1186,7 +1192,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         file_id = m.group(0) if m else raw_id
         user_id = await app["db"].get_user_pk(discord_id)
         if not user_id:
-            raise web.HTTPForbidden()
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
         folder = data.get("folder", "")
         try:
             from integrations.google_drive_client import download_file, get_file_name
