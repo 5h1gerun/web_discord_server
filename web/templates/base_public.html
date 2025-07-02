@@ -63,18 +63,31 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="/static/js/main.js?v={{ static_version }}"></script>
 <script>
+  function urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
         const reg = await navigator.serviceWorker.register('/service-worker.js');
-        if ('PushManager' in window) {
+        const vapid = '{{ vapid_public_key }}';
+        if ('PushManager' in window && vapid) {
           if (Notification.permission === 'default') {
             await Notification.requestPermission();
           }
           if (Notification.permission === 'granted') {
             const sub = await reg.pushManager.getSubscription();
             if (!sub) {
-              try { await reg.pushManager.subscribe({ userVisibleOnly: true }); } catch (e) { console.error('push subscribe failed', e); }
+              try {
+                await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlB64ToUint8Array(vapid)
+                });
+              } catch (e) { console.error('push subscribe failed', e); }
             }
           }
         }

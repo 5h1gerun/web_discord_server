@@ -123,6 +123,10 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         resp = model.generate_content(prompt)
         return resp.text.strip()
 
+    # 2-3) Gemini がサポートしていない ZIP ファイルはタグ生成をスキップ
+    if mime == "application/zip":
+        return ""
+
     # 3) MIME 未判定だがテキストとして解釈できる場合
     if b"\x00" not in data:
         try:

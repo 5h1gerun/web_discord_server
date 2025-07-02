@@ -10,13 +10,13 @@ from typing import Any, List, Optional
 
 # ── サードパーティ ────────────────────────
 import aiosqlite
-import scrypt                       # pip install scrypt
+import scrypt  # pip install scrypt
 
 # ── パス & 定数 ───────────────────────────
 DB_PATH = Path(__file__).parents[1] / "data" / "web_discord_server.db"
 
-SCRYPT_N, SCRYPT_r, SCRYPT_p = 2**15, 8, 1     # 32768:8:1
-SCRYPT_BUFLEN = 64                             # 512-bit
+SCRYPT_N, SCRYPT_r, SCRYPT_p = 2**15, 8, 1  # 32768:8:1
+SCRYPT_BUFLEN = 64  # 512-bit
 
 # ── スキーマ ──────────────────────────────
 SCHEMA = """
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     discord_id  INTEGER UNIQUE,
     username    TEXT    UNIQUE NOT NULL,
     pw_hash     TEXT    NOT NULL,
-    created_at  TEXT    NOT NULL
+    created_at  TEXT    NOT NULL,
+    gdrive_token TEXT
 );
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS files (
     uploaded_at   TEXT    NOT NULL,
     expires_at    INTEGER NOT NULL DEFAULT 0,
     tags          TEXT    NOT NULL DEFAULT '',
+    gdrive_id     TEXT,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS user_folders (
@@ -87,12 +89,20 @@ CREATE TABLE IF NOT EXISTS send_logs (
 );
 """
 
+
 # ── scrypt util ────────────────────────────
 def scrypt_hash(password: str) -> str:
     salt = secrets.token_bytes(16)
-    dk = scrypt.hash(password.encode(), salt,
-                    N=SCRYPT_N, r=SCRYPT_r, p=SCRYPT_p, buflen=SCRYPT_BUFLEN)
+    dk = scrypt.hash(
+        password.encode(),
+        salt,
+        N=SCRYPT_N,
+        r=SCRYPT_r,
+        p=SCRYPT_p,
+        buflen=SCRYPT_BUFLEN,
+    )
     return f"{SCRYPT_N}:{SCRYPT_r}:{SCRYPT_p}${salt.hex()}${dk.hex()}"
+
 
 def verify_password(password: str, hashed: str) -> bool:
     try:
@@ -104,12 +114,22 @@ def verify_password(password: str, hashed: str) -> bool:
     except Exception:
         return False
 
+
 # ── DB 初期化 ──────────────────────────────
 async def init_db(db_path: Path = DB_PATH) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(db_path) as db:
         await db.executescript(SCHEMA)
+        cur = await db.execute("PRAGMA table_info(files)")
+        cols = {row[1] for row in await cur.fetchall()}
+        if "gdrive_id" not in cols:
+            await db.execute("ALTER TABLE files ADD COLUMN gdrive_id TEXT")
+        cur = await db.execute("PRAGMA table_info(users)")
+        ucols = {row[1] for row in await cur.fetchall()}
+        if "gdrive_token" not in ucols:
+            await db.execute("ALTER TABLE users ADD COLUMN gdrive_token TEXT")
         await db.commit()
+
 
 # ───────────────────────────────────────────
 # Database クラス
@@ -134,8 +154,7 @@ class Database:
         """
         # 1. ハッシュを取得
         row = await self.fetchone(
-            "SELECT pw_hash FROM users WHERE username = ?", 
-            username
+            "SELECT pw_hash FROM users WHERE username = ?", username
         )
         if not row:
             return False
@@ -149,6 +168,20 @@ class Database:
         row = await self.fetchone("SELECT id FROM users WHERE discord_id=?", discord_id)
         return row["id"] if row else None
 
+    async def get_gdrive_token(self, user_id: int) -> Optional[str]:
+        row = await self.fetchone(
+            "SELECT gdrive_token FROM users WHERE id=?",
+            user_id,
+        )
+        return row["gdrive_token"] if row and row["gdrive_token"] else None
+
+    async def set_gdrive_token(self, user_id: int, token: str) -> None:
+        await self.execute(
+            "UPDATE users SET gdrive_token=? WHERE id=?",
+            token,
+            user_id,
+        )
+
     async def set_shared(self, file_id: str, shared: bool):
         """指定ファイルの共有フラグを更新"""
         val = 1 if shared else 0
@@ -156,12 +189,14 @@ class Database:
 
     async def open(self):
         """Bot 常駐用：非コンテキストで接続を確立する"""
-        if self.conn:           # すでに開いていれば何もしない
+        if self.conn:  # すでに開いていれば何もしない
             return
         self.conn = await aiosqlite.connect(self.db_path)
         self.conn.row_factory = aiosqlite.Row
 
-    async def create_user_folder(self, user_id: int, name: str, parent_id: Optional[int] = None) -> int:
+    async def create_user_folder(
+        self, user_id: int, name: str, parent_id: Optional[int] = None
+    ) -> int:
         cur = await self.conn.execute(
             "INSERT INTO user_folders (user_id, name, parent_id) VALUES (?, ?, ?)",
             (user_id, name, parent_id),
@@ -169,33 +204,36 @@ class Database:
         await self.conn.commit()
         return cur.lastrowid
 
-    async def create_shared_folder(self, folder_name: str, channel_id: int, webhook_url: str = "") -> int:
+    async def create_shared_folder(
+        self, folder_name: str, channel_id: int, webhook_url: str = ""
+    ) -> int:
         """
         shared_folders テーブルに name, channel_id, webhook_url を INSERT する。
         """
         cursor = await self.conn.execute(
             "INSERT INTO shared_folders (name, channel_id, webhook_url) VALUES (?, ?, ?)",
-            (folder_name, channel_id, webhook_url)
+            (folder_name, channel_id, webhook_url),
         )
         await self.conn.commit()
         return cursor.lastrowid
 
-
     async def set_folder_channel(self, folder_id: int, channel_id: int) -> None:
         await self.conn.execute(
             "UPDATE shared_folders SET channel_id = ? WHERE id = ?",
-            (channel_id, folder_id)
+            (channel_id, folder_id),
         )
         await self.conn.commit()
 
     async def set_folder_webhook(self, folder_id: int, webhook_url: str) -> None:
         await self.conn.execute(
             "UPDATE shared_folders SET webhook_url = ? WHERE id = ?",
-            (webhook_url, folder_id)
+            (webhook_url, folder_id),
         )
         await self.conn.commit()
 
-    async def add_shared_folder_member(self, folder_id: int, discord_user_id: int) -> None:
+    async def add_shared_folder_member(
+        self, folder_id: int, discord_user_id: int
+    ) -> None:
         await self.conn.execute(
             """
             INSERT OR IGNORE INTO shared_folder_members
@@ -229,9 +267,7 @@ class Database:
         await self.conn.commit()  # ← ここでコミット
 
     async def delete_shared_folder_member(
-        self,
-        folder_id: int,
-        discord_user_id: int
+        self, folder_id: int, discord_user_id: int
     ) -> None:
         """
         shared_folder_members テーブルから
@@ -253,21 +289,21 @@ class Database:
         )
         return await cursor.fetchone()
 
-    async def add_shared_file(self, file_id: str, folder_id: int, filename: str, path: str, tags: str = "") -> None:
+    async def add_shared_file(
+        self, file_id: str, folder_id: int, filename: str, path: str, tags: str = ""
+    ) -> None:
         """shared_files テーブルにレコードを追加"""
         await self.conn.execute(
             "INSERT INTO shared_files "
-            "  (id, folder_id, folder, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
-            "VALUES (?, ?, '', ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
+            "  (id, folder_id, file_name, path, size, is_shared, token, uploaded_at, expires_at, tags) "
+            "VALUES (?, ?, ?, ?, ?, 1, NULL, strftime('%s','now'), 0, ?)",
             (file_id, folder_id, filename, path, os.path.getsize(path), tags),
         )
         await self.conn.commit()
 
     async def get_shared_file(self, file_id: str) -> Optional[aiosqlite.Row]:
         """shared_files から単一レコードを取得"""
-        return await self.fetchone(
-            "SELECT * FROM shared_files WHERE id = ?", file_id
-        )
+        return await self.fetchone("SELECT * FROM shared_files WHERE id = ?", file_id)
 
     async def set_shared_file_shared(self, file_id: str, shared: bool):
         """shared_files テーブルの is_shared を更新"""
@@ -275,17 +311,19 @@ class Database:
         await self.execute(
             "UPDATE shared_files SET is_shared = ?, share_token = ? WHERE id = ?",
             val,
-            shared and None or None,  # share_token は HMAC で都度生成する場合は NULL、DBに保持しない
-            file_id
+            shared
+            and None
+            or None,  # share_token は HMAC で都度生成する場合は NULL、DBに保持しない
+            file_id,
         )
 
     # --- context manager ---
-    async def __aenter__(self):          # type: ignore[override]
+    async def __aenter__(self):  # type: ignore[override]
         self.conn = await aiosqlite.connect(self.db_path)
         self.conn.row_factory = aiosqlite.Row
         return self
 
-    async def __aexit__(self, *_):       # type: ignore[override]
+    async def __aexit__(self, *_):  # type: ignore[override]
         await self.conn.close()
 
     async def commit(self):
@@ -316,7 +354,10 @@ class Database:
     async def add_user(self, discord_id: int, username: str, password: str):
         await self.execute(
             "INSERT OR REPLACE INTO users(discord_id, username, pw_hash, created_at) VALUES (?,?,?,?)",
-            discord_id, username, scrypt_hash(password), dt.datetime.utcnow().isoformat()
+            discord_id,
+            username,
+            scrypt_hash(password),
+            dt.datetime.utcnow().isoformat(),
         )
 
     async def user_exists(self, discord_id: int) -> bool:
@@ -366,11 +407,12 @@ class Database:
         await self.execute("DELETE FROM files WHERE folder=?", str(folder_id))
         await self.execute("DELETE FROM user_folders WHERE id=?", folder_id)
 
-    async def delete_all_subfolders(self, user_id: int, parent_id: Optional[int] = None) -> None:
+    async def delete_all_subfolders(
+        self, user_id: int, parent_id: Optional[int] = None
+    ) -> None:
         rows = await self.list_user_folders(user_id, parent_id)
         for r in rows:
             await self.delete_user_folder(r["id"])
-
 
     # ファイル
     async def add_file(
@@ -383,15 +425,25 @@ class Database:
         size: int,
         sha256: str,
         tags: str = "",
+        gdrive_id: str | None = None,
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, folder, path, original_name, size, sha256, uploaded_at, expires_at, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?)""",
-            (file_id, user_id, folder, path, original_name, size, sha256, tags),
+            (id, user_id, folder, path, original_name, size, sha256, uploaded_at, expires_at, tags, gdrive_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?, ?)""",
+            (
+                file_id,
+                user_id,
+                folder,
+                path,
+                original_name,
+                size,
+                sha256,
+                tags,
+                gdrive_id,
+            ),
         )
         await self.conn.commit()
-
 
     async def list_files(self, user_id: int, folder: str = ""):
         return await self.fetchall(
@@ -399,7 +451,8 @@ class Database:
             "FROM   files "
             "WHERE  user_id=? AND folder=? "
             "ORDER  BY uploaded_at DESC",
-            user_id, folder
+            user_id,
+            folder,
         )
 
     async def get_file(self, file_id: str):
@@ -409,10 +462,7 @@ class Database:
         await self.execute("DELETE FROM files WHERE id=?", file_id)
 
     async def delete_all_files(self, user_id: int):
-        rows = await self.fetchall(
-            "SELECT path FROM files WHERE user_id=?",
-            user_id
-        )
+        rows = await self.fetchall("SELECT path FROM files WHERE user_id=?", user_id)
         for r in rows:
             try:
                 Path(r["path"]).unlink(missing_ok=True)
@@ -430,14 +480,17 @@ class Database:
         like = f"%{term}%"
         return await self.fetchall(
             "SELECT * FROM files WHERE user_id=? AND folder=? AND tags LIKE ?",
-            user_id, folder, like,
+            user_id,
+            folder,
+            like,
         )
 
     async def search_shared_files(self, folder_id: int, term: str):
         like = f"%{term}%"
         return await self.fetchall(
             "SELECT * FROM shared_files WHERE folder_id=? AND tags LIKE ?",
-            folder_id, like,
+            folder_id,
+            like,
         )
 
     async def delete_all_shared_files(self, folder_id: int):
@@ -452,7 +505,9 @@ class Database:
                 pass
         await self.execute("DELETE FROM shared_files WHERE folder_id=?", folder_id)
 
-    async def get_last_send(self, sender: int, target: int, file_id: str) -> Optional[int]:
+    async def get_last_send(
+        self, sender: int, target: int, file_id: str
+    ) -> Optional[int]:
         row = await self.fetchone(
             "SELECT sent_at FROM send_logs WHERE sender_discord_id=? AND target_discord_id=? AND file_id=?",
             sender,
@@ -473,11 +528,13 @@ class Database:
         )
         await self.conn.commit()
 
+
 # ───────────────────────────────────────────
 # CLI
 # ───────────────────────────────────────────
 def _cli():
     import argparse, textwrap, sys
+
     parser = argparse.ArgumentParser(
         description="DB maintenance helper",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -506,9 +563,11 @@ def _cli():
             print("✔ user added:", args.username)
             print("  password:", pw)
         else:
-            parser.print_help(); sys.exit(1)
+            parser.print_help()
+            sys.exit(1)
 
     asyncio.run(run())
+
 
 if __name__ == "__main__":
     _cli()
