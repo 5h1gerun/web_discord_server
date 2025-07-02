@@ -25,7 +25,7 @@ def build_flow(redirect_uri: str) -> Flow:
 def _service_from_token(token_json: str):
     info = json.loads(token_json)
     if "refresh_token" not in info:
-        raise ValueError("no refresh token; reauthorize via /gdrive_auth")
+        raise ValueError("リフレッシュトークンがありません。/gdrive_auth で再認証してください")
     creds = Credentials.from_authorized_user_info(info, _SCOPES)
     if not creds.valid:
         creds.refresh(Request())

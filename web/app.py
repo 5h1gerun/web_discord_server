@@ -1396,6 +1396,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if new_token != token_json:
                 await app["db"].set_gdrive_token(user_id, new_token)
             return web.json_response({"success": True, "files": items})
+        except ValueError as e:
+            # トークンに refresh_token が無いなどのケース
+            return web.json_response({"success": False, "error": str(e)}, status=400)
         except Exception as e:
             log.exception("Google Drive list failed")
             return web.json_response(
