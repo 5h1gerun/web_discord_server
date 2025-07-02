@@ -53,8 +53,8 @@ python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decod
 ## Google Drive 連携
 `GDRIVE_CREDENTIALS` を設定すると、アップロードされたファイルは Google Drive にもコピーされます。
 さらに `/import_gdrive` エンドポイントへ Drive のファイル ID を送信することで、Drive 上のファイルをローカルへ取り込めます。
-`/gdrive_import` ページではブラウザからファイルIDまたは共有リンクを入力して取り込む簡易フォームを利用できます。
-各ユーザーは初回利用時に `/gdrive_auth` を開き、Google アカウントのアクセスを許可してください。
+`/gdrive_import` ページでは自身の Drive 上の最近のファイル一覧が表示され、ボタン一つで取り込みできます。入力フォームから直接ファイルIDや共有リンクを指定することも可能です。
+ページ下部には個人フォルダへ戻るリンクも用意しています。初回利用時は `/gdrive_auth` を開き、Google アカウントのアクセスを許可してください。
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。

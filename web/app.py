@@ -1358,6 +1358,40 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             asyncio.create_task(_generate_hls(path, fid))
         return web.json_response({"success": True, "file_id": fid})
 
+    async def gdrive_files(req: web.Request):
+        """Return a list of user's Drive files."""
+        discord_id = req.get("user_id")
+        if not discord_id:
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
+        if not GDRIVE_CREDENTIALS:
+            return web.json_response(
+                {"success": False, "error": "gdrive disabled"}, status=400
+            )
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
+        token_json = await app["db"].get_gdrive_token(user_id)
+        if not token_json:
+            return web.json_response(
+                {"success": False, "error": "no token"}, status=400
+            )
+        try:
+            from integrations.google_drive_client import list_files
+
+            items, new_token = await asyncio.to_thread(list_files, token_json)
+            if new_token != token_json:
+                await app["db"].set_gdrive_token(user_id, new_token)
+            return web.json_response({"success": True, "files": items})
+        except Exception as e:
+            log.warning("Google Drive list failed: %s", e)
+            return web.json_response(
+                {"success": False, "error": "list failed"}, status=500
+            )
+
     async def toggle_shared(request: web.Request):
         discord_id = request.get("user_id")
         if not discord_id:
@@ -2204,6 +2238,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/gdrive_auth", gdrive_auth)
     app.router.add_get("/gdrive_callback", gdrive_callback)
+    app.router.add_get("/gdrive_files", gdrive_files)
     app.router.add_get("/users", user_list)
     app.router.add_get("/", index)
     app.router.add_get("/offline", offline_page)

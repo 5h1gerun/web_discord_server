@@ -2,7 +2,7 @@ import os
 import io
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple, Dict
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -58,3 +58,16 @@ def get_file_name(file_id: str, token_json: str) -> Tuple[str, str]:
     service, token_json = _service_from_token(token_json)
     meta = service.files().get(fileId=file_id, fields="name").execute()
     return meta.get("name", file_id), token_json
+
+
+def list_files(
+    token_json: str, page_size: int = 20
+) -> Tuple[List[Dict[str, str]], str]:
+    """Return a list of recent files on Drive."""
+    service, token_json = _service_from_token(token_json)
+    res = (
+        service.files()
+        .list(pageSize=page_size, fields="files(id,name,mimeType)")
+        .execute()
+    )
+    return res.get("files", []), token_json
