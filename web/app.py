@@ -910,6 +910,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             access_type="offline", include_granted_scopes="true"
         )
         app["gdrive_flows"][state] = flow
+        sess = await aiohttp_session.get_session(req)
+        sess["gdrive_state"] = state
         raise web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
@@ -918,6 +920,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not discord_id:
             raise web.HTTPFound("/login")
         state = req.query.get("state")
+        sess_state = sess.pop("gdrive_state", None)
+        if not state or sess_state != state:
+            return web.Response(text="invalid state", status=400)
         flow = app["gdrive_flows"].pop(state, None)
         if not flow:
             return web.Response(text="invalid state", status=400)
@@ -1390,9 +1395,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 await app["db"].set_gdrive_token(user_id, new_token)
             return web.json_response({"success": True, "files": items})
         except Exception as e:
-            log.warning("Google Drive list failed: %s", e)
+            log.exception("Google Drive list failed")
             return web.json_response(
-                {"success": False, "error": "list failed"}, status=500
+                {"success": False, "error": str(e)}, status=500
             )
 
     async def toggle_shared(request: web.Request):
