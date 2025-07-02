@@ -113,7 +113,12 @@
           if (Notification.permission === 'granted') {
             const sub = await reg.pushManager.getSubscription();
             if (!sub) {
-              try { await reg.pushManager.subscribe({ userVisibleOnly: true }); } catch (e) { console.error('push subscribe failed', e); }
+              try {
+                await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: '<Base64urlエンコードした公開鍵>'
+                });
+              } catch (e) { console.error('push subscribe failed', e); }
             }
           }
         }
