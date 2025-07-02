@@ -865,7 +865,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         state = secrets.token_urlsafe(16)
-        sess = await aiohttp_session.get_session(req)
+        # 新しいセッションを開始し、以前の tmp_user_id を残さない
+        sess = await new_session(req)
         sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
