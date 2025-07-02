@@ -886,6 +886,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         session.invalidate()
         raise web.HTTPFound("/login")
 
+    async def gdrive_form(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        token = await issue_csrf(req)
+        return _render(
+            req,
+            "gdrive_import.html",
+            {"csrf_token": token, "static_version": int(time.time()), "request": req},
+        )
+
     async def index(req):
         discord_id = req.get("user_id")
         if not discord_id:
@@ -964,6 +975,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "folder_id": folder,
                 "subfolders": subfolders,
                 "breadcrumbs": breadcrumbs,
+                "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
                 "static_version": int(time.time()),
                 "request": req,
             },
@@ -2099,6 +2111,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
     app.router.add_get("/logout", logout)
+    app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/users", user_list)
     app.router.add_get("/", index)
     app.router.add_get("/offline", offline_page)

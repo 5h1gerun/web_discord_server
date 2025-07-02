@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Google Drive 取り込み{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="card mx-auto" style="max-width:480px;">
+    <div class="card-header bg-primary text-white">Google Drive 取り込み</div>
+    <div class="card-body">
+      <form id="gdriveForm">
+        <div class="mb-3">
+          <label class="form-label">ファイルID</label>
+          <input type="text" class="form-control" name="file_id" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">保存ファイル名(任意)</label>
+          <input type="text" class="form-control" name="filename">
+        </div>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-success w-100">取り込み</button>
+      </form>
+      <div id="gdriveResult" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/gdrive_import.js?v={{ static_version }}"></script>
+{% endblock %}

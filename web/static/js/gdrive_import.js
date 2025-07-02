@@ -1,0 +1,29 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('gdriveForm');
+  const result = document.getElementById('gdriveResult');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!result) return;
+    result.textContent = '';
+    const fileId = form.file_id.value.trim();
+    const filename = form.filename.value.trim();
+    if (!fileId) return;
+    try {
+      const res = await fetch('/import_gdrive', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken(),
+        },
+        body: JSON.stringify({ file_id: fileId, filename }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'error');
+      result.innerHTML = `<div class="alert alert-success">取り込み完了 (ID: ${data.file_id})</div>`;
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-danger">失敗: ${err.message}</div>`;
+    }
+  });
+});
