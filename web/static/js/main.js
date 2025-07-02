@@ -132,15 +132,9 @@ async function reloadFileList() {
   if (q) filterTable(q);
   // 再描画後に期限カウントダウン再起動
   startExpirationCountdowns();
-  // 再描画後に共有トグルのイベントを再設定
-  document.querySelectorAll('.shared-toggle').forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const fileId    = toggle.dataset.fileId;
-      const sel       = document.querySelector(`.expiration-select[data-file-id="${fileId}"]`);
-      const expiration = sel ? parseInt(sel.value, 10) : 0;
-      handleToggle(toggle, expiration);
-    });
-  });
+  // 残り期限のカウントダウンを再起動
+  // 共有トグルのクリックはイベントデリゲーションで処理するため
+  // ここでは個別のイベント登録を行わない
 }
 
 async function loadUserList() {
@@ -290,15 +284,8 @@ function startExpirationCountdowns() {
 
 window.addEventListener("DOMContentLoaded", startExpirationCountdowns);
 
-// 共有トグルはそれぞれクリック時に
-document.querySelectorAll('.shared-toggle').forEach(toggle => {
-  toggle.addEventListener('click', () => {
-    const fileId    = toggle.dataset.fileId;
-    const sel       = document.querySelector(`.expiration-select[data-file-id="${fileId}"]`);
-    const expiration = sel ? parseInt(sel.value, 10) : 0;
-    handleToggle(toggle, expiration);
-  });
-});
+// 共有トグルのクリック処理はイベントデリゲーションで行うため
+// ここでは個別のイベント登録を行わない
 
 // ―― 共有トグル処理 ――
 async function handleToggle(toggle, expiration) {
@@ -539,13 +526,22 @@ document.addEventListener("DOMContentLoaded", rebindDynamicHandlers);
 window.addEventListener("pageshow", rebindDynamicHandlers);
 
 
-  document.addEventListener("click", async (e) => {
+document.addEventListener("click", async (e) => {
   const sendBtn = e.target.closest(".send-btn");
   if (sendBtn) {
     const fid = sendBtn.dataset.fileId;
     document.getElementById('sendFileId').value = fid;
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('sendModal'));
     modal.show();
+    return;
+  }
+
+  const toggle = e.target.closest('.shared-toggle');
+  if (toggle) {
+    const fid = toggle.dataset.fileId;
+    const sel = document.querySelector(`.expiration-select[data-file-id="${fid}"]`);
+    const exp = sel ? parseInt(sel.value, 10) : 0;
+    await handleToggle(toggle, exp);
     return;
   }
 
