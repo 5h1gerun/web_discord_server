@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         list.appendChild(div);
       });
     } catch (err) {
-      list.textContent = '一覧取得に失敗しました';
+      list.textContent = `一覧取得に失敗しました: ${err.message}`;
     }
   }
 
