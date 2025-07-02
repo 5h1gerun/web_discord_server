@@ -54,9 +54,20 @@ def upload_file(local_path: Path, filename: str, token_json: str) -> Tuple[str, 
     return file.get("id"), token_json
 
 
-def download_file(file_id: str, token_json: str) -> Tuple[bytes, str]:
+def download_file(
+    file_id: str,
+    token_json: str,
+    acknowledge_abuse: bool = False,
+) -> Tuple[bytes, str]:
+    """Download file bytes.
+
+    acknowledge_abuse=True を指定すると、Google により危険と判定された
+    ファイルでもダウンロードを試みます。
+    """
     service, token_json = _service_from_token(token_json)
-    request = service.files().get_media(fileId=file_id)
+    request = service.files().get_media(
+        fileId=file_id, acknowledgeAbuse=acknowledge_abuse
+    )
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
     done = False

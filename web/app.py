@@ -1272,7 +1272,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     {"success": False, "error": "no token"}, status=400
                 )
             file_bytes, new_token = await asyncio.to_thread(
-                download_file, file_id, token_json
+                download_file,
+                file_id,
+                token_json,
+                True,
             )
             filename, new_token = await asyncio.to_thread(
                 get_file_name, file_id, new_token
@@ -1514,7 +1517,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 token_json = await db.get_gdrive_token(user_id) if user_id else None
                 if token_json:
                     data, new_token = await asyncio.to_thread(
-                        gd_dl, rec["gdrive_id"], token_json
+                        gd_dl,
+                        rec["gdrive_id"],
+                        token_json,
+                        True,
                     )
                     if new_token != token_json:
                         await db.set_gdrive_token(user_id, new_token)
