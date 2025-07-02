@@ -774,6 +774,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # database setup
     db = Database(DB_PATH)
     app["db"] = db
+    app["gdrive_flows"] = {}
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -890,10 +891,48 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         session.invalidate()
         raise web.HTTPFound("/login")
 
+    async def gdrive_auth(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id or not GDRIVE_CREDENTIALS:
+            raise web.HTTPFound("/login")
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPFound("/login")
+        redirect_uri = f"{req.scheme}://{req.host}/gdrive_callback"
+        from integrations.google_drive_client import build_flow
+
+        flow = build_flow(redirect_uri)
+        auth_url, state = flow.authorization_url(
+            access_type="offline", include_granted_scopes="true"
+        )
+        app["gdrive_flows"][state] = flow
+        raise web.HTTPFound(auth_url)
+
+    async def gdrive_callback(req: web.Request):
+        sess = await aiohttp_session.get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        state = req.query.get("state")
+        flow = app["gdrive_flows"].pop(state, None)
+        if not flow:
+            return web.Response(text="invalid state", status=400)
+        flow.fetch_token(code=req.query.get("code"))
+        creds = flow.credentials
+        user_id = await app["db"].get_user_pk(discord_id)
+        if user_id:
+            await app["db"].set_gdrive_token(user_id, creds.to_json())
+        raise web.HTTPFound("/gdrive_import")
+
     async def gdrive_form(req: web.Request):
         discord_id = req.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPFound("/login")
+        if not await app["db"].get_gdrive_token(user_id):
+            raise web.HTTPFound("/gdrive_auth")
         token = await issue_csrf(req)
         return _render(
             req,
@@ -980,6 +1019,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "subfolders": subfolders,
                 "breadcrumbs": breadcrumbs,
                 "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
+                "gdrive_authorized": (
+                    bool(await app["db"].get_gdrive_token(user_id))
+                    if GDRIVE_CREDENTIALS
+                    else False
+                ),
                 "static_version": int(time.time()),
                 "request": req,
             },
@@ -1048,6 +1092,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "files": files,
                 "csrf_token": token,
                 "username": username,
+                "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
+                "gdrive_authorized": (
+                    bool(await app["db"].get_gdrive_token(user_id))
+                    if GDRIVE_CREDENTIALS
+                    else False
+                ),
                 "static_version": int(time.time()),
                 "request": req,
             },
@@ -1149,7 +1199,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 try:
                     from integrations.google_drive_client import upload_file as gd_up
 
-                    gdrive_id = await asyncio.to_thread(gd_up, path, filefield.filename)
+                    token_json = await app["db"].get_gdrive_token(user_id)
+                    if token_json:
+                        gdrive_id, new_token = await asyncio.to_thread(
+                            gd_up, path, filefield.filename, token_json
+                        )
+                        if new_token != token_json:
+                            await app["db"].set_gdrive_token(user_id, new_token)
                 except Exception as e:
                     log.warning("Google Drive upload failed: %s", e)
             # DB 登録（タグを即時保存）
@@ -1199,10 +1255,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         try:
             from integrations.google_drive_client import download_file, get_file_name
 
-            file_bytes = await asyncio.to_thread(download_file, file_id)
-            filename = data.get("filename") or await asyncio.to_thread(
-                get_file_name, file_id
+            token_json = await app["db"].get_gdrive_token(user_id)
+            if not token_json:
+                return web.json_response(
+                    {"success": False, "error": "no token"}, status=400
+                )
+            file_bytes, new_token = await asyncio.to_thread(
+                download_file, file_id, token_json
             )
+            filename, new_token = await asyncio.to_thread(
+                get_file_name, file_id, new_token
+            )
+            if new_token != token_json:
+                await app["db"].set_gdrive_token(user_id, new_token)
+            filename = data.get("filename") or filename
         except Exception as e:
             log.warning("Google Drive fetch failed: %s", e)
             return web.json_response(
@@ -1392,8 +1458,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             try:
                 from integrations.google_drive_client import download_file as gd_dl
 
-                data = await asyncio.to_thread(gd_dl, rec["gdrive_id"])
-                return web.Response(body=data, headers=headers)
+                user_id = await db.get_user_pk(req.get("user_id"))
+                token_json = await db.get_gdrive_token(user_id) if user_id else None
+                if token_json:
+                    data, new_token = await asyncio.to_thread(
+                        gd_dl, rec["gdrive_id"], token_json
+                    )
+                    if new_token != token_json:
+                        await db.set_gdrive_token(user_id, new_token)
+                    return web.Response(body=data, headers=headers)
             except Exception as e:
                 log.warning("Google Drive download failed: %s", e)
         return web.FileResponse(path, headers=headers)
@@ -1440,9 +1513,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 try:
                     from integrations.google_drive_client import upload_file as gd_up
 
-                    gdrive_id = await asyncio.to_thread(
-                        gd_up, target_path, field.filename
-                    )
+                    token_json = await req.app["db"].get_gdrive_token(user_id)
+                    if token_json:
+                        gdrive_id, new_token = await asyncio.to_thread(
+                            gd_up, target_path, field.filename, token_json
+                        )
+                        if new_token != token_json:
+                            await req.app["db"].set_gdrive_token(user_id, new_token)
                 except Exception as e:
                     log.warning("Google Drive upload failed: %s", e)
             await req.app["db"].add_file(
@@ -2124,6 +2201,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/login", login_post)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
+    app.router.add_get("/gdrive_auth", gdrive_auth)
+    app.router.add_get("/gdrive_callback", gdrive_callback)
     app.router.add_get("/users", user_list)
     app.router.add_get("/", index)
     app.router.add_get("/offline", offline_page)

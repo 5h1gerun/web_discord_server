@@ -1,42 +1,38 @@
 import os
 import io
+import json
 from pathlib import Path
-from typing import Optional
+from typing import Tuple
 
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from google.auth.transport.requests import Request
 
 _SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 _CRED_PATH = os.getenv("GDRIVE_CREDENTIALS")
-_TOKEN_PATH = os.getenv("GDRIVE_TOKEN", "token.json")
-_service = None
 
 
-def get_service():
-    global _service
-    if _service is not None:
-        return _service
+def build_flow(redirect_uri: str) -> Flow:
     if not _CRED_PATH:
-        return None
-    creds: Optional[Credentials] = None
-    if os.path.exists(_TOKEN_PATH):
-        creds = Credentials.from_authorized_user_file(_TOKEN_PATH, _SCOPES)
-    if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(_CRED_PATH, _SCOPES)
-        # 非GUI環境ではブラウザ起動が失敗するため open_browser=False を指定
-        creds = flow.run_local_server(port=0, open_browser=False)
-        with open(_TOKEN_PATH, "w") as token:
-            token.write(creds.to_json())
-    _service = build("drive", "v3", credentials=creds)
-    return _service
-
-
-def upload_file(local_path: Path, filename: str) -> str:
-    service = get_service()
-    if service is None:
         raise RuntimeError("GDRIVE_CREDENTIALS is not set")
+    return Flow.from_client_secrets_file(
+        _CRED_PATH, scopes=_SCOPES, redirect_uri=redirect_uri
+    )
+
+
+def _service_from_token(token_json: str):
+    info = json.loads(token_json)
+    creds = Credentials.from_authorized_user_info(info, _SCOPES)
+    if not creds.valid:
+        creds.refresh(Request())
+    service = build("drive", "v3", credentials=creds)
+    return service, creds.to_json()
+
+
+def upload_file(local_path: Path, filename: str, token_json: str) -> Tuple[str, str]:
+    service, token_json = _service_from_token(token_json)
     file_metadata = {"name": filename}
     media = MediaFileUpload(local_path)
     file = (
@@ -44,25 +40,21 @@ def upload_file(local_path: Path, filename: str) -> str:
         .create(body=file_metadata, media_body=media, fields="id")
         .execute()
     )
-    return file.get("id")
+    return file.get("id"), token_json
 
 
-def download_file(file_id: str) -> bytes:
-    service = get_service()
-    if service is None:
-        raise RuntimeError("GDRIVE_CREDENTIALS is not set")
+def download_file(file_id: str, token_json: str) -> Tuple[bytes, str]:
+    service, token_json = _service_from_token(token_json)
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
     done = False
     while not done:
         _, done = downloader.next_chunk()
-    return fh.getvalue()
+    return fh.getvalue(), token_json
 
 
-def get_file_name(file_id: str) -> str:
-    service = get_service()
-    if service is None:
-        raise RuntimeError("GDRIVE_CREDENTIALS is not set")
+def get_file_name(file_id: str, token_json: str) -> Tuple[str, str]:
+    service, token_json = _service_from_token(token_json)
     meta = service.files().get(fileId=file_id, fields="name").execute()
-    return meta.get("name", file_id)
+    return meta.get("name", file_id), token_json

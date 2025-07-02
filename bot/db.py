@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     discord_id  INTEGER UNIQUE,
     username    TEXT    UNIQUE NOT NULL,
     pw_hash     TEXT    NOT NULL,
-    created_at  TEXT    NOT NULL
+    created_at  TEXT    NOT NULL,
+    gdrive_token TEXT
 );
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +124,10 @@ async def init_db(db_path: Path = DB_PATH) -> None:
         cols = {row[1] for row in await cur.fetchall()}
         if "gdrive_id" not in cols:
             await db.execute("ALTER TABLE files ADD COLUMN gdrive_id TEXT")
+        cur = await db.execute("PRAGMA table_info(users)")
+        ucols = {row[1] for row in await cur.fetchall()}
+        if "gdrive_token" not in ucols:
+            await db.execute("ALTER TABLE users ADD COLUMN gdrive_token TEXT")
         await db.commit()
 
 
@@ -162,6 +167,20 @@ class Database:
         """Discord ユーザID から users.id（PK）を返す"""
         row = await self.fetchone("SELECT id FROM users WHERE discord_id=?", discord_id)
         return row["id"] if row else None
+
+    async def get_gdrive_token(self, user_id: int) -> Optional[str]:
+        row = await self.fetchone(
+            "SELECT gdrive_token FROM users WHERE id=?",
+            user_id,
+        )
+        return row["gdrive_token"] if row and row["gdrive_token"] else None
+
+    async def set_gdrive_token(self, user_id: int, token: str) -> None:
+        await self.execute(
+            "UPDATE users SET gdrive_token=? WHERE id=?",
+            token,
+            user_id,
+        )
 
     async def set_shared(self, file_id: str, shared: bool):
         """指定ファイルの共有フラグを更新"""
