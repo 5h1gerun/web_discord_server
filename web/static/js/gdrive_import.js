@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('driveFileList');
   const refreshBtn = document.getElementById('refreshFiles');
   const searchInput = document.getElementById('searchQuery');
-  const searchBtn = document.getElementById('searchFiles');
   if (!form) return;
 
   function extractFileId(value) {
@@ -78,18 +77,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (refreshBtn) refreshBtn.addEventListener('click', () => loadFiles());
-  if (searchBtn) {
-    searchBtn.addEventListener('click', () => {
-      const q = searchInput.value.trim();
-      loadFiles(q);
-    });
-  }
   if (searchInput) {
+    let timer;
+    const triggerSearch = () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => loadFiles(searchInput.value.trim()),
+        500
+      );
+    };
+    searchInput.addEventListener('input', triggerSearch);
     searchInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        loadFiles(searchInput.value.trim());
-      }
+      if (e.key === 'Enter') e.preventDefault();
     });
   }
   loadFiles();
