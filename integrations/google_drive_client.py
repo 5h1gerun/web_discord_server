@@ -25,7 +25,8 @@ def get_service():
         creds = Credentials.from_authorized_user_file(_TOKEN_PATH, _SCOPES)
     if not creds or not creds.valid:
         flow = InstalledAppFlow.from_client_secrets_file(_CRED_PATH, _SCOPES)
-        creds = flow.run_local_server(port=0)
+        # 非GUI環境ではブラウザ起動が失敗するため open_browser=False を指定
+        creds = flow.run_local_server(port=0, open_browser=False)
         with open(_TOKEN_PATH, "w") as token:
             token.write(creds.to_json())
     _service = build("drive", "v3", credentials=creds)
