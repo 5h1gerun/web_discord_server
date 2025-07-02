@@ -315,7 +315,7 @@ CSP_POLICY = (
 @web.middleware
 async def csp_mw(request: web.Request, handler):
     resp = await handler(request)
-    resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
+    resp.headers["Content-Security-Policy"] = CSP_POLICY
     return resp
 
 
