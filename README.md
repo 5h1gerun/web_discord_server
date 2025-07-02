@@ -42,8 +42,10 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
 | `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
 | `VAPID_PUBLIC_KEY` | Push API 用の VAPID 公開鍵 (Base64url) |
+| `DISCORD_CLIENT_ID` | Discord OAuth2 のクライアント ID |
+| `DISCORD_CLIENT_SECRET` | Discord OAuth2 のクライアントシークレット |
 
-`PUBLIC_DOMAIN` は Google OAuth のリダイレクト先にも利用されます。Google Cloud Console に登録するリダイレクト URI は `https://<PUBLIC_DOMAIN>/gdrive_callback` としてください。
+`PUBLIC_DOMAIN` は Google OAuth のリダイレクト先だけでなく、Discord OAuth にも使用されます。Google Cloud Console には `https://<PUBLIC_DOMAIN>/gdrive_callback`、Discord には `https://<PUBLIC_DOMAIN>/discord_callback` を登録してください。
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
