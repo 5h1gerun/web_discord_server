@@ -41,9 +41,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then(res => res || fetch(request))
-  );
+  // それ以外の API や部分 HTML などは新しい内容を優先
+  event.respondWith(networkFirst(request));
 });
 
 async function handleNavigate(request) {
@@ -66,6 +65,17 @@ async function staleWhileRevalidate(request) {
     return res;
   }).catch(() => cached);
   return cached || fetchPromise;
+}
+
+async function networkFirst(request) {
+  try {
+    const res = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, res.clone());
+    return res;
+  } catch (_) {
+    return caches.match(request);
+  }
 }
 
 self.addEventListener('push', event => {
