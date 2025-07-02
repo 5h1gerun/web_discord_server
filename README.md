@@ -42,6 +42,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
 | `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
 
+`PUBLIC_DOMAIN` は Google OAuth のリダイレクト先にも利用されます。Google Cloud Console に登録するリダイレクト URI は `https://<PUBLIC_DOMAIN>/gdrive_callback` としてください。
+
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"

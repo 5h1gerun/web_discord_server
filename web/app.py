@@ -898,7 +898,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         user_id = await app["db"].get_user_pk(discord_id)
         if not user_id:
             raise web.HTTPFound("/login")
-        redirect_uri = f"{req.scheme}://{req.host}/gdrive_callback"
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        redirect_uri = f"https://{public_domain}/gdrive_callback"
         from integrations.google_drive_client import build_flow
 
         flow = build_flow(redirect_uri)
