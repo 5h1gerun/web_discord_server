@@ -907,7 +907,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         flow = build_flow(redirect_uri)
         auth_url, state = flow.authorization_url(
-            access_type="offline", include_granted_scopes="true"
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
         )
         app["gdrive_flows"][state] = flow
         sess = await aiohttp_session.get_session(req)
