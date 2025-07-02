@@ -1175,11 +1175,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 {"success": False, "error": "gdrive disabled"}, status=400
             )
         data = await req.json()
-        file_id = data.get("file_id")
-        if not file_id:
+        raw_id = data.get("file_id")
+        if not raw_id:
             return web.json_response(
                 {"success": False, "error": "missing file_id"}, status=400
             )
+        import re
+
+        m = re.search(r"[-\w]{25,}", raw_id)
+        file_id = m.group(0) if m else raw_id
         user_id = await app["db"].get_user_pk(discord_id)
         if not user_id:
             raise web.HTTPForbidden()

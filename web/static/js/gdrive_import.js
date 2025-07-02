@@ -2,11 +2,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('gdriveForm');
   const result = document.getElementById('gdriveResult');
   if (!form) return;
+  function extractFileId(value) {
+    const m = value.match(/[-\w]{25,}/);
+    return m ? m[0] : value;
+  }
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (!result) return;
     result.textContent = '';
-    const fileId = form.file_id.value.trim();
+    const fileId = extractFileId(form.file_id.value.trim());
     const filename = form.filename.value.trim();
     if (!fileId) return;
     try {
