@@ -916,7 +916,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         discord_id = int(udata["id"])
         row = await db.fetchone(
-            "SELECT totp_enabled FROM users WHERE discord_id=?",
+            "SELECT discord_id FROM users WHERE discord_id=?",
             discord_id,
         )
         if not row:
@@ -930,10 +930,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 },
             )
 
-        if row["totp_enabled"]:
-            sess["tmp_user_id"] = discord_id
-            raise web.HTTPFound("/totp")
-
+        # OAuth 経由のログインでは二要素認証を要求しない
         sess["user_id"] = discord_id
         raise web.HTTPFound("/")
 
