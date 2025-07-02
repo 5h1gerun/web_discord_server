@@ -41,6 +41,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
 | `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
 | `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
+| `VAPID_PUBLIC_KEY` | Push API 用の VAPID 公開鍵 (Base64url) |
 
 `PUBLIC_DOMAIN` は Google OAuth のリダイレクト先にも利用されます。Google Cloud Console に登録するリダイレクト URI は `https://<PUBLIC_DOMAIN>/gdrive_callback` としてください。
 

@@ -70,6 +70,7 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
 )
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
 GDRIVE_CREDENTIALS = os.getenv("GDRIVE_CREDENTIALS")
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "").strip()
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -487,6 +488,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     env.globals["csrf_token"] = _csrf_token
     env.globals["get_flashed_messages"] = lambda: []
+    env.globals["vapid_public_key"] = VAPID_PUBLIC_KEY
     app[static_root_key] = "/static/"
 
     # ─────────────── otpauth リダイレクト ───────────────
