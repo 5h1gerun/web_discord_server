@@ -39,12 +39,23 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
+| `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
+| `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
+| `VAPID_PUBLIC_KEY` | Push API 用の VAPID 公開鍵 (Base64url) |
+
+`PUBLIC_DOMAIN` は Google OAuth のリダイレクト先にも利用されます。Google Cloud Console に登録するリダイレクト URI は `https://<PUBLIC_DOMAIN>/gdrive_callback` としてください。
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 ```
 `pdf2image` を利用するため、システムに `poppler` がインストールされている必要があります。
+
+## Google Drive 連携
+`GDRIVE_CREDENTIALS` を設定すると、アップロードされたファイルは Google Drive にもコピーされます。
+さらに `/import_gdrive` エンドポイントへ Drive のファイル ID を送信することで、Drive 上のファイルをローカルへ取り込めます。
+`/gdrive_import` ページでは自身の Drive 上の最近のファイル一覧が表示され、ボタン一つで取り込みできます。入力フォームから直接ファイルIDや共有リンクを指定することも可能です。
+ページ下部には個人フォルダへ戻るリンクも用意しています。初回利用時は `/gdrive_auth` を開き、Google アカウントのアクセスを許可してください。
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
@@ -91,7 +102,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 - `POST` 系リクエストでは CSRF トークンを検証します。
 - ダウンロードリンクには HMAC 署名付きトークンを採用し、有効期限を設定できます。
 - `AsyncLimiter` によるレートリミットで DoS やブルートフォース攻撃を抑制します。
-- 全ページのレスポンスに Content-Security-Policy ヘッダーを設定し、外部 CDN と自サイトからのリソースのみを許可しています。
+- 全ページのレスポンスに Content-Security-Policy ヘッダーを設定し、外部 CDN からの `connect` アクセスも許可しています。
 
 ## その他ドキュメント
 サブディレクトリにも詳細な説明があります。

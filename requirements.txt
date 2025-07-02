@@ -15,3 +15,6 @@ google-generativeai
 python-docx
 python-pptx
 openpyxl
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib

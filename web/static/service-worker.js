@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wds-cache-v2';
+const CACHE_NAME = 'wds-cache-v3';
 const OFFLINE_PAGE = '/offline';
 const OFFLINE_URLS = [
   '/',
@@ -8,7 +8,7 @@ const OFFLINE_URLS = [
   '/static/css/style-mobile-friendly.css',
   '/static/css/style-phone.css',
   '/static/js/main.js',
-  '/favicon.png'
+  '/static/favicon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -76,7 +76,7 @@ self.addEventListener('push', event => {
   const title = data.title || '通知';
   const options = {
     body: data.body,
-    icon: '/favicon.png',
+    icon: '/static/favicon.png',
     data: data.url || '/'
   };
   event.waitUntil(self.registration.showNotification(title, options));
