@@ -32,23 +32,24 @@ from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
 from aiolimiter import AsyncLimiter
 from collections import defaultdict
-import io, qrcode, pyotp      # ← 二要素用
+import io, qrcode, pyotp  # ← 二要素用
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
 
 from bot.db import init_db  # スキーマ初期化用
+
 Database = import_module("bot.db").Database  # type: ignore
 
 # ─────────────── Paths & Constants ───────────────
-ROOT         = Path(__file__).resolve().parent.parent
-DATA_DIR     = Path(os.getenv("DATA_DIR", ROOT / "data"))
-STATIC_DIR   = Path(os.getenv("STATIC_DIR", ROOT / "static"))
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = Path(os.getenv("DATA_DIR", ROOT / "data"))
+STATIC_DIR = Path(os.getenv("STATIC_DIR", ROOT / "static"))
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", ROOT / "templates"))
-DB_PATH      = Path(os.getenv("DB_PATH", ROOT / "data" / "web_discord_server.db"))
-CHUNK_DIR    = DATA_DIR / "chunks"
-PREVIEW_DIR  = DATA_DIR / "previews"
-HLS_DIR      = DATA_DIR / "hls"
+DB_PATH = Path(os.getenv("DB_PATH", ROOT / "data" / "web_discord_server.db"))
+CHUNK_DIR = DATA_DIR / "chunks"
+PREVIEW_DIR = DATA_DIR / "previews"
+HLS_DIR = DATA_DIR / "hls"
 
 for d in (DATA_DIR, STATIC_DIR, TEMPLATE_DIR, CHUNK_DIR, PREVIEW_DIR, HLS_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -59,13 +60,16 @@ log = logging.getLogger("web")
 # ─────────────── Secrets ───────────────
 COOKIE_SECRET_STR = os.getenv("COOKIE_SECRET", "").strip().strip('"').strip("'")
 if len(COOKIE_SECRET_STR) != 44:
-    raise RuntimeError("COOKIE_SECRET が未設定、または 44 文字の URL-safe Base64 ではありません")
+    raise RuntimeError(
+        "COOKIE_SECRET が未設定、または 44 文字の URL-safe Base64 ではありません"
+    )
 COOKIE_SECRET = COOKIE_SECRET_STR
 
 FILE_HMAC_SECRET = base64.urlsafe_b64decode(
     os.getenv("FILE_HMAC_SECRET", base64.urlsafe_b64encode(os.urandom(32)).decode())
 )
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # default 1 day
+GDRIVE_CREDENTIALS = os.getenv("GDRIVE_CREDENTIALS")
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -76,11 +80,15 @@ MOBILE_TEMPLATES = {
     "shared/folder_view.html": "mobile/folder_view.html",
 }
 
+
 def _is_mobile(user_agent: str) -> bool:
     if not user_agent:
         return False
-    pattern = r"iPhone|Android.*Mobile|Windows Phone|iPod|BlackBerry|Opera Mini|IEMobile"
+    pattern = (
+        r"iPhone|Android.*Mobile|Windows Phone|iPod|BlackBerry|Opera Mini|IEMobile"
+    )
     return re.search(pattern, user_agent, re.I) is not None
+
 
 def _render(req: web.Request, tpl: str, ctx: Dict[str, object]):
     ctx.setdefault("user_id", req.get("user_id"))
@@ -89,10 +97,12 @@ def _render(req: web.Request, tpl: str, ctx: Dict[str, object]):
         tpl = MOBILE_TEMPLATES.get(tpl, tpl)
     return aiohttp_jinja2.render_template(tpl, req, ctx)
 
+
 def _sign_token(fid: str, exp: int) -> str:
     msg = f"{fid}:{exp}".encode()
     sig = hmac.new(FILE_HMAC_SECRET, msg, hashlib.sha256).digest()
     return base64.urlsafe_b64encode(msg + b":" + sig).decode()
+
 
 def _verify_token(tok: str) -> Optional[str]:
     try:
@@ -105,17 +115,23 @@ def _verify_token(tok: str) -> Optional[str]:
             return None
         valid = hmac.compare_digest(
             sig,
-            hmac.new(FILE_HMAC_SECRET, f"{fid.decode()}:{exp_raw.decode()}".encode(), hashlib.sha256).digest()
+            hmac.new(
+                FILE_HMAC_SECRET,
+                f"{fid.decode()}:{exp_raw.decode()}".encode(),
+                hashlib.sha256,
+            ).digest(),
         )
         return fid.decode() if valid else None
     except Exception:
         return None
+
 
 async def issue_csrf(request: web.Request) -> str:
     session = await aiohttp_session.get_session(request)
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(16)
     return session["csrf_token"]
+
 
 async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> None:
     """指定フォルダの Webhook にメッセージを送信"""
@@ -126,10 +142,14 @@ async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> No
     async with aiohttp.ClientSession() as session:
         await session.post(url, json={"content": message})
 
-async def notify_shared_upload(db: Database, folder_id: int, username: str, file_name: str) -> None:
+
+async def notify_shared_upload(
+    db: Database, folder_id: int, username: str, file_name: str
+) -> None:
     """共有フォルダへのアップロードをWebhookで通知"""
     message = f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"
     await _send_shared_webhook(db, folder_id, message)
+
 
 # ─────────────── Background Processing ───────────────
 def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
@@ -142,10 +162,21 @@ def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
             img.thumbnail((320, 320))
             img.convert("RGB").save(preview_path, "JPEG")
         elif mime and mime.startswith("video"):
-            subprocess.run([
-                "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
-                "-vframes", "1", str(preview_path)
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    str(path),
+                    "-ss",
+                    "00:00:01",
+                    "-vframes",
+                    "1",
+                    str(preview_path),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         elif mime == "application/pdf":
             pages = convert_from_path(str(path), first_page=1, last_page=1)
             if pages:
@@ -154,9 +185,19 @@ def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
                 img.save(preview_path, "JPEG")
         elif mime and mime.startswith("application/vnd"):
             tmp_pdf = path.with_suffix(".pdf")
-            subprocess.run([
-                "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                [
+                    "libreoffice",
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    str(path),
+                    "--outdir",
+                    str(path.parent),
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             if tmp_pdf.exists():
                 pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
                 if pages:
@@ -171,6 +212,7 @@ def _generate_preview_and_tags(path: Path, fid: str, file_name: str) -> str:
         if preview_path and preview_path.exists():
             preview_path.unlink(missing_ok=True)
     from bot.auto_tag import generate_tags
+
     return generate_tags(path, file_name)
 
 
@@ -185,11 +227,22 @@ async def _generate_hls(path: Path, fid: str) -> None:
     for name, w, h, br in variants:
         out = out_dir / f"{name}.m3u8"
         proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", str(path),
-            "-vf", f"scale=w={w}:h={h}",
-            "-c:v", "libx264", "-c:a", "aac",
-            "-b:v", str(br),
-            "-hls_time", "4", "-hls_playlist_type", "vod",
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(path),
+            "-vf",
+            f"scale=w={w}:h={h}",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-b:v",
+            str(br),
+            "-hls_time",
+            "4",
+            "-hls_playlist_type",
+            "vod",
             str(out),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
@@ -209,8 +262,7 @@ async def _task_worker(app: web.Application):
         job = await queue.get()
         try:
             tags = await asyncio.to_thread(
-                _generate_preview_and_tags,
-                job["path"], job["fid"], job["file_name"]
+                _generate_preview_and_tags, job["path"], job["fid"], job["file_name"]
             )
             if job.get("shared"):
                 await app["db"].update_shared_tags(job["fid"], tags)
@@ -220,6 +272,7 @@ async def _task_worker(app: web.Application):
             log.exception("Background task failed: %s", e)
         finally:
             queue.task_done()
+
 
 # ─────────────── Middleware ───────────────
 @web.middleware
@@ -237,11 +290,13 @@ async def csrf_protect_mw(request: web.Request, handler):
             raise HTTPForbidden(text="Invalid CSRF token")
     return await handler(request)
 
+
 @web.middleware
 async def auth_mw(request: web.Request, handler):
     sess = await aiohttp_session.get_session(request)
     request["user_id"] = sess.get("user_id")
     return await handler(request)
+
 
 CSP_POLICY = (
     "default-src 'self'; "
@@ -251,19 +306,24 @@ CSP_POLICY = (
     "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
 )
 
+
 @web.middleware
 async def csp_mw(request: web.Request, handler):
     resp = await handler(request)
     resp.headers.setdefault("Content-Security-Policy", CSP_POLICY)
     return resp
 
+
 limiters = defaultdict(lambda: AsyncLimiter(30, 60))  # 60 秒あたり 30 リクエスト / IP
+
+
 @web.middleware
 async def rl_mw(req, handler):
     ip = req.remote
     limiter = limiters[ip]
     async with limiter:
         return await handler(req)
+
 
 # ─────────────── APP Factory ───────────────
 def create_app(bot: Optional[discord.Client] = None) -> web.Application:
@@ -272,19 +332,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     # session setup
     storage = EncryptedCookieStorage(
-    COOKIE_SECRET,
-    cookie_name="wdsid",
-    secure=True,           # HTTPS 限定
-    httponly=True,         # JS から参照不可
-    samesite="Lax",        # CSRF 低減
-    max_age=60*60*24*7     # 7 日
+        COOKIE_SECRET,
+        cookie_name="wdsid",
+        secure=True,  # HTTPS 限定
+        httponly=True,  # JS から参照不可
+        samesite="Lax",  # CSRF 低減
+        max_age=60 * 60 * 24 * 7,  # 7 日
     )
     session_setup(app, storage)
 
     # middlewares
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
-    app.middlewares.append(rl_mw)   # DoS / ブルートフォース緩和
+    app.middlewares.append(rl_mw)  # DoS / ブルートフォース緩和
     app.middlewares.append(csp_mw)
 
     # jinja2 setup
@@ -305,7 +365,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for unit in units:
             if size_f < 1024 or unit == units[-1]:
                 # B だけは小数点不要、それ以外は 1 桁小数にする
-                return f"{int(size_f)} {unit}" if unit == "B" else f"{size_f:.1f} {unit}"
+                return (
+                    f"{int(size_f)} {unit}" if unit == "B" else f"{size_f:.1f} {unit}"
+                )
             size_f /= 1024
 
     env.filters["human_size"] = human_size
@@ -313,27 +375,39 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # ── 拡張子 → Bootstrap Icons クラス変換 ───────────────────
     ICON_MAP = {
         # 文書
-        "pdf":  "bi-file-earmark-pdf",
-        "doc":  "bi-file-earmark-word",  "docx": "bi-file-earmark-word",
-        "xls":  "bi-file-earmark-excel", "xlsx": "bi-file-earmark-excel", "csv": "bi-file-earmark-excel",
-        "ppt":  "bi-file-earmark-slides","pptx": "bi-file-earmark-slides",
-        "txt":  "bi-file-earmark-text",
+        "pdf": "bi-file-earmark-pdf",
+        "doc": "bi-file-earmark-word",
+        "docx": "bi-file-earmark-word",
+        "xls": "bi-file-earmark-excel",
+        "xlsx": "bi-file-earmark-excel",
+        "csv": "bi-file-earmark-excel",
+        "ppt": "bi-file-earmark-slides",
+        "pptx": "bi-file-earmark-slides",
+        "txt": "bi-file-earmark-text",
         # 圧縮
-        "zip":  "bi-file-earmark-zip", "rar": "bi-file-earmark-zip",
-        "7z":   "bi-file-earmark-zip", "gz":  "bi-file-earmark-zip",
+        "zip": "bi-file-earmark-zip",
+        "rar": "bi-file-earmark-zip",
+        "7z": "bi-file-earmark-zip",
+        "gz": "bi-file-earmark-zip",
         # ソースコード
-        "py": "bi-file-earmark-code", "js": "bi-file-earmark-code",
-        "html":"bi-file-earmark-code", "css":"bi-file-earmark-code",
-        "java":"bi-file-earmark-code","c": "bi-file-earmark-code","cpp":"bi-file-earmark-code",
+        "py": "bi-file-earmark-code",
+        "js": "bi-file-earmark-code",
+        "html": "bi-file-earmark-code",
+        "css": "bi-file-earmark-code",
+        "java": "bi-file-earmark-code",
+        "c": "bi-file-earmark-code",
+        "cpp": "bi-file-earmark-code",
         # 音楽
-        "mp3":"bi-file-earmark-music","wav":"bi-file-earmark-music","flac":"bi-file-earmark-music",
+        "mp3": "bi-file-earmark-music",
+        "wav": "bi-file-earmark-music",
+        "flac": "bi-file-earmark-music",
     }
 
     def icon_by_ext(name: str) -> str:
         ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
         return ICON_MAP.get(ext, "bi-file-earmark")
 
-    env.globals["icon_by_ext"] = icon_by_ext    # テンプレートから呼べるように
+    env.globals["icon_by_ext"] = icon_by_ext  # テンプレートから呼べるように
 
     async def _file_to_dict(row: Row, request: web.Request) -> dict:
         """DB Row → テンプレ用 dict
@@ -347,6 +421,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         d["expiration_sec"] = d.get("expiration_sec", URL_EXPIRES_SEC)
 
         import time
+
         now_ts = int(time.time())
         exp_ts = int(d.get("expires_at", 0) or 0)
         if exp_ts != 0:
@@ -366,12 +441,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 d["expiration_str"] = "無期限"
             else:
                 days = sec // 86400
-                hrs  = (sec % 86400) // 3600
+                hrs = (sec % 86400) // 3600
                 mins = (sec % 3600) // 60
                 parts = []
-                if days: parts.append(f"{days}日")
-                if hrs:  parts.append(f"{hrs}時間")
-                if mins: parts.append(f"{mins}分")
+                if days:
+                    parts.append(f"{days}日")
+                if hrs:
+                    parts.append(f"{hrs}時間")
+                if mins:
+                    parts.append(f"{mins}分")
                 d["expiration_str"] = "".join(parts) if parts else "0分"
 
         # 共有URL
@@ -401,13 +479,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     @pass_context
     async def _csrf_token(ctx):
         return await issue_csrf(ctx["request"])
+
     env.globals["csrf_token"] = _csrf_token
     env.globals["get_flashed_messages"] = lambda: []
-    app[static_root_key] = '/static/'
+    app[static_root_key] = "/static/"
 
     # ─────────────── otpauth リダイレクト ───────────────
     async def otp_redirect(req: web.Request):
         import base64, urllib.parse
+
         token = req.match_info["token"]
         try:
             uri = base64.urlsafe_b64decode(token.encode()).decode()
@@ -419,7 +499,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         raise web.HTTPFound(uri)
 
     app.router.add_get("/otp/{token}", otp_redirect)
-
 
     # ─────────────── File table API (PATCHED) ───────────────
     @aiohttp_jinja2.template("partials/file_table.html")
@@ -451,7 +530,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         folder = request.query.get("folder", "")
         rows = await db.fetchall(
             "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
-            user_id, folder
+            user_id,
+            folder,
         )
         now = int(datetime.now(timezone.utc).timestamp())
         file_objs: List[Dict[str, object]] = []
@@ -462,13 +542,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
             # ② ここから先は画面ごとに必要な追加フィールドを足す
             mime, _ = mimetypes.guess_type(f["original_name"])
-            f["mime"]      = mime or "application/octet-stream"
-            f["is_image"]  = bool(mime and mime.startswith("image/"))
-            f["is_video"]  = bool(mime and mime.startswith("video/"))
+            f["mime"] = mime or "application/octet-stream"
+            f["is_image"] = bool(mime and mime.startswith("image/"))
+            f["is_video"] = bool(mime and mime.startswith("video/"))
 
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
-            f["url"]       = f"/download/{_sign_token(f['id'], now + URL_EXPIRES_SEC)}"
-            f["user_id"]   = discord_id
+            f["url"] = f"/download/{_sign_token(f['id'], now + URL_EXPIRES_SEC)}"
+            f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
@@ -479,11 +559,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # CSRF トークン発行
         token = await issue_csrf(request)
-        return {
-            'files':       file_objs,
-            'csrf_token':  token,
-            'user_id':     discord_id
-        }
+        return {"files": file_objs, "csrf_token": token, "user_id": discord_id}
 
     @aiohttp_jinja2.template("partials/search_results.html")
     async def search_files_api(request: web.Request):
@@ -514,18 +590,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
 
-        rows = await db.fetchall("""
+        rows = await db.fetchall(
+            """
             SELECT sf.id, sf.name, COUNT(f.id) as file_count
             FROM shared_folders sf
             JOIN shared_folder_members m ON sf.id = m.folder_id
             LEFT JOIN shared_files f ON f.folder_id = sf.id
             WHERE m.discord_user_id = ?
             GROUP BY sf.id
-        """, user_id)
+        """,
+            user_id,
+        )
 
-        return _render(request, "shared/index.html", {
-            "folders": rows
-        })
+        return _render(request, "shared/index.html", {"folders": rows})
 
     async def shared_folder_view(request: web.Request):
         # ── 1. セッション＆認証チェック ──
@@ -541,7 +618,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # フォルダ参加メンバー確認
         member = await db.fetchall(
             "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            folder_id, discord_id
+            folder_id,
+            discord_id,
         )
         if not member:
             raise web.HTTPForbidden(text="Not a member")
@@ -559,11 +637,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
 
         # フォルダ名取得
-        row = await db.fetchone("SELECT name FROM shared_folders WHERE id = ?", folder_id)
+        row = await db.fetchone(
+            "SELECT name FROM shared_folders WHERE id = ?", folder_id
+        )
         folder_name = row["name"] if row else "(不明なフォルダ)"
 
         # ── 3. フォルダ内ファイル一覧取得 & 各種フィールド整形 ──
-        raw_files = await db.fetchall("SELECT * FROM shared_files WHERE folder_id = ?", folder_id)
+        raw_files = await db.fetchall(
+            "SELECT * FROM shared_files WHERE folder_id = ?", folder_id
+        )
         now_ts = int(datetime.now(timezone.utc).timestamp())
 
         file_objs: list[dict] = []
@@ -578,13 +660,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     token = _sign_token(f["id"], exp)
                     await db.execute(
                         "UPDATE shared_files SET token=?, expiration_sec=?, expires_at=? WHERE id=?",
-                        token, f["expiration_sec"], exp, f["id"]
+                        token,
+                        f["expiration_sec"],
+                        exp,
+                        f["id"],
                     )
                     await db.commit()
                     f["token"] = token
                 # 2) 共有用URL
                 # プレビュー用は inline 表示させるため preview=1
-                f["preview_url"]  = f"/shared/download/{token}?preview=1"
+                f["preview_url"] = f"/shared/download/{token}?preview=1"
                 f["download_url"] = f"/shared/download/{token}?dl=1"
                 preview_fallback = f["preview_url"]
             else:
@@ -599,20 +684,23 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 f["preview_url"] = preview_fallback
 
             # 2) ファイル名表示用
-            f["original_name"] = f.get("file_name", "")  # partial では {{ f.original_name }} を使うため
+            f["original_name"] = f.get(
+                "file_name", ""
+            )  # partial では {{ f.original_name }} を使うため
 
             # 3) DBから取り込まれた size カラムをそのまま利用
             f["size"] = rec["size"]
 
             # 4) プレビュー用フラグ (画像・動画)
             import mimetypes
+
             mime, _ = mimetypes.guess_type(f["original_name"])
-            f["mime"]      = mime or "application/octet-stream"
-            f["is_image"]  = bool(mime and mime.startswith("image/"))
-            f["is_video"]  = bool(mime and mime.startswith("video/"))
+            f["mime"] = mime or "application/octet-stream"
+            f["is_image"] = bool(mime and mime.startswith("image/"))
+            f["is_video"] = bool(mime and mime.startswith("video/"))
 
             # 5) 共有トグル＆リンク用：実 DB 上のフラグ & 必要に応じてトークン生成
-            f["user_id"]   = discord_id
+            f["user_id"] = discord_id
             f["is_shared"] = bool(int(rec["is_shared"]))
             if f["is_shared"]:
                 # token がまだ無ければ生成して DB に格納
@@ -621,7 +709,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     new_token = _sign_token(f["id"], exp_val)
                     await db.execute(
                         "UPDATE shared_files SET token=?, expires_at=? WHERE id=?",
-                        new_token, exp_val, f["id"]
+                        new_token,
+                        exp_val,
+                        f["id"],
                     )
                     await db.commit()
                     f["token"] = new_token
@@ -633,7 +723,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             file_objs.append(f)
 
         # ── 4. 他の共有フォルダ一覧 (ファイル数付き) ──
-        shared_folders = await db.fetchall("""
+        shared_folders = await db.fetchall(
+            """
             SELECT sf.id,
                    sf.name,
                    COUNT(f.id) AS file_count
@@ -642,7 +733,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             LEFT JOIN shared_files f ON f.folder_id = sf.id
             WHERE m.discord_user_id = ?
             GROUP BY sf.id
-        """, discord_id)
+        """,
+            discord_id,
+        )
         session = await get_session(request)
         current_user_id = session.get("user_id")
         base_url = f"{request.scheme}://{request.host}"
@@ -654,21 +747,25 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             WHERE m.discord_user_id = ?
             ORDER BY sf.name
             """,
-            discord_id
+            discord_id,
         )
         # ── 5. コンテキスト返却 ──
-        return _render(request, "shared/folder_view.html", {
-            "folder_id":      folder_id,
-            "user_id":        current_user_id,
-            "request":        request,
-            "base_url":       base_url,
-            "folder_name":    folder_name,
-            "files":          file_objs,
-            "shared_folders": shared_folders,
-            "all_folders":    all_folders,
-            "csrf_token":     await issue_csrf(request),
-            "static_version": int(time.time()),
-        })
+        return _render(
+            request,
+            "shared/folder_view.html",
+            {
+                "folder_id": folder_id,
+                "user_id": current_user_id,
+                "request": request,
+                "base_url": base_url,
+                "folder_name": folder_name,
+                "files": file_objs,
+                "shared_folders": shared_folders,
+                "all_folders": all_folders,
+                "csrf_token": await issue_csrf(request),
+                "static_version": int(time.time()),
+            },
+        )
 
     # database setup
     db = Database(DB_PATH)
@@ -716,16 +813,33 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         data = await req.post()
         username = data.get("username", "").strip()
         password = data.get("password", "")
-        db      = app["db"]
+        db = app["db"]
 
         if not await db.verify_user(username, password):
-            return _render(req, "login.html", {"error": "Invalid", "csrf_token": await issue_csrf(req), "request": req})
+            return _render(
+                req,
+                "login.html",
+                {
+                    "error": "Invalid",
+                    "csrf_token": await issue_csrf(req),
+                    "request": req,
+                },
+            )
 
         row = await db.fetchone(
-            "SELECT discord_id, totp_enabled FROM users WHERE username = ?", username)
+            "SELECT discord_id, totp_enabled FROM users WHERE username = ?", username
+        )
 
         if not row:
-            return _render(req, "login.html", {"error": "No user found", "csrf_token": await issue_csrf(req), "request": req})
+            return _render(
+                req,
+                "login.html",
+                {
+                    "error": "No user found",
+                    "csrf_token": await issue_csrf(req),
+                    "request": req,
+                },
+            )
 
         sess = await new_session(req)
 
@@ -739,11 +853,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # ── GET: フォーム表示 ──────────────────────
     async def totp_get(req):
         sess = await get_session(req)
-        if "tmp_user_id" not in sess:     # 直アクセス対策
+        if "tmp_user_id" not in sess:  # 直アクセス対策
             raise web.HTTPFound("/login")
         # CSRF トークンをテンプレに渡す
-        return _render(req, "totp.html",
-                        {"csrf_token": await issue_csrf(req)})
+        return _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
 
     # ── POST: 検証 ────────────────────────────
     async def totp_post(req):
@@ -751,17 +864,22 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if "tmp_user_id" not in sess:
             raise web.HTTPFound("/login")
 
-        code     = (await req.post()).get("code", "")
-        user_id  = sess["tmp_user_id"]
-        row      = await db.fetchone("SELECT totp_secret FROM users WHERE discord_id=?", user_id)
+        code = (await req.post()).get("code", "")
+        user_id = sess["tmp_user_id"]
+        row = await db.fetchone(
+            "SELECT totp_secret FROM users WHERE discord_id=?", user_id
+        )
 
         if row and pyotp.TOTP(row["totp_secret"]).verify(code):
             sess["user_id"] = user_id
             del sess["tmp_user_id"]
             raise web.HTTPFound("/")
 
-        return _render(req, "totp.html",
-                    {"error": "コードが違います", "csrf_token": await issue_csrf(req)})
+        return _render(
+            req,
+            "totp.html",
+            {"error": "コードが違います", "csrf_token": await issue_csrf(req)},
+        )
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
@@ -788,13 +906,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             now_ts,
         )
 
-        user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await app["db"].fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else "Unknown"
         # expiration_sec を含めて取得するように
         folder = req.query.get("folder", "")
-        rows   = await app["db"].fetchall(
+        rows = await app["db"].fetchall(
             "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
-            user_id, folder
+            user_id,
+            folder,
         )
         parent_id = int(folder) if folder else None
         subfolders = await app["db"].list_user_folders(user_id, parent_id)
@@ -807,17 +928,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             breadcrumbs.insert(0, {"id": cur, "name": rec["name"]})
             cur = rec["parent_id"]
         now_ts = int(datetime.now(timezone.utc).timestamp())
-        files  = []
+        files = []
 
-        for r in rows:                           # ← １回だけ回す
-            f = await _file_to_dict(r, req)            # share_url / download_url を付与
-            f["user_id"]   = discord_id
-            f["url"]       = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+        for r in rows:  # ← １回だけ回す
+            f = await _file_to_dict(r, req)  # share_url / download_url を付与
+            f["user_id"] = discord_id
+            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
 
-            mime, _        = mimetypes.guess_type(f["original_name"])
-            f["mime"]      = mime or "application/octet-stream"
-            f["is_image"]  = bool(mime and mime.startswith("image/"))
-            f["is_video"]  = bool(mime and mime.startswith("video/"))
+            mime, _ = mimetypes.guess_type(f["original_name"])
+            f["mime"] = mime or "application/octet-stream"
+            f["is_image"] = bool(mime and mime.startswith("image/"))
+            f["is_video"] = bool(mime and mime.startswith("video/"))
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -833,16 +954,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             files.append(f)
 
         token = await issue_csrf(req)
-        return _render(req, "index.html", {
-            "files": files,
-            "csrf_token": token,
-            "username": username,
-            "folder_id": folder,
-            "subfolders": subfolders,
-            "breadcrumbs": breadcrumbs,
-            "static_version": int(time.time()),
-            "request": req
-        })
+        return _render(
+            req,
+            "index.html",
+            {
+                "files": files,
+                "csrf_token": token,
+                "username": username,
+                "folder_id": folder,
+                "subfolders": subfolders,
+                "breadcrumbs": breadcrumbs,
+                "static_version": int(time.time()),
+                "request": req,
+            },
+        )
 
     async def mobile_index(req):
         """スマホ向けのシンプルな一覧ページ"""
@@ -865,12 +990,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             now_ts,
         )
 
-        user_row = await app["db"].fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await app["db"].fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else "Unknown"
         folder = req.query.get("folder", "")
         rows = await app["db"].fetchall(
             "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
-            user_id, folder,
+            user_id,
+            folder,
         )
         now_ts = int(datetime.now(timezone.utc).timestamp())
         files = []
@@ -897,13 +1025,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             files.append(f)
 
         token = await issue_csrf(req)
-        return _render(req, "mobile/index.html", {
-            "files": files,
-            "csrf_token": token,
-            "username": username,
-            "static_version": int(time.time()),
-            "request": req
-        })
+        return _render(
+            req,
+            "mobile/index.html",
+            {
+                "files": files,
+                "csrf_token": token,
+                "username": username,
+                "static_version": int(time.time()),
+                "request": req,
+            },
+        )
 
     async def upload(req):
         discord_id = req.get("user_id")
@@ -941,10 +1073,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     img.thumbnail((320, 320))
                     img.convert("RGB").save(preview_path, "JPEG")
                 elif mime and mime.startswith("video"):
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", str(path), "-ss", "00:00:01",
-                        "-vframes", "1", str(preview_path)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            str(path),
+                            "-ss",
+                            "00:00:01",
+                            "-vframes",
+                            "1",
+                            str(preview_path),
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                 elif mime == "application/pdf":
                     pages = convert_from_path(str(path), first_page=1, last_page=1)
                     if pages:
@@ -953,11 +1096,23 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                         img.save(preview_path, "JPEG")
                 elif mime and mime.startswith("application/vnd"):
                     tmp_pdf = path.with_suffix(".pdf")
-                    subprocess.run([
-                        "libreoffice", "--headless", "--convert-to", "pdf", str(path), "--outdir", str(path.parent)
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        [
+                            "libreoffice",
+                            "--headless",
+                            "--convert-to",
+                            "pdf",
+                            str(path),
+                            "--outdir",
+                            str(path.parent),
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                     if tmp_pdf.exists():
-                        pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                        pages = convert_from_path(
+                            str(tmp_pdf), first_page=1, last_page=1
+                        )
                         if pages:
                             img = pages[0]
                             img.thumbnail((320, 320))
@@ -971,7 +1126,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     preview_path.unlink(missing_ok=True)
             # 自動タグ生成
             from bot.auto_tag import generate_tags
+
             tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
+            gdrive_id = None
+            if GDRIVE_CREDENTIALS:
+                try:
+                    from integrations.google_drive_client import upload_file as gd_up
+
+                    gdrive_id = await asyncio.to_thread(gd_up, path, filefield.filename)
+                except Exception as e:
+                    log.warning("Google Drive upload failed: %s", e)
             # DB 登録（タグを即時保存）
             folder = data.get("folder") or data.get("folder_id", "")
             await app["db"].add_file(
@@ -983,11 +1147,125 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 size,
                 sha256sum,
                 tags,
+                gdrive_id,
             )
             if mime and mime.startswith("video"):
                 asyncio.create_task(_generate_hls(path, fid))
         # すべてのファイルを正常受信できた
         return web.json_response({"success": True})
+
+    async def import_gdrive(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPForbidden()
+        if not GDRIVE_CREDENTIALS:
+            return web.json_response(
+                {"success": False, "error": "gdrive disabled"}, status=400
+            )
+        data = await req.json()
+        file_id = data.get("file_id")
+        if not file_id:
+            return web.json_response(
+                {"success": False, "error": "missing file_id"}, status=400
+            )
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPForbidden()
+        folder = data.get("folder", "")
+        try:
+            from integrations.google_drive_client import download_file, get_file_name
+
+            file_bytes = await asyncio.to_thread(download_file, file_id)
+            filename = data.get("filename") or await asyncio.to_thread(
+                get_file_name, file_id
+            )
+        except Exception as e:
+            log.warning("Google Drive fetch failed: %s", e)
+            return web.json_response(
+                {"success": False, "error": "fetch failed"}, status=500
+            )
+
+        fid = str(uuid.uuid4())
+        path = DATA_DIR / fid
+        path.write_bytes(file_bytes)
+        size = path.stat().st_size
+        sha256sum = hashlib.sha256(path.read_bytes()).hexdigest()
+
+        mime, _ = mimetypes.guess_type(filename)
+        preview_path = PREVIEW_DIR / f"{fid}.jpg"
+        try:
+            if mime and mime.startswith("image"):
+                img = Image.open(path)
+                img.thumbnail((320, 320))
+                img.convert("RGB").save(preview_path, "JPEG")
+            elif mime and mime.startswith("video"):
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        str(path),
+                        "-ss",
+                        "00:00:01",
+                        "-vframes",
+                        "1",
+                        str(preview_path),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            elif mime == "application/pdf":
+                pages = convert_from_path(str(path), first_page=1, last_page=1)
+                if pages:
+                    img = pages[0]
+                    img.thumbnail((320, 320))
+                    img.save(preview_path, "JPEG")
+            elif mime and mime.startswith("application/vnd"):
+                tmp_pdf = path.with_suffix(".pdf")
+                subprocess.run(
+                    [
+                        "libreoffice",
+                        "--headless",
+                        "--convert-to",
+                        "pdf",
+                        str(path),
+                        "--outdir",
+                        str(path.parent),
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                if tmp_pdf.exists():
+                    pages = convert_from_path(str(tmp_pdf), first_page=1, last_page=1)
+                    if pages:
+                        img = pages[0]
+                        img.thumbnail((320, 320))
+                        img.save(preview_path, "JPEG")
+                    tmp_pdf.unlink(missing_ok=True)
+            else:
+                preview_path = None
+        except Exception as e:
+            log.warning("preview generation failed: %s", e)
+            if preview_path and preview_path.exists():
+                preview_path.unlink(missing_ok=True)
+
+        from bot.auto_tag import generate_tags
+
+        tags = await asyncio.to_thread(generate_tags, path, filename)
+        await app["db"].add_file(
+            fid,
+            user_id,
+            folder,
+            filename,
+            str(path),
+            size,
+            sha256sum,
+            tags,
+            file_id,
+        )
+        if mime and mime.startswith("video"):
+            asyncio.create_task(_generate_hls(path, fid))
+        return web.json_response({"success": True, "file_id": fid})
 
     async def toggle_shared(request: web.Request):
         discord_id = request.get("user_id")
@@ -1008,36 +1286,40 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # ─── JSONボディから expiration（秒）を先に一度だけ取得 ───
         try:
-            data    = await request.json()
+            data = await request.json()
             exp_sec = int(data.get("expiration", URL_EXPIRES_SEC))
         except:
             exp_sec = URL_EXPIRES_SEC
 
         new_state = not bool(rec_dict["is_shared"])
-        token     = None
-        if new_state:                              # 共有 ON
+        token = None
+        if new_state:  # 共有 ON
             now_ts = int(time.time())
-            exp    = 0 if exp_sec <= 0 else now_ts + exp_sec
+            exp = 0 if exp_sec <= 0 else now_ts + exp_sec
             token = _sign_token(file_id, exp)
             if isinstance(token, bytes):
                 token = token.decode()
             # トークンとともに expiration_sec も保存
             await request.app["db"].execute(
                 "UPDATE files SET is_shared=1, token=?, expiration_sec=?, expires_at=? WHERE id=?",
-                token, exp_sec, exp, file_id
+                token,
+                exp_sec,
+                exp,
+                file_id,
             )
-        else:                                      # 共有 OFF
+        else:  # 共有 OFF
             # 非共有に戻すときはデフォルトに
             await request.app["db"].execute(
                 "UPDATE files SET is_shared=0, token=NULL, expiration_sec=?, expires_at=0 WHERE id=?",
-                URL_EXPIRES_SEC, file_id
+                URL_EXPIRES_SEC,
+                file_id,
             )
         await request.app["db"].commit()
-    
+
         payload = {"status": "ok", "is_shared": new_state, "expiration": exp_sec}
         if token:
             payload |= {
-                "token":     token,
+                "token": token,
                 "share_url": f"{request.scheme}://{request.host}/f/{token}",
             }
         return web.json_response(payload)
@@ -1065,7 +1347,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     raise web.HTTPForbidden()
                 member = await db.fetchone(
                     "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-                    rec["folder_id"], discord_id,
+                    rec["folder_id"],
+                    discord_id,
                 )
                 if not member:
                     raise web.HTTPForbidden()
@@ -1077,8 +1360,18 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         mime, _ = mimetypes.guess_type(rec[filename_key])
         headers = {
             "Content-Type": mime or "application/octet-stream",
-            "Content-Disposition": f'attachment; filename="{rec[filename_key]}"'
+            "Content-Disposition": f'attachment; filename="{rec[filename_key]}"',
         }
+        if path.exists():
+            return web.FileResponse(path, headers=headers)
+        if rec.get("gdrive_id") and GDRIVE_CREDENTIALS:
+            try:
+                from integrations.google_drive_client import download_file as gd_dl
+
+                data = await asyncio.to_thread(gd_dl, rec["gdrive_id"])
+                return web.Response(body=data, headers=headers)
+            except Exception as e:
+                log.warning("Google Drive download failed: %s", e)
         return web.FileResponse(path, headers=headers)
 
     async def upload_chunked(req: web.Request):
@@ -1112,14 +1405,32 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if not user_id:
                 raise web.HTTPForbidden()
 
-            folder = req.headers.get("X-Upload-Folder") or req.headers.get("X-Upload-FolderId", "")
+            folder = req.headers.get("X-Upload-Folder") or req.headers.get(
+                "X-Upload-FolderId", ""
+            )
             from bot.auto_tag import generate_tags
+
             tags = await asyncio.to_thread(generate_tags, target_path, field.filename)
+            gdrive_id = None
+            if GDRIVE_CREDENTIALS:
+                try:
+                    from integrations.google_drive_client import upload_file as gd_up
+
+                    gdrive_id = await asyncio.to_thread(
+                        gd_up, target_path, field.filename
+                    )
+                except Exception as e:
+                    log.warning("Google Drive upload failed: %s", e)
             await req.app["db"].add_file(
-                target_id, user_id, folder, field.filename,
-                str(target_path), target_path.stat().st_size,
+                target_id,
+                user_id,
+                folder,
+                field.filename,
+                str(target_path),
+                target_path.stat().st_size,
                 hashlib.sha256(target_path.read_bytes()).hexdigest(),
                 tags,
+                gdrive_id,
             )
             mime, _ = mimetypes.guess_type(field.filename)
             if mime and mime.startswith("video"):
@@ -1160,8 +1471,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id:
             raise web.HTTPForbidden()
         rows = await req.app["db"].fetchall(
-            "SELECT path FROM files WHERE user_id=?",
-            user_id
+            "SELECT path FROM files WHERE user_id=?", user_id
         )
         for r in rows:
             try:
@@ -1196,7 +1506,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         data = await req.json()
         file_id = data.get("file_id")
-        target  = int(data.get("user_id", 0))
+        target = int(data.get("user_id", 0))
         if not file_id or not target:
             return web.json_response({"error": "bad_request"}, status=400)
 
@@ -1219,19 +1529,23 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         path = Path(rec["path"])
         size = rec["size"]
-        sender_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        sender_row = await db.fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         sender_name = sender_row["username"] if sender_row else str(discord_id)
         try:
             if size <= (25 << 20):
                 await user.send(
                     content=f"📨 {sender_name} からのファイルです",
-                    file=discord.File(path, filename=rec["original_name"])
+                    file=discord.File(path, filename=rec["original_name"]),
                 )
             else:
                 now = int(datetime.now(timezone.utc).timestamp())
                 tok = _sign_token(file_id, now + URL_EXPIRES_SEC)
                 url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{tok}"
-                await user.send(f"📨 {sender_name} からのファイルです\n🔗 ダウンロードリンク: {url}")
+                await user.send(
+                    f"📨 {sender_name} からのファイルです\n🔗 ダウンロードリンク: {url}"
+                )
             return web.json_response({"status": "ok"})
         except discord.Forbidden:
             return web.json_response({"error": "forbidden"}, status=403)
@@ -1239,9 +1553,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def user_list(req: web.Request):
         rows = await req.app["db"].list_users()
         # Return user IDs as strings to avoid precision loss in JavaScript
-        return web.json_response([
-            {"id": str(r["discord_id"]), "name": r["username"]} for r in rows
-        ])
+        return web.json_response(
+            [{"id": str(r["discord_id"]), "name": r["username"]} for r in rows]
+        )
 
     async def shared_update_tags(req: web.Request):
         sess = await get_session(req)
@@ -1250,12 +1564,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return web.json_response({"error": "unauthorized"}, status=403)
         file_id = req.match_info["id"]
         db = req.app["db"]
-        sf = await db.fetchone("SELECT folder_id FROM shared_files WHERE id = ?", file_id)
+        sf = await db.fetchone(
+            "SELECT folder_id FROM shared_files WHERE id = ?", file_id
+        )
         if not sf:
             return web.json_response({"error": "not_found"}, status=404)
         member = await db.fetchone(
             "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            sf["folder_id"], discord_id,
+            sf["folder_id"],
+            discord_id,
         )
         if member is None:
             return web.json_response({"error": "forbidden"}, status=403)
@@ -1279,7 +1596,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = req.app["db"]
         rows = await db.fetchall(
             "SELECT * FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            folder_id, discord_id
+            folder_id,
+            discord_id,
         )
         if not rows:
             raise web.HTTPForbidden(text="Not a member")
@@ -1294,45 +1612,49 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 f.write(chunk)
 
         from bot.auto_tag import generate_tags
+
         tags = await asyncio.to_thread(generate_tags, path, filefield.filename)
         await db.add_shared_file(fid, folder_id, filefield.filename, str(path), tags)
         # アップロード時は自動的に共有しないようフラグをクリア
         await db.execute(
-            "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?",
-            fid
+            "UPDATE shared_files SET is_shared=0, token=NULL WHERE id = ?", fid
         )
         await db.commit()
         mime, _ = mimetypes.guess_type(filefield.filename)
         if mime and mime.startswith("video"):
             asyncio.create_task(_generate_hls(path, fid))
-        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await db.fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else str(discord_id)
         await notify_shared_upload(db, int(folder_id), username, filefield.filename)
         raise web.HTTPFound(f"/shared/{folder_id}")
 
     async def shared_download(req: web.Request):
         token = req.match_info["token"]
-        fid   = _verify_token(token)
+        fid = _verify_token(token)
         if not fid:
             raise web.HTTPForbidden()
 
         # ② 共有フォルダファイル期限チェック（期限切れなら非共有化して404）
         import time, base64
+
         raw = base64.urlsafe_b64decode(token.encode())
         _, exp_raw, _ = raw.split(b":", 2)
         exp_ts = int(exp_raw)
         if exp_ts != 0 and time.time() > exp_ts:
             await req.app["db"].execute(
                 "UPDATE shared_files SET is_shared=0, token=NULL, expires_at=0 WHERE id=?",
-                fid
+                fid,
             )
             await req.app["db"].commit()
             raise web.HTTPNotFound()
 
-        db  = req.app["db"]
+        db = req.app["db"]
         rec = await db.fetchone(
             "SELECT * FROM shared_files WHERE id = ? AND token = ? AND is_shared = 1",
-            fid, token
+            fid,
+            token,
         )
         if not rec:
             raise web.HTTPNotFound()
@@ -1342,9 +1664,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if req.query.get("preview") == "1":
             return web.FileResponse(
                 rec["path"],
-                headers={
-                    "Content-Type": mime or "application/octet-stream"
-                }
+                headers={"Content-Type": mime or "application/octet-stream"},
             )
 
         # ② ダウンロード要求 (dl=1)
@@ -1353,24 +1673,23 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 rec["path"],
                 headers={
                     "Content-Type": mime or "application/octet-stream",
-                    "Content-Disposition":
-                        f'attachment; filename="{rec["file_name"]}"'
-                }
+                    "Content-Disposition": f'attachment; filename="{rec["file_name"]}"',
+                },
             )
 
         # Row → dict へ変換してテンプレートへ
         file_dict = dict(rec)
-        file_dict["original_name"] = file_dict.get("file_name", "")   # ← 追加
+        file_dict["original_name"] = file_dict.get("file_name", "")  # ← 追加
         preview_file = PREVIEW_DIR / f"{file_dict['id']}.jpg"
         if preview_file.exists():
             file_dict["preview_url"] = f"/previews/{preview_file.name}"
         else:
             file_dict["preview_url"] = f"{req.path}?preview=1"
 
-        return _render(req, "public/confirm_download.html", {
-            "file":    file_dict,
-            "request": req
-        })
+        return _render(
+            req, "public/confirm_download.html", {"file": file_dict, "request": req}
+        )
+
     async def shared_delete(req: web.Request):
         sess = await get_session(req)
         discord_id = sess.get("user_id")
@@ -1379,14 +1698,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         file_id = req.match_info["file_id"]
         db = req.app["db"]
-        rec = await db.fetchone("SELECT folder_id, path, file_name FROM shared_files WHERE id = ?", file_id)
+        rec = await db.fetchone(
+            "SELECT folder_id, path, file_name FROM shared_files WHERE id = ?", file_id
+        )
         if not rec:
             raise web.HTTPNotFound()
 
         # メンバーかどうか確認
         rows = await db.fetchall(
             "SELECT * FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            rec["folder_id"], discord_id
+            rec["folder_id"],
+            discord_id,
         )
         if not rows:
             raise web.HTTPForbidden()
@@ -1399,9 +1721,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.execute("DELETE FROM shared_files WHERE id = ?", file_id)
         await db.commit()
 
-        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await db.fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else str(discord_id)
-        await _send_shared_webhook(db, rec["folder_id"], f"\N{WASTEBASKET} {username} が `{rec['file_name']}` を削除しました。")
+        await _send_shared_webhook(
+            db,
+            rec["folder_id"],
+            f"\N{WASTEBASKET} {username} が `{rec['file_name']}` を削除しました。",
+        )
 
         raise web.HTTPFound(f"/shared/{rec['folder_id']}")
 
@@ -1415,14 +1743,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = req.app["db"]
         member = await db.fetchone(
             "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            folder_id, discord_id,
+            folder_id,
+            discord_id,
         )
         if member is None:
             raise web.HTTPForbidden()
 
         await db.delete_all_shared_files(int(folder_id))
         raise web.HTTPFound(f"/shared/{folder_id}")
-
 
     async def download_zip(req: web.Request):
         sess = await get_session(req)
@@ -1434,15 +1762,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = req.app["db"]
         member = await db.fetchone(
             "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
-            folder_id, discord_id,
+            folder_id,
+            discord_id,
         )
         if member is None:
             raise web.HTTPForbidden()
 
-        rows = await db.fetchall("SELECT file_name, path FROM shared_files WHERE folder_id=?", folder_id)
+        rows = await db.fetchall(
+            "SELECT file_name, path FROM shared_files WHERE folder_id=?", folder_id
+        )
 
         def _create_zip(rows, folder_id):
             import tempfile, zipfile
+
             tmp_dir = tempfile.mkdtemp()
             zip_path = Path(tmp_dir) / f"folder_{folder_id}.zip"
             with zipfile.ZipFile(zip_path, "w") as zf:
@@ -1464,9 +1796,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 pass
 
         asyncio.create_task(_cleanup())
-        return web.FileResponse(zip_path, headers={
-            "Content-Disposition": f'attachment; filename="folder_{folder_id}.zip"'
-        })
+        return web.FileResponse(
+            zip_path,
+            headers={
+                "Content-Disposition": f'attachment; filename="folder_{folder_id}.zip"'
+            },
+        )
 
     # ─────────────── Shared ファイルの共有トグル API ───────────────
     async def shared_toggle(request: web.Request):
@@ -1480,7 +1815,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # ─── JSON ボディから expiration（秒）を取得 ───
         # OFF 時にも参照されるので冒頭で定義しておく
         try:
-            data    = await request.json()
+            data = await request.json()
             exp_sec = int(data.get("expiration", URL_EXPIRES_SEC))
         except:
             exp_sec = URL_EXPIRES_SEC
@@ -1488,11 +1823,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # DB メソッド呼び出し
         # トークンと is_shared フラグを同時に検証するよう変更
         # 対象レコードを取得（shared_files テーブルに対して id だけで取得）
-        db  = request.app["db"]
-        rec = await db.fetchone(
-            "SELECT * FROM shared_files WHERE id = ?",
-            file_id
-        )
+        db = request.app["db"]
+        rec = await db.fetchone("SELECT * FROM shared_files WHERE id = ?", file_id)
         # 共有解除後や不正トークンの場合は 404 とする
         if not rec:
             return web.json_response({"error": "not_found"}, status=404)
@@ -1511,26 +1843,36 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             # 共有フォルダ内も同様に、expiration_sec を永続化
             await request.app["db"].execute(
                 "UPDATE shared_files SET is_shared=1, token=?, expiration_sec=?, expires_at=? WHERE id=?",
-                token, exp_sec, exp, file_id
+                token,
+                exp_sec,
+                exp,
+                file_id,
             )
         else:
             # 非共有に戻すときは既定に戻す
             await request.app["db"].execute(
                 "UPDATE shared_files SET is_shared=0, token=NULL, expiration_sec=?, expires_at=0 WHERE id=?",
-                URL_EXPIRES_SEC, file_id
+                URL_EXPIRES_SEC,
+                file_id,
             )
         await db.commit()
 
-        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await db.fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else str(discord_id)
         action = "共有しました" if new_state else "共有を解除しました"
-        await _send_shared_webhook(db, rec["folder_id"], f"\N{LINK SYMBOL} {username} が `{rec['file_name']}` を{action}。")
+        await _send_shared_webhook(
+            db,
+            rec["folder_id"],
+            f"\N{LINK SYMBOL} {username} が `{rec['file_name']}` を{action}。",
+        )
 
         payload = {"status": "ok", "is_shared": new_state, "expiration": exp_sec}
         if token:
             # 共有フォルダ用リンクは /shared/download/<token>
             payload |= {
-                "token":     token,
+                "token": token,
                 "share_url": f"{request.scheme}://{request.host}/shared/download/{token}",
             }
         return web.json_response(payload)
@@ -1547,18 +1889,18 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
 
-        db       = request.app["db"]
-        file_id  = request.match_info.get("id")
+        db = request.app["db"]
+        file_id = request.match_info.get("id")
         if not file_id:
             return web.json_response({"error": "bad_id"}, status=400)
 
-        user_pk  = await db.get_user_pk(discord_id)
-        rec      = await db.get_file(file_id)
+        user_pk = await db.get_user_pk(discord_id)
+        rec = await db.get_file(file_id)
         if not rec or rec["user_id"] != user_pk:
             return web.json_response({"error": "forbidden"}, status=403)
 
         # 新しいファイル名（拡張子維持）
-        payload  = await request.json()
+        payload = await request.json()
         new_base = payload.get("name", "").strip()
         if not new_base:
             return web.json_response({"error": "empty"}, status=400)
@@ -1566,13 +1908,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return web.json_response({"error": "invalid_name"}, status=422)
 
         import os
-        _, ext   = os.path.splitext(rec["original_name"])
+
+        _, ext = os.path.splitext(rec["original_name"])
         new_name = f"{new_base}{ext}"
 
         # 物理ファイルは触らず、DB だけ更新
         await db.execute(
-            "UPDATE files SET original_name = ? WHERE id = ?",
-            new_name, file_id
+            "UPDATE files SET original_name = ? WHERE id = ?", new_name, file_id
         )
         await db.commit()
 
@@ -1590,7 +1932,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
 
-        file_id = request.match_info.get("file_id")          # ルート {file_id}
+        file_id = request.match_info.get("file_id")  # ルート {file_id}
         if not file_id:
             return web.json_response({"error": "bad_id"}, status=400)
 
@@ -1605,9 +1947,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         member_row = await db.fetchone(
             "SELECT 1 FROM shared_folder_members "
             "WHERE folder_id = ? AND discord_user_id = ?",
-            sf["folder_id"], discord_id
+            sf["folder_id"],
+            discord_id,
         )
-        if member_row is None:                               # ← ここが抜けていた
+        if member_row is None:  # ← ここが抜けていた
             return web.json_response({"error": "forbidden"}, status=403)
 
         # ── 4. 新ファイル名バリデーション ──────────
@@ -1620,22 +1963,28 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return web.json_response({"error": "empty"}, status=400)
 
         import re, os
+
         if re.search(r'[\\/:*?"<>|]', new_base) or len(new_base.encode()) > 255:
             return web.json_response({"error": "invalid_name"}, status=422)
 
-        _, ext   = os.path.splitext(sf["file_name"])
+        _, ext = os.path.splitext(sf["file_name"])
         new_name = f"{new_base}{ext}"
 
         # ── 5. DB 更新（物理ファイルはそのまま） ──
         await db.execute(
-            "UPDATE shared_files SET file_name = ? WHERE id = ?",
-            new_name, file_id
+            "UPDATE shared_files SET file_name = ? WHERE id = ?", new_name, file_id
         )
         await db.commit()
 
-        user_row = await db.fetchone("SELECT username FROM users WHERE discord_id = ?", discord_id)
+        user_row = await db.fetchone(
+            "SELECT username FROM users WHERE discord_id = ?", discord_id
+        )
         username = user_row["username"] if user_row else str(discord_id)
-        await _send_shared_webhook(db, sf["folder_id"], f"\N{PENCIL} {username} が `{sf['file_name']}` を `{new_name}` にリネームしました。")
+        await _send_shared_webhook(
+            db,
+            sf["folder_id"],
+            f"\N{PENCIL} {username} が `{sf['file_name']}` を `{new_name}` にリネームしました。",
+        )
 
         return web.json_response({"status": "ok", "new_name": new_name})
 
@@ -1661,7 +2010,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         folder_id = int(request.match_info.get("folder_id", 0))
         db = request.app["db"]
         user_id = await db.get_user_pk(discord_id)
-        row = await db.fetchone("SELECT user_id FROM user_folders WHERE id=?", folder_id)
+        row = await db.fetchone(
+            "SELECT user_id FROM user_folders WHERE id=?", folder_id
+        )
         if not user_id or not row or row["user_id"] != user_id:
             raise web.HTTPForbidden()
         await db.delete_user_folder(folder_id)
@@ -1689,19 +2040,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         - それ以外は確認ページを表示（誰でもアクセス可）
         """
         token = req.match_info["token"]
-        fid   = _verify_token(token)
+        fid = _verify_token(token)
         if not fid:
             raise web.HTTPForbidden()
 
         # ① 共有期限チェック（期限切れなら非共有化して404）
         import time, base64
+
         raw = base64.urlsafe_b64decode(token.encode())
         _, exp_raw, _ = raw.split(b":", 2)
         exp_ts = int(exp_raw)
         if exp_ts != 0 and time.time() > exp_ts:
             await req.app["db"].execute(
-                "UPDATE files SET is_shared=0, token=NULL, expires_at=0 WHERE id=?",
-                fid
+                "UPDATE files SET is_shared=0, token=NULL, expires_at=0 WHERE id=?", fid
             )
             await req.app["db"].commit()
             raise web.HTTPNotFound()
@@ -1710,7 +2061,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = req.app["db"]
         rec = await db.fetchone(
             "SELECT * FROM files WHERE id = ? AND token = ? AND is_shared = 1",
-            fid, token
+            fid,
+            token,
         )
         if not rec:
             # 共有解除済み、あるいは無効トークン
@@ -1721,10 +2073,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return web.FileResponse(
                 rec["path"],
                 headers={
-                    "Content-Type":     mime or "application/octet-stream",
-                    "Content-Disposition":
-                        f'attachment; filename="{rec["original_name"]}"'
-                }
+                    "Content-Type": mime or "application/octet-stream",
+                    "Content-Disposition": f'attachment; filename="{rec["original_name"]}"',
+                },
             )
 
         # 確認ページをレンダリング
@@ -1734,10 +2085,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             file_dict["preview_url"] = f"/previews/{preview_file.name}"
         else:
             file_dict["preview_url"] = f"{req.path}?preview=1"
-        return _render(req, "public/confirm_download.html", {
-            "file": file_dict,   # Row → dict でテンプレートから参照しやすく
-            "request": req
-        })
+        return _render(
+            req,
+            "public/confirm_download.html",
+            {
+                "file": file_dict,  # Row → dict でテンプレートから参照しやすく
+                "request": req,
+            },
+        )
 
     # routes
     app.router.add_get("/health", health)
@@ -1750,6 +2105,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/service-worker.js", service_worker)
     app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
+    app.router.add_post("/import_gdrive", import_gdrive)
     app.router.add_get("/download/{token}", download)
     app.router.add_post("/upload_chunked", upload_chunked)
     app.router.add_post("/toggle_shared/{id}", toggle_shared)
@@ -1773,12 +2129,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)
     app.router.add_post("/rename/{id}", rename_file)
-    app.router.add_get ("/totp",  totp_get)   # 6桁入力フォーム表示
-    app.router.add_post("/totp", totp_post)   # コード検証
+    app.router.add_get("/totp", totp_get)  # 6桁入力フォーム表示
+    app.router.add_post("/totp", totp_post)  # コード検証
     app.router.add_post("/shared/rename_file/{file_id}", rename_shared_file)
     app.router.add_get("/f/{token}", public_file)
 
     return app
+
 
 async def _runner():
     runner = web.AppRunner(create_app())
@@ -1786,6 +2143,7 @@ async def _runner():
     await web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 9040))).start()
     log.info("Web server started")
     await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
     asyncio.run(_runner())

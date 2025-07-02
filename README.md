@@ -39,12 +39,18 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
+| `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
+| `GDRIVE_TOKEN` | OAuth 認証で生成されるトークンファイルの保存先。既定値 `token.json` |
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 ```
 `pdf2image` を利用するため、システムに `poppler` がインストールされている必要があります。
+
+## Google Drive 連携
+`GDRIVE_CREDENTIALS` を設定すると、アップロードされたファイルは Google Drive にもコピーされます。
+さらに `/import_gdrive` エンドポイントへ Drive のファイル ID を送信することで、Drive 上のファイルをローカルへ取り込めます。
 
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
