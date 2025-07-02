@@ -1390,9 +1390,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 {"success": False, "error": "no token"}, status=400
             )
         try:
-            from integrations.google_drive_client import list_files
+            from integrations.google_drive_client import list_files, search_files
 
-            items, new_token = await asyncio.to_thread(list_files, token_json)
+            query = req.query.get("q", "")
+            if query:
+                items, new_token = await asyncio.to_thread(search_files, token_json, query)
+            else:
+                items, new_token = await asyncio.to_thread(list_files, token_json)
             if new_token != token_json:
                 await app["db"].set_gdrive_token(user_id, new_token)
             return web.json_response({"success": True, "files": items})

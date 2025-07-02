@@ -82,3 +82,21 @@ def list_files(
         .execute()
     )
     return res.get("files", []), token_json
+
+
+def search_files(
+    token_json: str, query: str, page_size: int = 20
+) -> Tuple[List[Dict[str, str]], str]:
+    """Search Drive files by name."""
+    service, token_json = _service_from_token(token_json)
+    safe_q = query.replace("'", "\\'")
+    res = (
+        service.files()
+        .list(
+            pageSize=page_size,
+            q=f"name contains '{safe_q}'",
+            fields="files(id,name,mimeType)"
+        )
+        .execute()
+    )
+    return res.get("files", []), token_json
