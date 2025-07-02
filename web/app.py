@@ -37,6 +37,9 @@ import io, qrcode, pyotp  # ← 二要素用
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
+from fido2.server import Fido2Server
+from fido2.webauthn import PublicKeyCredentialRpEntity, PublicKeyCredentialUserEntity, AttestedCredentialData
+from fido2.utils import websafe_encode, websafe_decode
 
 from bot.db import init_db  # スキーマ初期化用
 
@@ -361,6 +364,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     env = aiohttp_jinja2.get_env(app)
     if bot:
         app["bot"] = bot
+
+    # FIDO2 (Passkey) server setup
+    rp_id = os.getenv("PUBLIC_DOMAIN", "localhost").split(":")[0]
+    rp = PublicKeyCredentialRpEntity(rp_id, "WDS")
+    app["fido2"] = Fido2Server(rp)
+    app["passkey_state"] = {}
 
     # ── バイト数を可読サイズへ変換 ──────────────────────────
     def human_size(size: int) -> str:
@@ -858,6 +867,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             sess["tmp_user_id"] = row["discord_id"]
             raise web.HTTPFound("/totp")
 
+        if await db.list_passkeys(row["discord_id"]):
+            sess["tmp_user_id"] = row["discord_id"]
+            raise web.HTTPFound("/passkey")
+
         sess["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
 
@@ -965,6 +978,96 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "totp.html",
             {"error": "コードが違います", "csrf_token": await issue_csrf(req)},
         )
+
+    # ── Passkey Auth begin ───────────────────────
+    async def passkey_begin(req):
+        sess = await get_session(req)
+        if "tmp_user_id" not in sess:
+            raise web.HTTPFound("/login")
+        discord_id = sess["tmp_user_id"]
+        creds = []
+        rows = await db.list_passkeys(discord_id)
+        for r in rows:
+            creds.append(AttestedCredentialData(
+                websafe_decode(r["public_key"])
+            ))
+        auth_data, state = app["fido2"].authenticate_begin(creds)
+        sess["passkey_state"] = state
+        auth_data["challenge"] = websafe_encode(auth_data["challenge"]).decode()
+        for cred in auth_data.get("allowCredentials", []):
+            cred["id"] = websafe_encode(cred["id"]).decode()
+        return web.json_response(auth_data)
+
+    # ── Passkey Auth finish ──────────────────────
+    async def passkey_finish(req):
+        sess = await get_session(req)
+        if "tmp_user_id" not in sess:
+            raise web.HTTPFound("/login")
+        data = await req.json()
+        state = sess.pop("passkey_state", None)
+        if not state:
+            return web.Response(status=400)
+        try:
+            cred = app["fido2"].authenticate_complete(
+                state,
+                [
+                    AttestedCredentialData(websafe_decode(r["public_key"]))
+                    for r in await db.list_passkeys(sess["tmp_user_id"])
+                ],
+                {
+                    "type": data["type"],
+                    "rawId": websafe_decode(data["rawId"]),
+                    "response": {
+                        "authenticatorData": websafe_decode(data["response"]["authenticatorData"]),
+                        "clientDataJSON": websafe_decode(data["response"]["clientDataJSON"]),
+                        "signature": websafe_decode(data["response"]["signature"]),
+                        "userHandle": data["response"].get("userHandle") and websafe_decode(data["response"]["userHandle"]),
+                    },
+                },
+            )
+        except Exception:
+            return web.Response(status=400)
+        await db.update_passkey_sign_count(websafe_encode(cred.credential_id).decode(), cred.sign_count)
+        sess["user_id"] = sess.pop("tmp_user_id")
+        return web.Response(text="OK")
+
+    async def passkey_page(req):
+        sess = await get_session(req)
+        if "tmp_user_id" not in sess:
+            raise web.HTTPFound("/login")
+        return _render(req, "passkey.html", {})
+
+    async def register_passkey_begin(req):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        user = PublicKeyCredentialUserEntity(str(discord_id).encode(), str(discord_id), str(discord_id))
+        data, state = app["fido2"].register_begin(user)
+        sess = await get_session(req)
+        sess["pk_reg"] = state
+        data["challenge"] = websafe_encode(data["challenge"]).decode()
+        return web.json_response(data)
+
+    async def register_passkey_finish(req):
+        sess = await get_session(req)
+        discord_id = sess.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        data = await req.json()
+        state = sess.pop("pk_reg", None)
+        if not state:
+            return web.Response(status=400)
+        try:
+            auth_data = app["fido2"].register_complete(state, data)
+        except Exception:
+            return web.Response(status=400)
+        await db.add_passkey(
+            discord_id,
+            websafe_encode(auth_data.credential_id).decode(),
+            websafe_encode(auth_data.credential_data).decode(),
+            auth_data.sign_count,
+        )
+        return web.Response(text="OK")
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
@@ -2373,6 +2476,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/rename/{id}", rename_file)
     app.router.add_get("/totp", totp_get)  # 6桁入力フォーム表示
     app.router.add_post("/totp", totp_post)  # コード検証
+    app.router.add_get("/passkey", passkey_page)
+    app.router.add_get("/passkey_begin", passkey_begin)
+    app.router.add_post("/passkey_finish", passkey_finish)
+    app.router.add_get("/register_passkey", lambda r: _render(r, "passkey_register.html", {}))
+    app.router.add_get("/register_passkey_begin", register_passkey_begin)
+    app.router.add_post("/register_passkey_finish", register_passkey_finish)
     app.router.add_post("/shared/rename_file/{file_id}", rename_shared_file)
     app.router.add_get("/f/{token}", public_file)
 

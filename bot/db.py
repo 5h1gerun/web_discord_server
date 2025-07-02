@@ -87,6 +87,14 @@ CREATE TABLE IF NOT EXISTS send_logs (
     sent_at           INTEGER NOT NULL,
     PRIMARY KEY(sender_discord_id, target_discord_id, file_id)
 );
+CREATE TABLE IF NOT EXISTS passkeys (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL,
+    credential_id TEXT    NOT NULL UNIQUE,
+    public_key    TEXT    NOT NULL,
+    sign_count    INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 
@@ -527,6 +535,47 @@ class Database:
             (sender, target, file_id),
         )
         await self.conn.commit()
+
+    # ── Passkey helpers ─────────────────────────
+    async def add_passkey(
+        self,
+        discord_id: int,
+        credential_id: str,
+        public_key: str,
+        sign_count: int,
+    ) -> None:
+        user_id = await self.get_user_pk(discord_id)
+        if user_id is None:
+            return
+        await self.execute(
+            "INSERT INTO passkeys(user_id, credential_id, public_key, sign_count) VALUES(?,?,?,?)",
+            user_id,
+            credential_id,
+            public_key,
+            sign_count,
+        )
+
+    async def list_passkeys(self, discord_id: int):
+        user_id = await self.get_user_pk(discord_id)
+        if user_id is None:
+            return []
+        return await self.fetchall(
+            "SELECT credential_id, public_key, sign_count FROM passkeys WHERE user_id=?",
+            user_id,
+        )
+
+    async def get_passkey(self, credential_id: str):
+        return await self.fetchone(
+            "SELECT * FROM passkeys WHERE credential_id=?",
+            credential_id,
+        )
+
+    async def update_passkey_sign_count(self, credential_id: str, sign_count: int) -> None:
+        await self.execute(
+            "UPDATE passkeys SET sign_count=? WHERE credential_id=?",
+            sign_count,
+            credential_id,
+        )
 
 
 # ───────────────────────────────────────────

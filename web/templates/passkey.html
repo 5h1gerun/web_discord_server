@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}パスキー認証 | Web-Discord-Server{% endblock %}
+{% block content %}
+<div class="form-check form-switch position-fixed top-0 end-0 m-3 text-white">
+  <input class="form-check-input" type="checkbox" id="darkModeSwitch">
+  <label class="form-check-label" for="darkModeSwitch">🌙</label>
+</div>
+<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+  <div class="card p-4 shadow-2-strong animate__animated animate__fadeIn" style="width: 100%; max-width: 400px;">
+    <h2 class="text-center mb-4 fw-bold text-primary">Passkey Auth</h2>
+    <div id="error" class="alert alert-danger d-none" role="alert"></div>
+    <button id="use-passkey" class="btn btn-primary btn-lg w-100 ripple" data-mdb-ripple-init>
+      <i class="bi bi-key me-2"></i>Use Passkey
+    </button>
+  </div>
+</div>
+<script>
+const btn = document.getElementById('use-passkey');
+btn.addEventListener('click', async () => {
+  try {
+    const res = await fetch('/passkey_begin');
+    const opts = await res.json();
+    opts.challenge = Uint8Array.from(atob(opts.challenge), c => c.charCodeAt(0));
+    opts.allowCredentials = opts.allowCredentials.map(c => ({...c, id: Uint8Array.from(atob(c.id), ch => ch.charCodeAt(0))}));
+    const cred = await navigator.credentials.get({publicKey: opts});
+    const data = {
+      id: cred.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array(cred.rawId))),
+      type: cred.type,
+      response: {
+        authenticatorData: btoa(String.fromCharCode(...new Uint8Array(cred.response.authenticatorData))),
+        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(cred.response.clientDataJSON))),
+        signature: btoa(String.fromCharCode(...new Uint8Array(cred.response.signature))),
+        userHandle: cred.response.userHandle ? btoa(String.fromCharCode(...new Uint8Array(cred.response.userHandle))) : null
+      }
+    };
+    const verify = await fetch('/passkey_finish', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    if (verify.ok) location.href = '/';
+    else document.getElementById('error').textContent = '認証に失敗しました';
+  } catch(e) {
+    document.getElementById('error').textContent = '認証に失敗しました';
+  }
+});
+</script>
+{% endblock %}
