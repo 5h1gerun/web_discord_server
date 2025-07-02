@@ -10,7 +10,16 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from google.auth.transport.requests import Request
 
-_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+# これまでは drive.file スコープのみを利用していたが、
+# それではアプリが作成したファイルしか取得できないため
+# 他のファイルが一覧に表示されない。
+# Drive 上の全てのファイルを読み取れるよう drive.readonly を追加する。
+_SCOPES = [
+    # 既存の drive.file に加え、全てのファイルを参照できるよう
+    # drive.readonly も要求する
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive.readonly",
+]
 _CRED_PATH = os.getenv("GDRIVE_CREDENTIALS")
 
 
