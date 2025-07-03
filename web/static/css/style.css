@@ -387,3 +387,58 @@ body.dark-mode #fileSearch {
   color: var(--input-text-dark);
   border-color: var(--card-border-dark);
 }
+
+/* Modern breadcrumb style */
+.breadcrumb-modern {
+  --bs-breadcrumb-divider: "";
+  padding: 0;
+  background: transparent;
+}
+
+.breadcrumb-modern .breadcrumb-item {
+  position: relative;
+  padding: 0.5rem 1rem;
+  padding-right: 1.5rem;
+  margin-right: 0.5rem;
+  background: var(--glass-bg-light);
+  color: var(--link-color-light);
+  border-radius: 2rem;
+}
+body.dark-mode .breadcrumb-modern .breadcrumb-item {
+  background: var(--glass-bg-dark);
+  color: var(--link-color-dark);
+}
+.breadcrumb-modern .breadcrumb-item a {
+  color: inherit;
+  text-decoration: none;
+}
+.breadcrumb-modern .breadcrumb-item::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -15px;
+  width: 0;
+  height: 0;
+  border-top: 1.2rem solid transparent;
+  border-bottom: 1.2rem solid transparent;
+  border-left: 15px solid var(--glass-bg-light);
+}
+body.dark-mode .breadcrumb-modern .breadcrumb-item::after {
+  border-left-color: var(--glass-bg-dark);
+}
+.breadcrumb-modern .breadcrumb-item.active {
+  background: var(--btn-bg-light);
+  color: #fff;
+}
+body.dark-mode .breadcrumb-modern .breadcrumb-item.active {
+  background: var(--btn-bg-dark);
+}
+.breadcrumb-modern .breadcrumb-item.active::after {
+  border-left-color: var(--btn-bg-light);
+}
+body.dark-mode .breadcrumb-modern .breadcrumb-item.active::after {
+  border-left-color: var(--btn-bg-dark);
+}
+.breadcrumb-modern .breadcrumb-item:last-child::after {
+  display: none;
+}
