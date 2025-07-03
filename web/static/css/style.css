@@ -387,3 +387,52 @@ body.dark-mode #fileSearch {
   color: var(--input-text-dark);
   border-color: var(--card-border-dark);
 }
+
+/* ============================== */
+/*      Fancy Breadcrumb Style    */
+/* ============================== */
+.breadcrumb-fancy {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  margin-bottom: 1rem;
+  background: none;
+  padding: 0;
+}
+
+.breadcrumb-fancy .breadcrumb-item {
+  position: relative;
+  padding: 0.5rem 1rem 0.5rem 1.75rem;
+  background: var(--btn-bg-light);
+  color: #fff;
+}
+
+body.dark-mode .breadcrumb-fancy .breadcrumb-item {
+  background: var(--btn-bg-dark);
+}
+
+.breadcrumb-fancy .breadcrumb-item + .breadcrumb-item {
+  margin-left: 1.25rem;
+}
+
+.breadcrumb-fancy .breadcrumb-item + .breadcrumb-item::before {
+  content: '';
+  position: absolute;
+  left: -1.25rem;
+  top: 0;
+  width: 1.25rem;
+  height: 100%;
+  background: inherit;
+  transform: skewX(-45deg);
+  transform-origin: 0 100%;
+  z-index: -1;
+}
+
+.breadcrumb-fancy .breadcrumb-item a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.breadcrumb-fancy .breadcrumb-item.active {
+  font-weight: bold;
+}
