@@ -917,7 +917,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         discord_id = int(udata["id"])
         row = await db.fetchone(
-            "SELECT discord_id FROM users WHERE discord_id=?",
+            "SELECT totp_enabled, totp_verified FROM users WHERE discord_id=?",
             discord_id,
         )
         if not row:
@@ -931,7 +931,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 },
             )
 
-        # OAuth 経由のログインでは二要素認証を要求しない
+        if row["totp_enabled"] and not row["totp_verified"]:
+            sess["tmp_user_id"] = discord_id
+            raise web.HTTPFound("/totp")
+
         sess["user_id"] = discord_id
         raise web.HTTPFound("/")
 
@@ -958,6 +961,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if row and pyotp.TOTP(row["totp_secret"]).verify(code):
             sess["user_id"] = user_id
             del sess["tmp_user_id"]
+            await db.execute(
+                "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
+            )
             raise web.HTTPFound("/")
 
         return _render(

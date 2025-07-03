@@ -27,7 +27,11 @@ CREATE TABLE IF NOT EXISTS users (
     username    TEXT    UNIQUE NOT NULL,
     pw_hash     TEXT    NOT NULL,
     created_at  TEXT    NOT NULL,
-    gdrive_token TEXT
+    gdrive_token TEXT,
+    totp_secret  TEXT,
+    totp_enabled INTEGER NOT NULL DEFAULT 0,
+    totp_verified INTEGER NOT NULL DEFAULT 0,
+    enc_key      TEXT
 );
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,6 +132,18 @@ async def init_db(db_path: Path = DB_PATH) -> None:
         ucols = {row[1] for row in await cur.fetchall()}
         if "gdrive_token" not in ucols:
             await db.execute("ALTER TABLE users ADD COLUMN gdrive_token TEXT")
+        if "totp_secret" not in ucols:
+            await db.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT")
+        if "totp_enabled" not in ucols:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0"
+            )
+        if "totp_verified" not in ucols:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN totp_verified INTEGER NOT NULL DEFAULT 0"
+            )
+        if "enc_key" not in ucols:
+            await db.execute("ALTER TABLE users ADD COLUMN enc_key TEXT")
         await db.commit()
 
 
