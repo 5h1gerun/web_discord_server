@@ -24,6 +24,7 @@
   (同一ファイルの連続送信は `SEND_INTERVAL_SEC` 秒の間隔が必要)
 - `share` / `getlink` – 共有状態切替とダウンロードリンク取得
 - `create_shared_folder` – 共有フォルダ作成
+- `search_files` – タグで自分のファイルを検索
 - `manage_shared_folder` – 共有フォルダのメンバー管理
 - `shared_files` – 参加中フォルダ内のファイル一覧
 - `delete_shared_folder` / `remove_shared_folder` – フォルダ削除・退出
