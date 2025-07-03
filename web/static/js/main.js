@@ -467,6 +467,12 @@ function filterTable(term) {
     const tags = tr.dataset.tags?.toLowerCase() || "";
     tr.style.display = (name.includes(term) || tags.includes(term)) ? "" : "none";
   });
+  const cards = document.querySelectorAll("#fileListContainer .file-card");
+  cards.forEach(card => {
+    const name = card.querySelector('.file-name')?.textContent.toLowerCase() || '';
+    const tags = card.querySelector('.tag-input')?.value.toLowerCase() || card.dataset.tags?.toLowerCase() || '';
+    card.style.display = (name.includes(term) || tags.includes(term)) ? '' : 'none';
+  });
 }
 
 function filterUsers(term) {
