@@ -343,6 +343,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     """Create and configure the aiohttp application."""
     # allow up to 50GiB
     app = web.Application(client_max_size=50 * 1024**3)
+    app["websockets"] = set()
 
     # session setup
     storage = EncryptedCookieStorage(
@@ -816,6 +817,26 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def offline_page(request):
         return _render(request, "offline.html", {"request": request})
+
+    async def ws_handler(request: web.Request):
+        sess = await aiohttp_session.get_session(request)
+        uid = sess.get("user_id")
+        if not uid:
+            raise web.HTTPForbidden()
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        app["websockets"].add(ws)
+        try:
+            async for _ in ws:
+                pass
+        finally:
+            app["websockets"].discard(ws)
+        return ws
+
+    async def broadcast_ws(message: dict):
+        for ws in list(app["websockets"]):
+            if not ws.closed:
+                await ws.send_json(message)
 
     # handlers
     async def health(req):
@@ -1323,6 +1344,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if mime and mime.startswith("video"):
                 asyncio.create_task(_generate_hls(path, fid))
         # すべてのファイルを正常受信できた
+        await broadcast_ws({"action": "reload"})
         return web.json_response({"success": True})
 
     async def import_gdrive(req: web.Request):
@@ -1457,6 +1479,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         if mime and mime.startswith("video"):
             asyncio.create_task(_generate_hls(path, fid))
+        await broadcast_ws({"action": "reload"})
         return web.json_response({"success": True, "file_id": fid})
 
     async def gdrive_files(req: web.Request):
@@ -1682,6 +1705,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             mime, _ = mimetypes.guess_type(field.filename)
             if mime and mime.startswith("video"):
                 asyncio.create_task(_generate_hls(target_path, target_id))
+            await broadcast_ws({"action": "reload"})
             return web.json_response({"status": "completed", "file_id": target_id})
         return web.json_response({"status": "ok", "chunk": idx})
 
@@ -1875,6 +1899,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         username = user_row["username"] if user_row else str(discord_id)
         await notify_shared_upload(db, int(folder_id), username, filefield.filename)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(f"/shared/{folder_id}")
 
     async def shared_download(req: web.Request):
@@ -2356,6 +2381,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/", index)
     app.router.add_get("/offline", offline_page)
     app.router.add_get("/service-worker.js", service_worker)
+    app.router.add_get("/ws", ws_handler)
     app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
     app.router.add_post("/import_gdrive", import_gdrive)

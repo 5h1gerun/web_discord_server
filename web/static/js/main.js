@@ -656,3 +656,23 @@ if (sendExecBtn) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 })();
+
+let ws;
+function connectWs() {
+  if (ws) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.addEventListener('message', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.action === 'reload') reloadFileList();
+    } catch (err) {
+      console.error('ws message error', err);
+    }
+  });
+  ws.addEventListener('close', () => {
+    ws = null;
+    setTimeout(connectWs, 1000);
+  });
+}
+window.addEventListener('load', connectWs);
