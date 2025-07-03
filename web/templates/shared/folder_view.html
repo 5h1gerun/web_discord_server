@@ -87,6 +87,9 @@
           </button>
         </div>
       </form>
+      <div class="text-center text-muted small">
+        ここにファイルをドラッグ＆ドロップしてアップロード
+      </div>
 
       <div class="progress mt-2" id="uploadProgressWrap" style="height:6px; display:none;">
           <div id="uploadProgressBar"
@@ -111,6 +114,7 @@
       </a>
       <a href="/zip/{{ folder_id }}"
          class="btn btn-outline-secondary ripple me-2"
+         target="_blank" rel="noopener"
          data-mdb-ripple-init>
         <i class="bi bi-file-earmark-zip me-1"></i>ZIP ダウンロード
       </a>

@@ -6,13 +6,20 @@
 <div id="uploadArea">
   <form id="uploadForm" class="mb-2" method="post" action="/upload" enctype="multipart/form-data" onsubmit="return false;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="file" name="file" class="form-control mb-2" required>
+    <input type="file" name="file" class="form-control mb-2" multiple required>
     <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
       <span id="uploadSpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
     </button>
   </form>
-  <div class="text-center text-muted small">ここにファイルをドラッグ＆ドロップしてアップロード</div>
-</div>
+  <form method="post" action="/create_folder" class="mb-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="parent_id" value="{{ folder_id }}">
+    <div class="input-group">
+      <input type="text" name="name" class="form-control" placeholder="新しいフォルダ名" required>
+      <button class="btn btn-outline-primary" type="submit">作成</button>
+    </div>
+  </form>
+  </div>
 <div class="progress mt-2" id="uploadProgressWrap" style="height:4px;display:none;">
   <div id="uploadProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100"></div>
 </div>
@@ -22,6 +29,13 @@
   {% include 'mobile/partials/file_cards.html' %}
 </div>
 <div class="mt-3">
-  <a href="/shared" class="btn btn-outline-primary btn-sm w-100">共有フォルダへ</a>
+  <a href="/shared" class="btn btn-outline-primary btn-sm w-100 mb-2">共有フォルダへ</a>
+  {% if gdrive_enabled %}
+    {% if gdrive_authorized %}
+    <a href="/gdrive_import" class="btn btn-outline-success btn-sm w-100">🔄 Google Drive 取り込み</a>
+    {% else %}
+    <a href="/gdrive_auth" class="btn btn-outline-warning btn-sm w-100">🔑 Google Drive 連携</a>
+    {% endif %}
+  {% endif %}
 </div>
 {% endblock %}
