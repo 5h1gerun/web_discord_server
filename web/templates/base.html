@@ -21,6 +21,8 @@
   <!-- 自作 CSS -->
   <link rel="stylesheet" href="/static/css/style.css?v={{ static_version }}">
   <link rel="icon" href="{{ static('/favicon.png') }}?v={{ static_version }}" type="image/png">
+  <link rel="manifest" href="/manifest.json?v={{ static_version }}">
+  <meta name="theme-color" content="#000000">
   <meta name="csrf-token" content="{{ csrf_token }}">
   {% block extra_meta %}{% endblock %}
 </head>

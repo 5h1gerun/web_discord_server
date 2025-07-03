@@ -816,6 +816,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def service_worker(request):
         return web.FileResponse(STATIC_DIR / "service-worker.js")
 
+    async def web_manifest(request):
+        return web.FileResponse(STATIC_DIR / "manifest.json")
+
     async def offline_page(request):
         return _render(request, "offline.html", {"request": request})
 
@@ -2366,6 +2369,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/", index)
     app.router.add_get("/offline", offline_page)
     app.router.add_get("/service-worker.js", service_worker)
+    app.router.add_get("/manifest.json", web_manifest)
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
