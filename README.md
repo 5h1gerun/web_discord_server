@@ -63,6 +63,12 @@ python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decod
 OAuth 認証時の `state` はセッションに保存され、コールバック後に検証されます。Drive ファイル一覧取得に失敗した際はサーバー側のエラーメッセージが画面に表示されます。
 Discord OAuth でログインする際は、過去に一度でも TOTP 認証を成功させたユーザーのみ二要素認証が省略されます。
 
+## Webhook システム
+共有フォルダでは、各チャンネルに `WDS Notify` という Webhook を紐付けており、アップロードのたびに自動通知を送信できます。
+`/create_shared_folder` でフォルダを作成すると同名の Webhook が生成され、その URL がデータベースに保存されます。
+ボットまたは Web からファイルをアップロードすると `notify_shared_upload` が呼び出され、Webhook 経由で「ユーザー名 が `<ファイル名>` をアップロードしました」と投稿されます。
+誤って Webhook を削除した場合などは `/add_shared_webhook` コマンドで再登録が可能です。
+
 ## 起動方法
 1. 必要な環境変数を設定後、以下のコマンドでボットを起動します。
    ```bash
