@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('driveFileList');
   const refreshBtn = document.getElementById('refreshFiles');
   const searchInput = document.getElementById('searchQuery');
+  const importBtn = document.getElementById('importBtn');
+  const importSpinner = document.getElementById('importSpinner');
   if (!form) return;
 
   function extractFileId(value) {
@@ -11,9 +13,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return m ? m[0] : value;
   }
 
-  async function importFile(fileId, filename = '') {
+  async function importFile(fileId, filename = '', btn = importBtn) {
     if (!result) return;
     result.textContent = '';
+    if (btn) {
+      btn.disabled = true;
+      const sp = btn.querySelector('.spinner-border');
+      if (sp) {
+        sp.style.display = 'inline-block';
+      } else {
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = '取り込み中...';
+      }
+    }
     try {
       const res = await fetch('/import_gdrive', {
         method: 'POST',
@@ -39,6 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
       result.innerHTML = `<div class="alert alert-success">取り込み完了 (ID: ${data.file_id})</div>`;
     } catch (err) {
       result.innerHTML = `<div class="alert alert-danger">失敗: ${err.message}</div>`;
+    } finally {
+      if (btn) {
+        const sp = btn.querySelector('.spinner-border');
+        if (sp) {
+          sp.style.display = 'none';
+        } else if (btn.dataset.originalText) {
+          btn.textContent = btn.dataset.originalText;
+          delete btn.dataset.originalText;
+        }
+        btn.disabled = false;
+      }
     }
   }
 
@@ -46,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const fileId = extractFileId(form.file_id.value.trim());
     const filename = form.filename.value.trim();
-    if (fileId) importFile(fileId, filename);
+    if (fileId) importFile(fileId, filename, importBtn);
   });
 
   async function loadFiles(query = '') {
@@ -67,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.createElement('button');
         btn.className = 'btn btn-sm btn-primary ms-auto';
         btn.textContent = '取り込み';
-        btn.addEventListener('click', () => importFile(f.id, f.name));
+        btn.addEventListener('click', () => importFile(f.id, f.name, btn));
         div.appendChild(btn);
         list.appendChild(div);
       });
