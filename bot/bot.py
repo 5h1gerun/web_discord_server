@@ -20,7 +20,8 @@ import aiohttp
 from dotenv import load_dotenv
 load_dotenv()
 # ── local ──────────────────────────────
-from web.app import create_app, _sign_token                  # type: ignore
+from web.app import create_app
+from web.utils import sign_token as _sign_token
 from bot.db import Database                                  # type: ignore
 from bot.commands import setup_commands
 import pyotp, qrcode# スラッシュコマンド本体
