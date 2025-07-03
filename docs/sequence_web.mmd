@@ -1,0 +1,19 @@
+%%{init: {'theme': 'dark'}}%%
+%% Web サーバ上のシーケンス図
+sequenceDiagram
+    participant Browser as Browser
+    participant SW as Service Worker
+    participant Web as aiohttp Web App
+    participant DB as SQLite DB
+    participant Files as File Storage
+
+    Browser->>Web: GET /login
+    Web-->>Browser: ログインページ
+    Browser->>SW: サービスワーカー登録
+    Browser->>Web: POST /login (認証情報)
+    Web->>DB: 認証チェック
+    Web-->>Browser: セッションCookie
+    Browser->>Web: POST /upload (ファイル)
+    Web->>Files: ファイル保存
+    Web->>DB: メタデータ登録
+    Web-->>Browser: 完了レスポンス
