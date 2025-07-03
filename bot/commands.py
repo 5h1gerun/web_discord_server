@@ -725,8 +725,9 @@ def setup_commands(bot: discord.Client):
         # 新シークレット + バックアップ発行
         secret = pyotp.random_base32()
         await db.execute(
-            "UPDATE users SET totp_secret=?, totp_enabled=1 WHERE discord_id=?",
-            secret, inter.user.id,
+            "UPDATE users SET totp_secret=?, totp_enabled=1, totp_verified=0 WHERE discord_id=?",
+            secret,
+            inter.user.id,
         )
         await db.commit()
 
@@ -755,8 +756,8 @@ def setup_commands(bot: discord.Client):
     async def admin_reset_totp(inter: discord.Interaction, user: discord.Member):
         db = inter.client.db                   # ← これを追加
         await db.execute(
-            "UPDATE users SET totp_enabled=0 WHERE discord_id=?",
-            user.id
+            "UPDATE users SET totp_enabled=0, totp_verified=0 WHERE discord_id=?",
+            user.id,
         )
         await db.commit()
 
