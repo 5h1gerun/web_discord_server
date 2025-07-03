@@ -1618,9 +1618,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         path = Path(rec["path"])
         mime, _ = mimetypes.guess_type(rec[filename_key])
+        from urllib.parse import quote
+
+        encoded_name = quote(rec[filename_key])
         headers = {
             "Content-Type": mime or "application/octet-stream",
-            "Content-Disposition": f'attachment; filename="{rec[filename_key]}"',
+            "Content-Disposition": (
+                f"attachment; filename*=UTF-8''{encoded_name}; "
+                f'filename="{rec[filename_key]}"'
+            ),
         }
         if path.exists():
             return web.FileResponse(path, headers=headers)
@@ -2064,10 +2070,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 pass
 
         asyncio.create_task(_cleanup())
+        from urllib.parse import quote
+
+        filename = f"folder_{folder_id}.zip"
+        encoded_name = quote(filename)
         return web.FileResponse(
             zip_path,
             headers={
-                "Content-Disposition": f'attachment; filename="folder_{folder_id}.zip"'
+                "Content-Disposition": (
+                    f"attachment; filename*=UTF-8''{encoded_name}; "
+                    f'filename="{filename}"'
+                )
             },
         )
 
