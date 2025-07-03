@@ -1,3 +1,4 @@
+%%{init: {'theme': 'dark'}}%%
 %% Web Discord Server System Overview
 graph TD
     subgraph User
@@ -12,13 +13,17 @@ graph TD
         DB[(SQLite DB)]
         Files[(File Storage)]
     end
+    SW((Service Worker))
+    Drive[(Google Drive)]
     Gemini{{Gemini API}}
 
     A --"Slash Commands"--> Bot
     B --"HTTP"--> Web
+    B --"Register"--> SW
     Bot --"Starts"--> Web
     Bot --"DB Access"--> DB
     Web --"Read/Write"--> DB
     Web --"Store Files"--> Files
+    Web --"Copy"--> Drive
     Web --"Auto Tag"--> Gemini
     Bot --"Send Files"--> A

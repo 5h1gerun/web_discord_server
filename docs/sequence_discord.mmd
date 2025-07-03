@@ -1,8 +1,10 @@
+%%{init: {'theme': 'dark'}}%%
 %% Discord 上でのシーケンス図
 sequenceDiagram
     participant User as Discord User
     participant Bot as Discord Bot
     participant Files as File Storage
+    participant Drive as Google Drive
     participant DB as SQLite DB
     participant Gemini as Gemini API
 
@@ -10,6 +12,7 @@ sequenceDiagram
     Bot->>User: アップロード受付メッセージ
     User-->>Bot: 添付ファイル送信
     Bot->>Files: 保存
+    Bot->>Drive: コピー
     Bot->>Gemini: タグ付け
     Bot->>DB: メタデータ登録
     Bot->>User: 完了メッセージ (リンク付き)

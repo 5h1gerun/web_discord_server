@@ -1,19 +1,24 @@
+%%{init: {'theme': 'dark'}}%%
 %% Web Discord Server シーケンス図 (全体)
 sequenceDiagram
     participant User as Discord User
     participant Bot as Discord Bot
     participant Files as File Storage
     participant DB as SQLite DB
+    participant Drive as Google Drive
     participant Gemini as Gemini API
     participant Browser as Browser
     participant Web as aiohttp Web App
+    participant SW as Service Worker
 
     User->>Bot: /upload (ファイル添付)
     Bot->>Files: ファイル保存
+    Bot->>Drive: コピー
     Bot->>Gemini: タグ生成
     Bot->>DB: メタデータ保存
     Bot->>User: ダウンロードリンク送信
     User->>Browser: リンクを開く
+    Browser->>SW: サービスワーカー登録
     Browser->>Web: HTTP リクエスト
     Web->>DB: 情報取得
     Web->>Files: ファイル取得
