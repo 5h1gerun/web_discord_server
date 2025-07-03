@@ -389,50 +389,47 @@ body.dark-mode #fileSearch {
 }
 
 /* ============================== */
-/*      Fancy Breadcrumb Style    */
+/*      Modern Breadcrumb Style   */
 /* ============================== */
-.breadcrumb-fancy {
+.breadcrumb-modern {
   display: flex;
   flex-wrap: wrap;
   list-style: none;
   margin-bottom: 1rem;
-  background: none;
-  padding: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--glass-bg-light);
 }
 
-.breadcrumb-fancy .breadcrumb-item {
-  position: relative;
-  padding: 0.5rem 1rem 0.5rem 1.75rem;
-  background: var(--btn-bg-light);
-  color: #fff;
+body.dark-mode .breadcrumb-modern {
+  background: var(--glass-bg-dark);
 }
 
-body.dark-mode .breadcrumb-fancy .breadcrumb-item {
-  background: var(--btn-bg-dark);
+.breadcrumb-modern .breadcrumb-item {
+  display: flex;
+  align-items: center;
+  color: var(--link-color-light);
 }
 
-.breadcrumb-fancy .breadcrumb-item + .breadcrumb-item {
-  margin-left: 1.25rem;
+body.dark-mode .breadcrumb-modern .breadcrumb-item {
+  color: var(--link-color-dark);
 }
 
-.breadcrumb-fancy .breadcrumb-item + .breadcrumb-item::before {
-  content: '';
-  position: absolute;
-  left: -1.25rem;
-  top: 0;
-  width: 1.25rem;
-  height: 100%;
-  background: inherit;
-  transform: skewX(-45deg);
-  transform-origin: 0 100%;
-  z-index: -1;
+.breadcrumb-modern .breadcrumb-item + .breadcrumb-item::before {
+  content: "\203A"; /* › */
+  padding: 0 0.5rem;
+  color: var(--text-color-light);
 }
 
-.breadcrumb-fancy .breadcrumb-item a {
+body.dark-mode .breadcrumb-modern .breadcrumb-item + .breadcrumb-item::before {
+  color: var(--text-color-dark);
+}
+
+.breadcrumb-modern .breadcrumb-item a {
   color: inherit;
   text-decoration: none;
 }
 
-.breadcrumb-fancy .breadcrumb-item.active {
-  font-weight: bold;
+.breadcrumb-modern .breadcrumb-item.active {
+  font-weight: 600;
 }
