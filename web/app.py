@@ -82,6 +82,7 @@ MOBILE_TEMPLATES = {
     "totp.html": "mobile/totp.html",
     "shared/index.html": "mobile/shared_index.html",
     "shared/folder_view.html": "mobile/folder_view.html",
+    "gdrive_import.html": "mobile/gdrive_import.html",
 }
 
 
@@ -1947,11 +1948,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # ② ダウンロード要求 (dl=1)
         if req.query.get("dl") == "1":
+            from urllib.parse import quote
+
+            encoded = quote(rec["file_name"])
             return web.FileResponse(
                 rec["path"],
                 headers={
                     "Content-Type": mime or "application/octet-stream",
-                    "Content-Disposition": f'attachment; filename="{rec["file_name"]}"',
+                    "Content-Disposition": (
+                        f"attachment; filename*=UTF-8''{encoded}; "
+                        f'filename="{rec["file_name"]}"'
+                    ),
                 },
             )
 
@@ -2342,12 +2349,18 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPNotFound()
         # ?dl=1 が付いていれば直接ダウンロード
         if req.query.get("dl") == "1":
+            from urllib.parse import quote
+
             mime, _ = mimetypes.guess_type(rec["original_name"])
+            encoded = quote(rec["original_name"])
             return web.FileResponse(
                 rec["path"],
                 headers={
                     "Content-Type": mime or "application/octet-stream",
-                    "Content-Disposition": f'attachment; filename="{rec["original_name"]}"',
+                    "Content-Disposition": (
+                        f"attachment; filename*=UTF-8''{encoded}; "
+                        f'filename="{rec["original_name"]}"'
+                    ),
                 },
             )
 
