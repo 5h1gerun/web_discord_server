@@ -33,7 +33,7 @@ from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
 from aiolimiter import AsyncLimiter
 from collections import defaultdict
-import io, qrcode, pyotp  # ← 二要素用
+import io, qrcode, pyotp
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
@@ -103,12 +103,14 @@ def _render(req: web.Request, tpl: str, ctx: Dict[str, object]):
 
 
 def _sign_token(fid: str, exp: int) -> str:
+    """Generate a signed token for file downloads."""
     msg = f"{fid}:{exp}".encode()
     sig = hmac.new(FILE_HMAC_SECRET, msg, hashlib.sha256).digest()
     return base64.urlsafe_b64encode(msg + b":" + sig).decode()
 
 
 def _verify_token(tok: str) -> Optional[str]:
+    """Validate a token and return the file id if it is valid."""
     try:
         raw = base64.urlsafe_b64decode(tok.encode())
         fid, exp_raw, sig = raw.split(b":", 2)
@@ -131,6 +133,7 @@ def _verify_token(tok: str) -> Optional[str]:
 
 
 async def issue_csrf(request: web.Request) -> str:
+    """Return a CSRF token stored in the session, creating one if needed."""
     session = await aiohttp_session.get_session(request)
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(16)
@@ -261,6 +264,7 @@ async def _generate_hls(path: Path, fid: str) -> None:
 
 
 async def _task_worker(app: web.Application):
+    """Worker coroutine processing preview and tagging tasks."""
     queue: asyncio.Queue = app["task_queue"]
     while True:
         job = await queue.get()
@@ -336,6 +340,7 @@ async def rl_mw(req, handler):
 
 # ─────────────── APP Factory ───────────────
 def create_app(bot: Optional[discord.Client] = None) -> web.Application:
+    """Create and configure the aiohttp application."""
     # allow up to 50GiB
     app = web.Application(client_max_size=50 * 1024**3)
 
@@ -594,7 +599,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def shared_index(request):
         db = request.app["db"]
-        session = await get_session(request)  # ← 正しい方法でセッション取得
+        session = await get_session(request)
         user_id = session.get("user_id")
 
         if not user_id:
@@ -1078,7 +1083,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         now_ts = int(datetime.now(timezone.utc).timestamp())
         files = []
 
-        for r in rows:  # ← １回だけ回す
+        for r in rows:
             f = await _file_to_dict(r, req)  # share_url / download_url を付与
             f["user_id"] = discord_id
             f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
@@ -1921,7 +1926,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # Row → dict へ変換してテンプレートへ
         file_dict = dict(rec)
-        file_dict["original_name"] = file_dict.get("file_name", "")  # ← 追加
+        file_dict["original_name"] = file_dict.get("file_name", "")
         preview_file = PREVIEW_DIR / f"{file_dict['id']}.jpg"
         if preview_file.exists():
             file_dict["preview_url"] = f"/previews/{preview_file.name}"
@@ -2192,7 +2197,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             sf["folder_id"],
             discord_id,
         )
-        if member_row is None:  # ← ここが抜けていた
+        if member_row is None:
             return web.json_response({"error": "forbidden"}, status=403)
 
         # ── 4. 新ファイル名バリデーション ──────────
