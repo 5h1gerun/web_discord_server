@@ -2393,8 +2393,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/shared/tags/{id}", shared_update_tags)
     app.router.add_post("/shared/toggle_shared/{id}", shared_toggle)
     app.router.add_post("/rename/{id}", rename_file)
-    app.router.add_get("/totp", totp_get)  # 6桁入力フォーム表示
-    app.router.add_post("/totp", totp_post)  # コード検証
+    app.router.add_get("/totp", totp_get)
+    app.router.add_post("/totp", totp_post)
     app.router.add_post("/shared/rename_file/{file_id}", rename_shared_file)
     app.router.add_get("/f/{token}", public_file)
 
