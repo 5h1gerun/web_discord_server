@@ -42,6 +42,9 @@
 
   --transition-speed: 0.3s;
   --modal-overlay: rgba(0,0,0,0.6);
+  /* Breadcrumb colors */
+  --breadcrumb-bg-light: rgba(30, 136, 229, 0.15);
+  --breadcrumb-bg-dark: rgba(100, 181, 246, 0.15);
 }
 
 body {
@@ -451,13 +454,13 @@ body.dark-mode .breadcrumb-modern .breadcrumb-item + .breadcrumb-item::before {
   align-items: center;
   padding: 0.5rem 1rem 0.5rem 1.25rem;
   margin-right: 1rem;
-  background: var(--glass-bg-light);
-  color: var(--link-color-light);
+  background: var(--breadcrumb-bg-light);
+  color: var(--btn-bg-light);
 }
 
 body.dark-mode .breadcrumb-fancy .breadcrumb-item {
-  background: var(--glass-bg-dark);
-  color: var(--link-color-dark);
+  background: var(--breadcrumb-bg-dark);
+  color: var(--btn-bg-dark);
 }
 
 .breadcrumb-fancy .breadcrumb-item::after {
@@ -502,4 +505,11 @@ body.dark-mode .breadcrumb-fancy .breadcrumb-item {
 
 .breadcrumb-fancy .breadcrumb-item.active {
   font-weight: 600;
+  background: var(--btn-bg-light);
+  color: #fff;
+}
+
+body.dark-mode .breadcrumb-fancy .breadcrumb-item.active {
+  background: var(--btn-bg-dark);
+  color: #fff;
 }
