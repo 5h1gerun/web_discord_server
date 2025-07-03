@@ -13,7 +13,7 @@
       <div class="file-name small" data-file-id="{{ f.id }}">{{ f.original_name }}</div>
       <div class="text-muted small">{{ f.size|human_size }}</div>
       <div class="file-actions">
-        <a href="{{ f.download_url }}" class="btn btn-sm btn-outline-primary" download><i class="bi bi-download"></i> ダウンロード</a>
+        <a href="{{ f.download_url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"><i class="bi bi-download"></i> ダウンロード</a>
         {% if f.user_id == user_id %}
         <button class="btn btn-sm btn-outline-secondary rename-btn" data-file-id="{{ f.id }}" data-current="{{ f.original_name }}" data-shared="1"><i class="bi bi-pencil-square"></i> 名前変更</button>
         <form method="post" action="/shared/delete/{{ f.id }}" class="d-inline-block" onsubmit="return confirm('本当に削除しますか？');">
