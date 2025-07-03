@@ -6,7 +6,7 @@
 <div id="uploadArea">
   <form id="uploadForm" class="mb-2" method="post" action="/upload" enctype="multipart/form-data" onsubmit="return false;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="file" name="file" class="form-control mb-2" required>
+    <input type="file" name="file" class="form-control mb-2" multiple required>
     <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
       <span id="uploadSpinner" class="spinner-border spinner-border-sm ms-1" style="display:none;"></span>
     </button>
