@@ -151,10 +151,11 @@ async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> No
 
 
 async def notify_shared_upload(
-    db: Database, folder_id: int, username: str, file_name: str
+    db: Database, folder_id: int, discord_id: int, file_name: str
 ) -> None:
     """共有フォルダへのアップロードをWebhookで通知"""
-    message = f"\N{INBOX TRAY} {username} が `{file_name}` をアップロードしました。"
+    mention = f"<@{discord_id}>"
+    message = f"\N{INBOX TRAY} {mention} が `{file_name}` をアップロードしました。"
     await _send_shared_webhook(db, folder_id, message)
 
 
@@ -1894,11 +1895,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         mime, _ = mimetypes.guess_type(filefield.filename)
         if mime and mime.startswith("video"):
             asyncio.create_task(_generate_hls(path, fid))
-        user_row = await db.fetchone(
-            "SELECT username FROM users WHERE discord_id = ?", discord_id
-        )
-        username = user_row["username"] if user_row else str(discord_id)
-        await notify_shared_upload(db, int(folder_id), username, filefield.filename)
+        await notify_shared_upload(db, int(folder_id), discord_id, filefield.filename)
         await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(f"/shared/{folder_id}")
 
@@ -1993,14 +1990,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.execute("DELETE FROM shared_files WHERE id = ?", file_id)
         await db.commit()
 
-        user_row = await db.fetchone(
-            "SELECT username FROM users WHERE discord_id = ?", discord_id
-        )
-        username = user_row["username"] if user_row else str(discord_id)
         await _send_shared_webhook(
             db,
             rec["folder_id"],
-            f"\N{WASTEBASKET} {username} が `{rec['file_name']}` を削除しました。",
+            f"\N{WASTEBASKET} <@{discord_id}> が `{rec['file_name']}` を削除しました。",
         )
 
         raise web.HTTPFound(f"/shared/{rec['folder_id']}")
@@ -2129,15 +2122,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             )
         await db.commit()
 
-        user_row = await db.fetchone(
-            "SELECT username FROM users WHERE discord_id = ?", discord_id
-        )
-        username = user_row["username"] if user_row else str(discord_id)
         action = "共有しました" if new_state else "共有を解除しました"
         await _send_shared_webhook(
             db,
             rec["folder_id"],
-            f"\N{LINK SYMBOL} {username} が `{rec['file_name']}` を{action}。",
+            f"\N{LINK SYMBOL} <@{discord_id}> が `{rec['file_name']}` を{action}。",
         )
 
         payload = {"status": "ok", "is_shared": new_state, "expiration": exp_sec}
@@ -2248,14 +2237,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         await db.commit()
 
-        user_row = await db.fetchone(
-            "SELECT username FROM users WHERE discord_id = ?", discord_id
-        )
-        username = user_row["username"] if user_row else str(discord_id)
         await _send_shared_webhook(
             db,
             sf["folder_id"],
-            f"\N{PENCIL} {username} が `{sf['file_name']}` を `{new_name}` にリネームしました。",
+            f"\N{PENCIL} <@{discord_id}> が `{sf['file_name']}` を `{new_name}` にリネームしました。",
         )
 
         return web.json_response({"status": "ok", "new_name": new_name})

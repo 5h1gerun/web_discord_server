@@ -78,7 +78,10 @@ class WebDiscordBot(discord.Client):
         if not url:
             return
         async with aiohttp.ClientSession() as session:
-            await session.post(url, json={"content": f"📥 {user.display_name} が `{file_name}` をアップロードしました。"})
+            await session.post(
+                url,
+                json={"content": f"📥 {user.mention} が `{file_name}` をアップロードしました。"},
+            )
 
     async def on_ready(self):
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="/help"))

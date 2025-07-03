@@ -66,7 +66,7 @@ Discord OAuth でログインする際は、過去に一度でも TOTP 認証を
 ## Webhook システム
 共有フォルダでは、各チャンネルに `WDS Notify` という Webhook を紐付けており、アップロードのたびに自動通知を送信できます。
 `/create_shared_folder` でフォルダを作成すると同名の Webhook が生成され、その URL がデータベースに保存されます。
-ボットまたは Web からファイルをアップロードすると `notify_shared_upload` が呼び出され、Webhook 経由で「ユーザー名 が `<ファイル名>` をアップロードしました」と投稿されます。
+ボットまたは Web からファイルをアップロードすると `notify_shared_upload` が呼び出され、Webhook 経由で「<@ユーザーID> が `<ファイル名>` をアップロードしました」のようにメンション付きで投稿されます。
 誤って Webhook を削除した場合などは `/add_shared_webhook` コマンドで再登録が可能です。
 
 ## 起動方法
