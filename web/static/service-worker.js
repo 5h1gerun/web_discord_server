@@ -8,7 +8,8 @@ const OFFLINE_URLS = [
   '/static/css/style-mobile-friendly.css',
   '/static/css/style-phone.css',
   '/static/js/main.js',
-  '/static/favicon.png'
+  '/static/favicon.png',
+  '/static/manifest.webmanifest'
 ];
 
 self.addEventListener('install', (event) => {
