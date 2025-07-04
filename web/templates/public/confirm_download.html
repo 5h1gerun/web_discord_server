@@ -86,7 +86,13 @@
               name: '{{ file.original_name }}',
               stream: stream
             }, [stream]);
-            location.href = '/stream-download/' + id;
+
+            const a = document.createElement('a');
+            a.href = '/stream-download/' + id;
+            a.download = '{{ file.original_name }}';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
           } catch (e) {
             console.error(e);
             document.getElementById('directDl').click();
