@@ -533,6 +533,36 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
 
 
 document.addEventListener("click", async (e) => {
+  const dlLink = e.target.closest('.sw-dl-link');
+  if (dlLink) {
+    e.preventDefault();
+    if (!navigator.serviceWorker?.controller) {
+      window.open(dlLink.href, '_blank');
+      return;
+    }
+    try {
+      const resp = await fetch(dlLink.href);
+      const stream = resp.body;
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      navigator.serviceWorker.controller.postMessage({
+        type: 'download',
+        id: id,
+        name: dlLink.dataset.fileName || 'file',
+        stream
+      }, [stream]);
+      const a = document.createElement('a');
+      a.href = '/stream-download/' + id;
+      a.download = dlLink.dataset.fileName || 'file';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      window.open(dlLink.href, '_blank');
+    }
+    return;
+  }
+
   const sendBtn = e.target.closest(".send-btn");
   if (sendBtn) {
     const fid = sendBtn.dataset.fileId;
