@@ -18,6 +18,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from .utils import build_discord_oauth_url
+
 import discord
 
 from aiohttp import web
@@ -901,14 +903,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
-        params = {
-            "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "identify",
-            "state": state,
-        }
-        url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
+        url = build_discord_oauth_url(DISCORD_CLIENT_ID, redirect_uri, state)
         raise web.HTTPFound(url)
 
     async def discord_callback(req: web.Request):
