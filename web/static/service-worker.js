@@ -42,6 +42,15 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  if (
+    url.pathname.startsWith('/download/') ||
+    url.pathname.startsWith('/shared/download/') ||
+    url.pathname.startsWith('/zip/') ||
+    (url.pathname.startsWith('/f/') && url.searchParams.get('dl') === '1')
+  ) {
+    return; // let the browser handle file downloads
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
     return;
