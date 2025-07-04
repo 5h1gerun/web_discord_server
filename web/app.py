@@ -907,6 +907,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "response_type": "code",
             "scope": "identify",
             "state": state,
+            "disable_mobile_redirect": "true",
         }
         url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         raise web.HTTPFound(url)
