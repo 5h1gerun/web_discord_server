@@ -47,3 +47,5 @@ def test_sw_download_handler_in_main_js():
     js = read_js()
     assert 'sw-dl-link' in js
     assert 'stream-download' in js
+    assert '_blank' in js
+    assert 'noopener' in js

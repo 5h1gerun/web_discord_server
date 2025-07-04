@@ -90,6 +90,8 @@
             const a = document.createElement('a');
             a.href = '/stream-download/' + id;
             a.download = '{{ file.original_name }}';
+            a.target = '_blank';
+            a.rel = 'noopener';
             document.body.appendChild(a);
             a.click();
             a.remove();

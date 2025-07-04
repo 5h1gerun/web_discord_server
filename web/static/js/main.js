@@ -553,6 +553,8 @@ document.addEventListener("click", async (e) => {
       const a = document.createElement('a');
       a.href = '/stream-download/' + id;
       a.download = dlLink.dataset.fileName || 'file';
+      a.target = '_blank';
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
       a.remove();
