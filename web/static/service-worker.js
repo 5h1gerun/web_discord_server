@@ -48,7 +48,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/zip/') ||
     (url.pathname.startsWith('/f/') && url.searchParams.get('dl') === '1')
   ) {
-    return; // let the browser handle file downloads
+    event.respondWith(handleDownload(request));
+    return;
   }
 
   if (request.mode === 'navigate') {
@@ -64,6 +65,21 @@ self.addEventListener('fetch', (event) => {
   // それ以外の API や部分 HTML などは新しい内容を優先
   event.respondWith(networkFirst(request));
 });
+
+async function handleDownload(request) {
+  const res = await fetch(request);
+  const headers = new Headers(res.headers);
+  if (!headers.has('Content-Disposition')) {
+    const url = new URL(request.url);
+    const name = url.pathname.split('/').pop() || 'file';
+    headers.set('Content-Disposition', `attachment; filename="${name}"`);
+  }
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
 
 async function handleNavigate(request) {
   const cache = await caches.open(CACHE_NAME);

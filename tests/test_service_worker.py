@@ -32,9 +32,11 @@ def test_handle_navigate_uses_cache_first():
     assert 'return cached;' in sw
 
 
-def test_download_requests_bypass():
+def test_download_requests_handled():
     sw = read_sw()
     assert "url.pathname.startsWith('/download/')" in sw
     assert "url.pathname.startsWith('/shared/download/')" in sw
     assert "url.pathname.startsWith('/zip/')" in sw
     assert "url.pathname.startsWith('/f/')" in sw
+    assert 'async function handleDownload' in sw
+    assert 'event.respondWith(handleDownload(request))' in sw
