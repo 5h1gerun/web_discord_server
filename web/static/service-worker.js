@@ -9,7 +9,17 @@ const OFFLINE_URLS = [
   '/static/css/style-phone.css',
   '/static/js/main.js',
   '/static/favicon.png',
-  '/manifest.json'
+  '/manifest.json',
+  // CDN assets for faster LCP on PWA
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.4.0/mdb.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/hover.css/2.3.1/css/hover-min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.7.2/vanilla-tilt.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.4.0/mdb.min.js',
+  'https://cdn.jsdelivr.net/npm/hls.js@latest'
 ];
 
 self.addEventListener('install', (event) => {
@@ -47,14 +57,18 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function handleNavigate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) {
+    fetch(request).then(res => cache.put(request, res.clone())).catch(() => {});
+    return cached;
+  }
   try {
     const res = await fetch(request);
-    const cache = await caches.open(CACHE_NAME);
     cache.put(request, res.clone());
     return res;
   } catch (_) {
-    const cached = await caches.match(request);
-    return cached || caches.match(OFFLINE_PAGE);
+    return caches.match(OFFLINE_PAGE);
   }
 }
 
