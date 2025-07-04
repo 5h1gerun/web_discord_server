@@ -63,11 +63,36 @@
 
       <!-- 操作ボタン -->
       <div class="mt-4 d-flex justify-content-center gap-3">
-        <a href="{{ request.path }}?dl=1"
+        <a href="{{ request.path }}?dl=1" id="directDl"
            class="btn btn-primary px-4">ダウンロード</a>
+        <button class="btn btn-success px-4" id="swDlBtn">SW保存</button>
         <a href="javascript:history.back()"
            class="btn btn-outline-secondary">キャンセル</a>
       </div>
+
+      <script>
+        document.getElementById('swDlBtn').addEventListener('click', async () => {
+          if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+            document.getElementById('directDl').click();
+            return;
+          }
+          try {
+            const resp = await fetch('{{ request.path }}?dl=1');
+            const stream = resp.body;
+            const id = Date.now().toString(36);
+            navigator.serviceWorker.controller.postMessage({
+              type: 'download',
+              id: id,
+              name: '{{ file.original_name }}',
+              stream: stream
+            }, [stream]);
+            location.href = '/stream-download/' + id;
+          } catch (e) {
+            console.error(e);
+            document.getElementById('directDl').click();
+          }
+        });
+      </script>
 
     </div>
   </div>

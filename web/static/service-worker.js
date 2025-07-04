@@ -22,6 +22,16 @@ const OFFLINE_URLS = [
   'https://cdn.jsdelivr.net/npm/hls.js@latest'
 ];
 
+// ----------------- Stream download support -----------------
+const downloadStreams = new Map();
+
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.type === 'download' && data.id && data.stream) {
+    downloadStreams.set(data.id, { stream: data.stream, name: data.name || 'file' });
+  }
+});
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(OFFLINE_URLS))
@@ -41,6 +51,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  if (url.pathname.startsWith('/stream-download/')) {
+    const id = url.pathname.split('/').pop();
+    const info = downloadStreams.get(id);
+    if (info) {
+      downloadStreams.delete(id);
+      const headers = {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${info.name}"`
+      };
+      event.respondWith(new Response(info.stream, { headers }));
+    }
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));

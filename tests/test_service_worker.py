@@ -30,3 +30,9 @@ def test_handle_navigate_uses_cache_first():
     assert 'async function handleNavigate' in sw
     assert 'if (cached)' in sw
     assert 'return cached;' in sw
+
+
+def test_stream_download_support_present():
+    sw = read_sw()
+    assert 'downloadStreams' in sw
+    assert "event.data || {}" in sw
