@@ -48,6 +48,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 
 `PUBLIC_DOMAIN` は Google OAuth のリダイレクト先だけでなく、Discord OAuth にも使用されます。Google Cloud Console には `https://<PUBLIC_DOMAIN>/gdrive_callback`、Discord には `https://<PUBLIC_DOMAIN>/discord_callback` を登録してください。
 
+`DOWNLOAD_DOMAIN` はスマホ版ダウンロードボタンに使用するベース URL です。`https://` を含む完全な URL か、ドメイン名のみを指定できます。ドメインだけを指定した場合は `https://<DOWNLOAD_DOMAIN>` で生成されます。
+
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
