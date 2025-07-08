@@ -1187,6 +1187,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             user_id,
             folder,
         )
+        parent_id = int(folder) if folder else None
+        subfolders = await app["db"].list_user_folders(user_id, parent_id)
         now_ts = int(datetime.now(timezone.utc).timestamp())
         files = []
         for r in rows:
@@ -1219,6 +1221,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "files": files,
                 "csrf_token": token,
                 "username": username,
+                "folder_id": folder,
+                "subfolders": subfolders,
                 "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
                 "gdrive_authorized": (
                     bool(await app["db"].get_gdrive_token(user_id))
