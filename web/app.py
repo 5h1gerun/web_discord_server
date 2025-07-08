@@ -485,27 +485,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 d["expiration_str"] = "".join(parts) if parts else "0分"
 
         # 共有URL
-        if not token:
-            d["share_url"] = ""
-        else:
+        if token:
             base = "/shared/download" if d.get("folder_id") else "/f"
             d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
+        else:
+            d["share_url"] = ""
 
-        # DL用URL
-        d["download_url"] = _make_download_url(f"/download/{d['id']}")
-        if not token:
-            d["share_url"] = ""
-        else:
-            base = "/shared/download" if d.get("folder_id") else "/f"
-            d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
+        # DL用URL (署名付き)
+        signed = _sign_token(d["id"], now_ts + URL_EXPIRES_SEC)
+        d["download_url"] = _make_download_url(f"/download/{signed}")
         # HLS マスタープレイリストの有無を確認
         master_path = HLS_DIR / f"{d['id']}" / "master.m3u8"
         if master_path.exists():
             d["hls_url"] = f"/hls/{d['id']}/master.m3u8"
         else:
             d["hls_url"] = ""
-        # ログインユーザ専用の直接 DL URL
-        d["download_url"] = _make_download_url(f"/download/{d['id']}")
         return d
 
     @pass_context
