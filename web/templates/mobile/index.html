@@ -5,6 +5,7 @@
 <h2 class="h4 mb-3">アップロード</h2>
 <div id="uploadArea">
   <form id="uploadForm" class="mb-2" method="post" action="/upload" enctype="multipart/form-data" onsubmit="return false;">
+    <input type="hidden" name="folder_id" value="{{ folder_id }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="file" name="file" class="form-control mb-2" multiple required>
     <button type="button" id="uploadBtn" class="btn btn-primary w-100">アップロード
@@ -19,6 +20,28 @@
       <button class="btn btn-outline-primary" type="submit">作成</button>
     </div>
   </form>
+  {% if subfolders %}
+  <div id="subfolderList">
+  <div class="list-group mb-3">
+    {% for f in subfolders %}
+    <div class="list-group-item d-flex justify-content-between align-items-center">
+      <a href="/mobile?folder={{ f.id }}" class="flex-grow-1 text-decoration-none">
+        <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
+      </a>
+      <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  <form method="post" action="/delete_subfolders" class="mb-3" onsubmit="return confirm('本当に全て削除しますか？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="parent_id" value="{{ folder_id }}">
+    <button class="btn btn-danger btn-sm w-100">サブフォルダ全削除</button>
+  </form>
+  </div>
+  {% endif %}
   </div>
 <div class="progress mt-2" id="uploadProgressWrap" style="height:4px;display:none;">
   <div id="uploadProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100"></div>

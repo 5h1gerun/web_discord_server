@@ -87,7 +87,8 @@ let userList = [];
 
 // ―― ファイル一覧を再描画 ――
 async function reloadFileList() {
-  const container = document.getElementById("fileListContainer");
+  const container   = document.getElementById("fileListContainer");
+  const folderBlock = document.getElementById("subfolderList");
   if (!container) return;
 
   // data-shared 属性で URL を切り替える
@@ -104,10 +105,14 @@ async function reloadFileList() {
 
     const html = await res.text();
     // フルページ取得か部分断片か両方に対応
-    const parser    = new DOMParser();
-    const doc       = parser.parseFromString(html, "text/html");
-    const newCont   = doc.getElementById("fileListContainer");
+    const parser  = new DOMParser();
+    const doc     = parser.parseFromString(html, "text/html");
+    const newCont = doc.getElementById("fileListContainer");
     container.innerHTML = newCont ? newCont.innerHTML : html;
+    if (folderBlock) {
+      const newFolders = doc.getElementById("subfolderList");
+      folderBlock.innerHTML = newFolders ? newFolders.innerHTML : "";
+    }
 
     // 再初期化：Tilt, Ripple, Tooltip など
     if (window.VanillaTilt) {
