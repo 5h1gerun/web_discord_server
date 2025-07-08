@@ -572,7 +572,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["is_video"] = bool(mime and mime.startswith("video/"))
 
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
-            f["url"] = f"/download/{_sign_token(f['id'], now + URL_EXPIRES_SEC)}"
+            dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+            signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
+            if dl_domain:
+                f["url"] = f"https://{dl_domain}/download/{signed}"
+            else:
+                f["url"] = f"/download/{signed}"
             f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -1129,7 +1134,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for r in rows:
             f = await _file_to_dict(r, req)  # share_url / download_url を付与
             f["user_id"] = discord_id
-            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+            dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+            signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+            if dl_domain:
+                f["url"] = f"https://{dl_domain}/download/{signed}"
+            else:
+                f["url"] = f"/download/{signed}"
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1209,7 +1219,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for r in rows:
             f = await _file_to_dict(r, req)
             f["user_id"] = discord_id
-            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+            dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+            signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+            if dl_domain:
+                f["url"] = f"https://{dl_domain}/download/{signed}"
+            else:
+                f["url"] = f"/download/{signed}"
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
