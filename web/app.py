@@ -133,6 +133,21 @@ def _verify_token(tok: str) -> Optional[str]:
         return None
 
 
+def _download_base() -> Optional[str]:
+    """Return DOWNLOAD_DOMAIN with scheme or None."""
+    dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+    if not dl_domain:
+        return None
+    if dl_domain.startswith(("http://", "https://")):
+        return dl_domain.rstrip("/")
+    return f"https://{dl_domain}".rstrip("/")
+
+
+def _make_download_url(path: str) -> str:
+    base = _download_base()
+    return f"{base}{path}" if base else path
+
+
 async def issue_csrf(request: web.Request) -> str:
     """Return a CSRF token stored in the session, creating one if needed."""
     session = await aiohttp_session.get_session(request)
@@ -470,27 +485,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 d["expiration_str"] = "".join(parts) if parts else "0分"
 
         # 共有URL
-        if not token:
-            d["share_url"] = ""
-        else:
+        if token:
             base = "/shared/download" if d.get("folder_id") else "/f"
             d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
+        else:
+            d["share_url"] = ""
 
-        # DL用URL
-        d["download_url"] = f"/download/{d['id']}"
-        if not token:
-            d["share_url"] = ""
-        else:
-            base = "/shared/download" if d.get("folder_id") else "/f"
-            d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
+        # DL用URL (署名付き)
+        signed = _sign_token(d["id"], now_ts + URL_EXPIRES_SEC)
+        d["download_url"] = _make_download_url(f"/download/{signed}")
         # HLS マスタープレイリストの有無を確認
         master_path = HLS_DIR / f"{d['id']}" / "master.m3u8"
         if master_path.exists():
             d["hls_url"] = f"/hls/{d['id']}/master.m3u8"
         else:
             d["hls_url"] = ""
-        # ログインユーザ専用の直接 DL URL
-        d["download_url"] = f"/download/{d['id']}"
         return d
 
     @pass_context
@@ -565,7 +574,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["is_video"] = bool(mime and mime.startswith("video/"))
 
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
-            f["url"] = f"/download/{_sign_token(f['id'], now + URL_EXPIRES_SEC)}"
+            signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
+            f["url"] = _make_download_url(f"/download/{signed}")
             f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -688,11 +698,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 # 2) 共有用URL
                 # プレビュー用は inline 表示させるため preview=1
                 f["preview_url"] = f"/shared/download/{token}?preview=1"
-                f["download_url"] = f"/shared/download/{token}?dl=1"
+                f["download_url"] = _make_download_url(f"/shared/download/{token}?dl=1")
                 preview_fallback = f["preview_url"]
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["download_url"] = f"/download/{private_token}"
+                f["download_url"] = _make_download_url(f"/download/{private_token}")
                 preview_fallback = f"/download/{private_token}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
@@ -1114,7 +1124,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for r in rows:
             f = await _file_to_dict(r, req)  # share_url / download_url を付与
             f["user_id"] = discord_id
-            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+            signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+            f["url"] = _make_download_url(f"/download/{signed}")
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1194,7 +1205,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for r in rows:
             f = await _file_to_dict(r, req)
             f["user_id"] = discord_id
-            f["url"] = f"/download/{_sign_token(f['id'], now_ts + URL_EXPIRES_SEC)}"
+            signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+            f["url"] = _make_download_url(f"/download/{signed}")
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"

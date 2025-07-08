@@ -28,6 +28,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `DISCORD_TOKEN` | ボットの Discord トークン (**必須**) |
 | `DB_PATH` | SQLite データベースのパス。既定値 `data/web_discord_server.db` |
 | `PUBLIC_DOMAIN` | 外部公開ドメイン。ダウンロードリンクや QR コード生成に使用。既定値 `localhost:9040` |
+| `DOWNLOAD_DOMAIN` | スマホ版ダウンロードリンクに用いる別ドメイン。既定値 未設定 |
 | `PORT` | Web サーバーが待ち受けるポート番号。既定値 `9040` |
 | `BOT_OWNER_ID` | ボット製作者の Discord ユーザー ID。登録通知 DM の送信先になります |
 | `BOT_GUILD_ID` | コマンド同期を行うギルド ID。開発サーバーを指定する際に使用します |
@@ -46,6 +47,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 のクライアントシークレット |
 
 `PUBLIC_DOMAIN` は Google OAuth のリダイレクト先だけでなく、Discord OAuth にも使用されます。Google Cloud Console には `https://<PUBLIC_DOMAIN>/gdrive_callback`、Discord には `https://<PUBLIC_DOMAIN>/discord_callback` を登録してください。
+
+`DOWNLOAD_DOMAIN` はスマホ版ダウンロードボタンに使用するベース URL です。`https://` を含む完全な URL か、ドメイン名のみを指定できます。ドメインだけを指定した場合は `https://<DOWNLOAD_DOMAIN>` で生成されます。
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
