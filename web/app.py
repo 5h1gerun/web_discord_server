@@ -477,7 +477,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             d["share_url"] = f"{request.scheme}://{request.host}{base}/{token}"
 
         # DL用URL
-        d["download_url"] = f"/download/{d['id']}"
+        dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+        if dl_domain:
+            d["download_url"] = f"https://{dl_domain}/download/{d['id']}"
+        else:
+            d["download_url"] = f"/download/{d['id']}"
         if not token:
             d["share_url"] = ""
         else:
@@ -490,7 +494,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         else:
             d["hls_url"] = ""
         # ログインユーザ専用の直接 DL URL
-        d["download_url"] = f"/download/{d['id']}"
+        if dl_domain:
+            d["download_url"] = f"https://{dl_domain}/download/{d['id']}"
+        else:
+            d["download_url"] = f"/download/{d['id']}"
         return d
 
     @pass_context
@@ -688,11 +695,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 # 2) 共有用URL
                 # プレビュー用は inline 表示させるため preview=1
                 f["preview_url"] = f"/shared/download/{token}?preview=1"
-                f["download_url"] = f"/shared/download/{token}?dl=1"
+                dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+                if dl_domain:
+                    f["download_url"] = f"https://{dl_domain}/shared/download/{token}?dl=1"
+                else:
+                    f["download_url"] = f"/shared/download/{token}?dl=1"
                 preview_fallback = f["preview_url"]
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["download_url"] = f"/download/{private_token}"
+                dl_domain = os.getenv("DOWNLOAD_DOMAIN")
+                if dl_domain:
+                    f["download_url"] = f"https://{dl_domain}/download/{private_token}"
+                else:
+                    f["download_url"] = f"/download/{private_token}"
                 preview_fallback = f"/download/{private_token}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
