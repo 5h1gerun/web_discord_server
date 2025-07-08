@@ -44,7 +44,6 @@ self.addEventListener('fetch', (event) => {
 
   // Skip cross-origin requests so the browser can handle them normally
   if (url.origin !== location.origin) {
-    event.respondWith(fetch(request));
     return;
   }
 

@@ -36,4 +36,4 @@ def test_fetch_excludes_cross_origin():
     sw = read_sw()
     pattern = re.compile(r"url\.origin\s*!==\s*location\.origin")
     assert pattern.search(sw)
-    assert "event.respondWith(fetch(request))" in sw
+    assert "event.respondWith(fetch(request))" not in sw
