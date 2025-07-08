@@ -42,6 +42,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Skip cross-origin requests so the browser can handle them normally
+  if (url.origin !== location.origin) {
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
     return;
