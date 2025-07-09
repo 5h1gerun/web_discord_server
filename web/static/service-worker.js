@@ -70,6 +70,10 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function handleNavigate(request) {
+  if (request.method !== 'GET') {
+    // POST ナビゲーションはキャッシュしない
+    return fetch(request);
+  }
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) {

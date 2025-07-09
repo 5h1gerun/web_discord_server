@@ -32,6 +32,18 @@ def test_handle_navigate_uses_cache_first():
     assert 'return cached;' in sw
 
 
+def test_handle_navigate_skips_post_requests():
+    sw = read_sw()
+    pattern = re.compile(
+        r"async function handleNavigate\(request\)\s*{\s*"
+        r"if \(request.method !== 'GET'\) \{\s*"
+        r"// POST ナビゲーションはキャッシュしない\s*"
+        r"return fetch\(request\);",
+        re.S,
+    )
+    assert pattern.search(sw)
+
+
 def test_fetch_excludes_cross_origin():
     sw = read_sw()
     pattern = re.compile(
