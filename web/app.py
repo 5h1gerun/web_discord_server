@@ -995,7 +995,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if "tmp_user_id" not in sess:  # 直アクセス対策
             raise web.HTTPFound("/login")
         # CSRF トークンをテンプレに渡す
-        return _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
+        resp = _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
     # ── POST: 検証 ────────────────────────────
     async def totp_post(req):
@@ -1017,11 +1019,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             )
             raise web.HTTPFound("/")
 
-        return _render(
+        resp = _render(
             req,
             "totp.html",
             {"error": "コードが違います", "csrf_token": await issue_csrf(req)},
         )
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
