@@ -538,6 +538,12 @@ window.addEventListener("pageshow", rebindDynamicHandlers);
 
 
 document.addEventListener("click", async (e) => {
+  const dl = e.target.closest('.download-link');
+  if (dl) {
+    const url = new URL(dl.href, location.href);
+    url.searchParams.set('_', Date.now().toString());
+    dl.href = url.toString();
+  }
   const sendBtn = e.target.closest(".send-btn");
   if (sendBtn) {
     const fid = sendBtn.dataset.fileId;
