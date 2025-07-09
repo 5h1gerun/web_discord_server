@@ -1642,6 +1642,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         mime, _ = mimetypes.guess_type(rec[filename_key])
         from urllib.parse import quote
 
+        if req.query.get("preview") == "1":
+            return web.FileResponse(
+                path,
+                headers={"Content-Type": mime or "application/octet-stream"},
+            )
+
         encoded_name = quote(rec[filename_key])
         headers = {
             "Content-Type": mime or "application/octet-stream",
