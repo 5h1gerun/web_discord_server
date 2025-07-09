@@ -50,4 +50,5 @@ def test_fetch_skips_download_paths():
     assert "/download/" in sw
     pattern = re.compile(r"pathname\.startsWith\('/download/'")
     assert pattern.search(sw)
+    assert "/zip/" in sw
     assert "shared/download" in sw

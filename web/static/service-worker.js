@@ -50,6 +50,7 @@ self.addEventListener('fetch', (event) => {
   // Allow the browser to handle file downloads directly
   if (url.pathname.startsWith('/download/') ||
       url.pathname.startsWith('/shared/download/') ||
+      url.pathname.startsWith('/zip/') ||
       url.pathname.startsWith('/f/')) {
     return;
   }
