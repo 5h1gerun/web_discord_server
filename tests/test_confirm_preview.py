@@ -5,3 +5,8 @@ HTML = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'public' / 'c
 def test_confirm_preview_param():
     text = HTML.read_text(encoding='utf-8')
     assert text.count('?preview=1') >= 3
+
+
+def test_cancel_button_removed():
+    text = HTML.read_text(encoding='utf-8')
+    assert 'キャンセル' not in text
