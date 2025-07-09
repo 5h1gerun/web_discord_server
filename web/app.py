@@ -78,6 +78,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
 DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -166,7 +167,7 @@ async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> No
     url = rec["webhook_url"] if rec else None
     if not url:
         return
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as session:
         await session.post(url, json={"content": message})
 
 
@@ -967,7 +968,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "redirect_uri": redirect_uri,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as session:
             async with session.post("https://discord.com/api/oauth2/token", data=data, headers=headers) as resp:
                 if resp.status != 200:
                     log.error("OAuth token error: %s", await resp.text())
