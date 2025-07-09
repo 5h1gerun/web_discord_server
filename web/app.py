@@ -77,6 +77,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
+DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -1871,7 +1872,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         sender_name = sender_row["username"] if sender_row else str(discord_id)
         try:
-            if size <= (25 << 20):
+            if size <= DM_UPLOAD_LIMIT:
                 await user.send(
                     content=f"📨 {sender_name} からのファイルです",
                     file=discord.File(path, filename=rec["original_name"]),
