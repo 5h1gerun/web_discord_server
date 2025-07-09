@@ -30,8 +30,10 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `PUBLIC_DOMAIN` | 外部公開ドメイン。ダウンロードリンクや QR コード生成に使用。既定値 `localhost:9040` |
 | `DOWNLOAD_DOMAIN` | スマホ版ダウンロードリンクに用いる別ドメイン。既定値 未設定 |
 | `PORT` | Web サーバーが待ち受けるポート番号。既定値 `9040` |
+| `FORCE_HTTPS` | `1` を指定すると HTTP アクセス時に HTTPS へリダイレクトします。既定値 `0` |
 | `BOT_OWNER_ID` | ボット製作者の Discord ユーザー ID。登録通知 DM の送信先になります |
 | `BOT_GUILD_ID` | コマンド同期を行うギルド ID。開発サーバーを指定する際に使用します |
+| `DISCORD_DM_UPLOAD_LIMIT` | Discord の DM で送信できるファイルサイズ上限 (バイト)。既定値 `8388608` |
 | `FILE_HMAC_SECRET` | 署名付きリンク生成に用いる Base64 文字列。未指定の場合ランダム値 |
 | `UPLOAD_EXPIRES_SEC` | ダウンロード URL の有効期限 (秒)。既定値 `86400` (1 日) |
 | `SEND_INTERVAL_SEC` | 同一ファイルを同じ相手へ再送するまでの待ち時間 (秒)。既定値 `60` |
