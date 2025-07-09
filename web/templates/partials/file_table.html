@@ -170,8 +170,7 @@
               {% if f.user_id == user_id %}
               <form method="post"
                     action="/delete/{{ f.id }}"
-                    class="d-inline delete-form"
-                    onsubmit="return confirm('本当に削除しますか？');">
+                    class="d-inline delete-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit"
                         class="btn btn-sm btn-outline-danger ripple"
