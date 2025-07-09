@@ -47,6 +47,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.pathname.startsWith('/download/')) {
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
     return;
