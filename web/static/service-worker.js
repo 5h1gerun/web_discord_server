@@ -76,7 +76,11 @@ async function handleNavigate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) {
-    fetch(request).then(res => cache.put(request, res.clone())).catch(() => {});
+    fetch(request).then(res => {
+      if (res.headers.get('Cache-Control') !== 'no-store') {
+        cache.put(request, res.clone());
+      }
+    }).catch(() => {});
     return cached;
   }
   try {
@@ -84,7 +88,9 @@ async function handleNavigate(request) {
     if (res.type === 'opaqueredirect') {
       return Response.redirect(res.url, 302);
     }
-    cache.put(request, res.clone());
+    if (res.headers.get('Cache-Control') !== 'no-store') {
+      cache.put(request, res.clone());
+    }
     return res;
   } catch (_) {
     return caches.match(OFFLINE_PAGE);
@@ -114,8 +120,10 @@ async function networkFirst(request) {
     if (res.type === 'opaqueredirect') {
       return Response.redirect(res.url, 302);
     }
-    const cache = await caches.open(CACHE_NAME);
-    cache.put(request, res.clone());
+    if (res.headers.get('Cache-Control') !== 'no-store') {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, res.clone());
+    }
     return res;
   } catch (_) {
     return caches.match(request);
