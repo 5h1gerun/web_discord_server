@@ -706,3 +706,32 @@ function connectWs() {
   });
 }
 window.addEventListener('load', connectWs);
+
+// PWA インストールフロー
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.classList.remove('d-none');
+});
+
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.classList.add('d-none');
+  deferredPrompt = null;
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('installBtn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    btn.disabled = true;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    btn.classList.add('d-none');
+    btn.disabled = false;
+  });
+});

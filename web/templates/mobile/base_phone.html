@@ -23,6 +23,11 @@
     {% endif %}
   </div>
 </nav>
+<!-- PWA インストールボタン（初期は非表示） -->
+<button id="installBtn"
+        class="btn btn-primary position-fixed bottom-0 end-0 m-3 d-none">
+  <i class="bi bi-download"></i> インストール
+</button>
 <!-- コピー完了トースト -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
   <div id="copyToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">

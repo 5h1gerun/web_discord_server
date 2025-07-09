@@ -24,6 +24,11 @@
     {% endif %}
   </div>
 </nav>
+<!-- PWA インストールボタン（初期は非表示） -->
+<button id="installBtn"
+        class="btn btn-primary position-fixed bottom-0 end-0 m-3 d-none">
+  <i class="bi bi-download"></i> インストール
+</button>
 <main class="container py-4">
   {% block content %}{% endblock %}
 </main>
