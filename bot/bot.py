@@ -40,6 +40,7 @@ PUBLIC_DOMAIN = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
 WEB_PORT      = int(os.getenv("PORT", 9040))
 OWNER_ID      = int(os.getenv("BOT_OWNER_ID", "0")) or None   # 製作者の ID
 DEV_GUILD_ID = int(os.getenv("BOT_GUILD_ID", "0")) or None   # ← ここで定数化
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=15)
 
 # ───────────────────────────────────────
 # 2. log
@@ -77,7 +78,7 @@ class WebDiscordBot(discord.Client):
         url = rec.get("webhook_url") if rec else None
         if not url:
             return
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as session:
             await session.post(
                 url,
                 json={"content": f"📥 {user.mention} が `{file_name}` をアップロードしました。"},
