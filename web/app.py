@@ -78,7 +78,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
 DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
-HTTP_TIMEOUT = aiohttp.ClientTimeout(total=15)
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {

@@ -40,7 +40,7 @@ PUBLIC_DOMAIN = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
 WEB_PORT      = int(os.getenv("PORT", 9040))
 OWNER_ID      = int(os.getenv("BOT_OWNER_ID", "0")) or None   # 製作者の ID
 DEV_GUILD_ID = int(os.getenv("BOT_GUILD_ID", "0")) or None   # ← ここで定数化
-HTTP_TIMEOUT = aiohttp.ClientTimeout(total=15)
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ───────────────────────────────────────
 # 2. log
