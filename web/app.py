@@ -936,8 +936,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPFound("/login")
         state = secrets.token_urlsafe(16)
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        await new_session(req)
+        sess = await new_session(req)
         req.app["discord_states"].add(state)
+        sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         params = {
@@ -956,7 +957,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
         state = req.query.get("state")
-        if not state or state not in req.app["discord_states"]:
+        sess_state = sess.pop("discord_state", None)
+        if not state or sess_state != state or state not in req.app["discord_states"]:
             return web.Response(text="invalid state", status=400)
         req.app["discord_states"].discard(state)
         code = req.query.get("code")
