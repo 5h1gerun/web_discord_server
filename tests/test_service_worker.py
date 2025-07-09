@@ -34,12 +34,23 @@ def test_handle_navigate_uses_cache_first():
 
 def test_fetch_excludes_cross_origin():
     sw = read_sw()
-    pattern = re.compile(r"url\.origin\s*!==\s*location\.origin")
+    pattern = re.compile(
+        r"url\.origin\s*!==\s*location\.origin\)\s*{\s*return;",
+        re.S,
+    )
     assert pattern.search(sw)
-    assert "event.respondWith(fetch(request))" not in sw
 
 
 def test_network_first_skips_post_requests():
     sw = read_sw()
     assert "request.method !== 'GET'" in sw
     assert 'return fetch(request);' in sw
+
+
+def test_download_requests_not_cached():
+    sw = read_sw()
+    pattern = re.compile(
+        r"if\s*\(\s*url\.pathname\.startsWith\('/download'\)\s*\|\|\s*url\.pathname\.startsWith\('/shared/download'\)\s*\)\s*{\s*event\.respondWith\(fetch\(request\)\);\s*return;",
+        re.S,
+    )
+    assert pattern.search(sw)
