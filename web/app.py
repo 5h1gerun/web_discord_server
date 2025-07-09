@@ -253,30 +253,33 @@ async def _generate_hls(path: Path, fid: str) -> None:
     ]
     out_dir = HLS_DIR / fid
     out_dir.mkdir(parents=True, exist_ok=True)
+    procs = []
     for name, w, h, br in variants:
         out = out_dir / f"{name}.m3u8"
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(path),
-            "-vf",
-            f"scale=w={w}:h={h}",
-            "-c:v",
-            "libx264",
-            "-c:a",
-            "aac",
-            "-b:v",
-            str(br),
-            "-hls_time",
-            "4",
-            "-hls_playlist_type",
-            "vod",
-            str(out),
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+        procs.append(
+            await asyncio.create_subprocess_exec(
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(path),
+                "-vf",
+                f"scale=w={w}:h={h}",
+                "-c:v",
+                "libx264",
+                "-c:a",
+                "aac",
+                "-b:v",
+                str(br),
+                "-hls_time",
+                "4",
+                "-hls_playlist_type",
+                "vod",
+                str(out),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
         )
-        await proc.wait()
+    await asyncio.gather(*(p.wait() for p in procs))
     master = out_dir / "master.m3u8"
     with master.open("w") as f:
         f.write("#EXTM3U\n#EXT-X-VERSION:3\n")
