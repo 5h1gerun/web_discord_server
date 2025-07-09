@@ -27,7 +27,7 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import aiohttp_session
 import aiohttp_jinja2
 import jinja2
-from aiohttp.web_exceptions import HTTPForbidden
+from aiohttp.web_exceptions import HTTPForbidden, HTTPPermanentRedirect
 from aiohttp_session import get_session
 from jinja2 import pass_context
 from aiohttp_jinja2 import static_root_key
@@ -74,6 +74,9 @@ GDRIVE_CREDENTIALS = os.getenv("GDRIVE_CREDENTIALS")
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "").strip()
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
+
+# HTTPS 強制リダイレクトの有無
+FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
 
 # ─────────────── Helpers ───────────────
 MOBILE_TEMPLATES = {
@@ -355,6 +358,17 @@ async def rl_mw(req, handler):
         return await handler(req)
 
 
+# HTTP -> HTTPS redirect
+@web.middleware
+async def https_redirect_mw(request: web.Request, handler):
+    if FORCE_HTTPS:
+        proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+        if proto == "http":
+            url = request.url.with_scheme("https")
+            raise HTTPPermanentRedirect(url)
+    return await handler(request)
+
+
 # ─────────────── APP Factory ───────────────
 def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     """Create and configure the aiohttp application."""
@@ -374,6 +388,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     session_setup(app, storage)
 
     # middlewares
+    app.middlewares.append(https_redirect_mw)
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
     app.middlewares.append(rl_mw)  # DoS / ブルートフォース緩和
