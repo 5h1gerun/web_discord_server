@@ -66,3 +66,9 @@ def test_no_store_header_prevents_caching():
     sw = read_sw()
     pattern = re.compile(r"headers\.get\('Cache-Control'\) !== 'no-store'")
     assert len(pattern.findall(sw)) >= 2
+
+
+def test_discord_login_bypassed():
+    sw = read_sw()
+    pattern = re.compile(r"url\.pathname === '/discord_login'\)\s*{")
+    assert pattern.search(sw)
