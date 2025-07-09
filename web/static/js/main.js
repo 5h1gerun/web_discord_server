@@ -588,6 +588,7 @@ document.addEventListener("click", async (e) => {
     const nameEl = document.querySelector(`.file-name[data-file-id="${fileId}"]`);
     if (nameEl) nameEl.textContent = j.new_name;
     btn.dataset.current = j.new_name;
+    await reloadFileList();
   } catch (err) {
     alert("リネーム失敗: " + err);
   } finally {
