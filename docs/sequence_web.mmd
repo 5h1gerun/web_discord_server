@@ -17,3 +17,4 @@ sequenceDiagram
     Web->>Files: ファイル保存
     Web->>DB: メタデータ登録
     Web-->>Browser: 完了レスポンス
+    Browser->>Web: GET /download?preview=1

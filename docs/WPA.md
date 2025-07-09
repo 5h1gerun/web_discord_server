@@ -6,6 +6,7 @@ WPAは、Wi-Fiネットワークのセキュリティを高めるために策定
 - TKIP や CCMP などの暗号化方式で通信内容を保護
 - EAP（Extensible Authentication Protocol）によるユーザー認証
 - WPA2 では AES ベースの CCMP が標準となり、より安全性が向上
+- WPA3 では SAE を採用し、さらに強固なパスワード認証を実現
 
 ## 参考
 - [Wi-Fi Alliance](https://www.wi-fi.org/)

@@ -20,6 +20,7 @@ sequenceDiagram
     User->>Browser: リンクを開く
     Browser->>SW: サービスワーカー登録
     Browser->>Web: HTTP リクエスト
+    Browser->>Web: GET /download?preview=1
     Web->>DB: 情報取得
     Web->>Files: ファイル取得
     Web->>Browser: ファイル送信
