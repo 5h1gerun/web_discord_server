@@ -429,6 +429,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         "java": "bi-file-earmark-code",
         "c": "bi-file-earmark-code",
         "cpp": "bi-file-earmark-code",
+        # 実行ファイル
+        "exe": "bi-file-earmark-binary",
         # 音楽
         "mp3": "bi-file-earmark-music",
         "wav": "bi-file-earmark-music",
