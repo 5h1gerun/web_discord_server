@@ -595,7 +595,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-  document.addEventListener("input", e => {
+document.addEventListener("input", e => {
     if (e.target.id === "fileSearch") {
       filterTable(e.target.value.toLowerCase());
     } else if (e.target.classList.contains("tag-input")) {
@@ -612,6 +612,24 @@ document.addEventListener("click", async (e) => {
       }).catch(err => console.error("tag update failed", err));
     }
   });
+
+document.addEventListener('submit', async e => {
+  const form = e.target.closest('.delete-form');
+  if (!form) return;
+  e.preventDefault();
+  if (!confirm('本当に削除しますか？')) return;
+  try {
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) throw new Error(res.status);
+    await reloadFileList();
+  } catch (err) {
+    alert('削除失敗: ' + err);
+  }
+});
 
 document.addEventListener("click", e => {
   const a = e.target.closest("a[data-ajax]");
