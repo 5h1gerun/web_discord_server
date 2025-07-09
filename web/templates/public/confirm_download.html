@@ -9,7 +9,7 @@
   <meta property="og:url" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}">
   <meta property="og:type" content="article">
   {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
-  <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}?dl=1">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ request.path }}?preview=1">
   {% elif ext in ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"] %}
   <meta property="og:image" content="{{ request.scheme }}://{{ request.host }}{{ file.preview_url }}">
   {% endif %}
@@ -30,7 +30,7 @@
       <div class="my-4">
         {# 画像 #}
         {% if ext in ["png", "jpg", "jpeg", "gif", "webp"] %}
-          <img src="{{ request.path }}?dl=1" loading="lazy"
+          <img src="{{ request.path }}?preview=1" loading="lazy"
               class="img-fluid rounded shadow-sm"
               alt="preview" onerror="previewError(this)">
           <i class="bi {{ icon_by_ext(file.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
@@ -38,14 +38,14 @@
         {# HTML #}
         {% elif ext in ["html", "htm"] %}
           <div class="ratio ratio-16x9 border rounded shadow-sm">
-            <iframe src="{{ request.path }}?dl=1"
+            <iframe src="{{ request.path }}?preview=1"
                     title="preview" style="border:0;"></iframe>
           </div>
 
         {# ★ 動画（mp4 / webm / mov / m4v / ogg など）★ #}
         {% elif ext in ["mp4", "webm", "mov", "m4v", "ogg"] %}
           <div class="ratio ratio-16x9 border rounded shadow-sm">
-            <video src="{{ request.path }}?dl=1" preload="metadata" loading="lazy"
+            <video src="{{ request.path }}?preview=1" preload="metadata" loading="lazy"
                   class="w-100 h-100 rounded"
                   controls
                   playsinline onerror="previewError(this)">

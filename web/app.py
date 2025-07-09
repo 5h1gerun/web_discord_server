@@ -575,13 +575,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
             signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
-            f["url"] = _make_download_url(f"/download/{signed}")
+            f["download_path"] = f"/download/{signed}"
+            f["url"] = _make_download_url(f["download_path"])
             f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = f["url"] + "?preview=1"
+                f["preview_url"] = f["download_path"] + "?preview=1"
 
             file_objs.append(f)
 
@@ -697,13 +698,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     f["token"] = token
                 # 2) 共有用URL
                 # プレビュー用は inline 表示させるため preview=1
-                f["preview_url"] = f"/shared/download/{token}?preview=1"
-                f["download_url"] = _make_download_url(f"/shared/download/{token}?dl=1")
+                f["download_path"] = f"/shared/download/{token}"
+                f["preview_url"] = f"{f['download_path']}?preview=1"
+                f["download_url"] = _make_download_url(f"{f['download_path']}?dl=1")
                 preview_fallback = f["preview_url"]
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["download_url"] = _make_download_url(f"/download/{private_token}")
-                preview_fallback = f"/download/{private_token}?preview=1"
+                f["download_path"] = f"/download/{private_token}"
+                f["download_url"] = _make_download_url(f["download_path"])
+                preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -1128,7 +1131,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f = await _file_to_dict(r, req)  # share_url / download_url を付与
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-            f["url"] = _make_download_url(f"/download/{signed}")
+            f["download_path"] = f"/download/{signed}"
+            f["url"] = _make_download_url(f["download_path"])
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1139,7 +1143,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = f["url"] + "?preview=1"
+                f["preview_url"] = f["download_path"] + "?preview=1"
 
             # is_shared フラグは DB のまま
             f["is_shared"] = bool(r["is_shared"])
@@ -1209,7 +1213,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f = await _file_to_dict(r, req)
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-            f["url"] = _make_download_url(f"/download/{signed}")
+            f["download_path"] = f"/download/{signed}"
+            f["url"] = _make_download_url(f["download_path"])
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1220,7 +1225,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = f["url"] + "?preview=1"
+                f["preview_url"] = f["download_path"] + "?preview=1"
 
             f["is_shared"] = bool(r["is_shared"])
             if f["is_shared"]:
@@ -1641,6 +1646,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         path = Path(rec["path"])
         mime, _ = mimetypes.guess_type(rec[filename_key])
         from urllib.parse import quote
+
+        if req.query.get("preview") == "1":
+            return web.FileResponse(
+                path,
+                headers={"Content-Type": mime or "application/octet-stream"},
+            )
 
         encoded_name = quote(rec[filename_key])
         headers = {
