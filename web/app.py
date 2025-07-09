@@ -1761,6 +1761,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await req.app["db"].delete_file(file_id)
 
         referer = req.headers.get("Referer", "/")
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(referer)
 
     async def delete_all(req: web.Request):
@@ -1780,6 +1781,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 log.warning("Failed to delete file: %s", e)
         await req.app["db"].delete_all_files(user_id)
         referer = req.headers.get("Referer", "/")
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(referer)
 
     async def update_tags(req: web.Request):
@@ -2030,6 +2032,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f"\N{WASTEBASKET} <@{discord_id}> が `{rec['file_name']}` を削除しました。",
         )
 
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(f"/shared/{rec['folder_id']}")
 
     async def shared_delete_all(req: web.Request):
@@ -2049,6 +2052,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPForbidden()
 
         await db.delete_all_shared_files(int(folder_id))
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(f"/shared/{folder_id}")
 
     async def download_zip(req: web.Request):
@@ -2314,6 +2318,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id or not row or row["user_id"] != user_id:
             raise web.HTTPForbidden()
         await db.delete_user_folder(folder_id)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
     async def delete_subfolders(request: web.Request):
@@ -2328,6 +2333,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPForbidden()
         parent_id = int(parent) if parent else None
         await db.delete_all_subfolders(user_id, parent_id)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
     # ─────────────── Public download confirm ───────────────
