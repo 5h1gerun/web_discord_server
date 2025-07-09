@@ -1,0 +1,23 @@
+%%{init: {'theme': 'dark'}}%%
+%% PWA シーンケース図
+sequenceDiagram
+    participant Browser as Browser
+    participant SW as Service Worker
+    participant Web as aiohttp Web App
+    participant Push as Push Service
+
+    Browser->>Web: 初回アクセス
+    Web-->>Browser: HTML/JS/CSS
+    Browser->>SW: 登録
+    Browser->>SW: リソース取得
+    SW-->>Browser: キャッシュ応答
+    Browser-x Web: ネットワーク切断
+    Browser->>SW: ナビゲート
+    SW-->>Browser: /offline ページ
+    Web->>Push: 通知送信
+    Push->>SW: push イベント
+    SW->>Browser: 通知表示
+    Browser->>SW: クリック
+    SW->>Browser: フォーカス/新規タブ
+    Browser->>Web: 再接続
+    Web-->>Browser: 最新データ

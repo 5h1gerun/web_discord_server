@@ -139,6 +139,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 - `docs/sequence_system.mmd` … 全体のシーケンス図
 - `docs/sequence_discord.mmd` … Discord 上のシーケンス図
 - `docs/sequence_web.mmd` … Web サーバ上のシーケンス図
+- `docs/sequence_pwa.mmd` … PWA のシーンケース図
 
 ## ライセンス
 このプロジェクトは MIT ライセンスです。
