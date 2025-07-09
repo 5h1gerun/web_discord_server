@@ -53,6 +53,7 @@ def make_otp_link(uri: str) -> str:
 
 # Discord 添付アップロード制限 (Nitroプラン別)
 SIZE_LIMIT = {2: 500 << 20, 1: 100 << 20, 0: 25 << 20}
+DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
 
 # 連続送信抑制インターバル (秒)
 SEND_INTERVAL_SEC = int(os.getenv("SEND_INTERVAL_SEC", 60))
@@ -390,7 +391,7 @@ def setup_commands(bot: discord.Client):
         path = Path(rec["path"])
         size = rec["size"]
         try:
-            if size <= (25 << 20):
+            if size <= DM_UPLOAD_LIMIT:
                 await user.send(file=discord.File(path, filename=rec["original_name"]))
             else:
                 now = int(datetime.now(timezone.utc).timestamp())
