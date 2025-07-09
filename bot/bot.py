@@ -128,7 +128,7 @@ class WebDiscordBot(discord.Client):
 
         # 追加フィールドを別 UPDATE で保存
         await self.db.execute(
-            "UPDATE users SET totp_secret=?, enc_key=?, totp_verified=0 WHERE discord_id=?",
+            "UPDATE users SET totp_secret=?, totp_enabled=1, enc_key=?, totp_verified=0 WHERE discord_id=?",
             secret,
             base64.urlsafe_b64encode(os.urandom(32)).decode(),
             member.id,
