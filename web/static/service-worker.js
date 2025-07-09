@@ -47,6 +47,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Allow the browser to handle file downloads directly
+  if (url.pathname.startsWith('/download/') ||
+      url.pathname.startsWith('/shared/download/') ||
+      url.pathname.startsWith('/f/')) {
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
     return;

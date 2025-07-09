@@ -43,3 +43,11 @@ def test_network_first_skips_post_requests():
     sw = read_sw()
     assert "request.method !== 'GET'" in sw
     assert 'return fetch(request);' in sw
+
+
+def test_fetch_skips_download_paths():
+    sw = read_sw()
+    assert "/download/" in sw
+    pattern = re.compile(r"pathname\.startsWith\('/download/'")
+    assert pattern.search(sw)
+    assert "shared/download" in sw
