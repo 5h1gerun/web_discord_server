@@ -37,3 +37,9 @@ def test_fetch_excludes_cross_origin():
     pattern = re.compile(r"url\.origin\s*!==\s*location\.origin")
     assert pattern.search(sw)
     assert "event.respondWith(fetch(request))" not in sw
+
+
+def test_network_first_skips_post_requests():
+    sw = read_sw()
+    assert "request.method !== 'GET'" in sw
+    assert 'return fetch(request);' in sw

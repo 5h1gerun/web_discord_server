@@ -88,6 +88,10 @@ async function staleWhileRevalidate(request) {
 }
 
 async function networkFirst(request) {
+  if (request.method !== 'GET') {
+    // POST などはキャッシュできないためそのままフェッチする
+    return fetch(request);
+  }
   try {
     const res = await fetch(request);
     const cache = await caches.open(CACHE_NAME);
