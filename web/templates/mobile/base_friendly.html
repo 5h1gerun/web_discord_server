@@ -13,7 +13,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   {% block extra_meta %}{% endblock %}
 </head>
-<body>
+<body data-logged-in="{{ 1 if user_id else 0 }}">
 <nav class="navbar navbar-dark bg-primary py-2">
   <div class="container-fluid justify-content-between">
     <span class="navbar-brand mb-0 h1">WDS</span>
