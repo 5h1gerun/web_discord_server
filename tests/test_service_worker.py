@@ -30,3 +30,10 @@ def test_handle_navigate_uses_cache_first():
     assert 'async function handleNavigate' in sw
     assert 'if (cached)' in sw
     assert 'return cached;' in sw
+
+
+def test_fetch_excludes_cross_origin():
+    sw = read_sw()
+    pattern = re.compile(r"url\.origin\s*!==\s*location\.origin")
+    assert pattern.search(sw)
+    assert "event.respondWith(fetch(request))" not in sw

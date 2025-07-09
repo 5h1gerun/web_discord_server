@@ -50,6 +50,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 
 `DOWNLOAD_DOMAIN` はスマホ版ダウンロードボタンに使用するベース URL です。`https://` を含む完全な URL か、ドメイン名のみを指定できます。ドメインだけを指定した場合は `https://<DOWNLOAD_DOMAIN>` で生成されます。
 
+指定したドメインには本アプリと同じ `/download/<token>` エンドポイントが存在する必要があります。別サーバーを利用する場合は、リバースプロキシなどで `/download` パスをこのアプリへ転送してください。
+
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
 python -c "import os,base64;print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
