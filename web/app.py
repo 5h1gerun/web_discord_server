@@ -350,7 +350,12 @@ async def auth_mw(request: web.Request, handler):
 @web.middleware
 async def debug_mw(req, handler):
     log.debug("%s %s Cookie=%s", req.method, req.path, req.headers.get("cookie"))
-    return await handler(req)
+    resp = await handler(req)
+    if req.path == "/discord_login":
+        for k, v in resp.headers.items():
+            if k.lower() == "set-cookie":
+                log.info("LOGIN-SETCOOKIE: %s", v)
+    return resp
 
 
 CSP_POLICY = (
@@ -1014,9 +1019,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             state,
             resp.headers.getall("Set-Cookie", []),
         )
-        for k, v in resp.headers.items():
-            if k.lower() == "set-cookie":
-                log.info("LOGIN-SETCOOKIE: %s", v)
         raise resp
 
     async def discord_callback(req: web.Request):
