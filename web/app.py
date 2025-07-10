@@ -373,6 +373,21 @@ async def https_redirect_mw(request: web.Request, handler):
             raise HTTPPermanentRedirect(url)
     return await handler(request)
 
+@web.middleware
+async def forwarded_middleware(request: web.Request, handler):
+    # nginx が付けたヘッダー
+    proto = request.headers.get("X-Forwarded-Proto")
+    host  = request.headers.get("X-Forwarded-Host")
+    remote = request.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+
+    if proto or host or remote:
+        # BaseRequest.clone() で scheme / host / remote を上書き
+        request = request.clone(
+            scheme=proto or request.scheme,
+            host=host or request.host,
+            remote=remote or request.remote,
+        )
+    return await handler(request)
 
 # ─────────────── APP Factory ───────────────
 def create_app(bot: Optional[discord.Client] = None) -> web.Application:
@@ -393,6 +408,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     session_setup(app, storage)
 
     # middlewares
+    app.middlewares.append(forwarded_middleware)  # X-Forwarded-* 対応
     app.middlewares.append(https_redirect_mw)
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
@@ -824,7 +840,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     db = Database(DB_PATH)
     app["db"] = db
     app["gdrive_flows"] = {}
-    app["discord_states"] = set()
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -912,7 +927,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
 
         if not row:
-            return _render(
+            resp = _render(
                 req,
                 "login.html",
                 {
@@ -921,6 +936,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
+            resp.del_cookie("dst")
+            return resp
 
         sess = await new_session(req)
 
@@ -937,7 +954,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = secrets.token_urlsafe(16)
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
         sess = await new_session(req)
-        req.app["discord_states"].add(state)
         sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -950,7 +966,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "disable_mobile_redirect": "true",
         }
         url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
-        raise web.HTTPFound(url)
+        resp = web.HTTPFound(url)
+        resp.set_cookie(
+            "dst",
+            state,
+            max_age=300,
+            secure=True,
+            httponly=True,
+            samesite="Lax",
+        )
+        raise resp
 
     async def discord_callback(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
@@ -958,12 +983,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess = await aiohttp_session.get_session(req)
         state = req.query.get("state")
         sess_state = sess.pop("discord_state", None)
-        if not state or sess_state != state or state not in req.app["discord_states"]:
-            return web.Response(text="invalid state", status=400)
-        req.app["discord_states"].discard(state)
+        cookie_state = req.cookies.get("dst")
+        if not state or (sess_state != state and cookie_state != state):
+            resp = web.Response(text="invalid state", status=400)
+            resp.del_cookie("dst")
+            return resp
         code = req.query.get("code")
         if not code:
-            raise web.HTTPFound("/login")
+            resp = web.HTTPFound("/login")
+            resp.del_cookie("dst")
+            raise resp
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         data = {
@@ -978,7 +1007,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             async with session.post("https://discord.com/api/oauth2/token", data=data, headers=headers) as resp:
                 if resp.status != 200:
                     log.error("OAuth token error: %s", await resp.text())
-                    raise web.HTTPFound("/login")
+                    err = web.HTTPFound("/login")
+                    err.del_cookie("dst")
+                    raise err
                 tok = await resp.json()
             async with session.get(
                 "https://discord.com/api/users/@me",
@@ -986,7 +1017,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             ) as uresp:
                 if uresp.status != 200:
                     log.error("OAuth user error: %s", await uresp.text())
-                    raise web.HTTPFound("/login")
+                    err = web.HTTPFound("/login")
+                    err.del_cookie("dst")
+                    raise err
                 udata = await uresp.json()
 
         discord_id = int(udata["id"])
@@ -995,7 +1028,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             discord_id,
         )
         if not row:
-            return _render(
+            resp = _render(
                 req,
                 "login.html",
                 {
@@ -1004,13 +1037,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
+            resp.del_cookie("dst")
+            return resp
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
-            raise web.HTTPFound("/totp")
+            resp = web.HTTPFound("/totp")
+            resp.del_cookie("dst")
+            raise resp
 
         sess["user_id"] = discord_id
-        raise web.HTTPFound("/")
+        resp = web.HTTPFound("/")
+        resp.del_cookie("dst")
+        raise resp
 
     # ── GET: フォーム表示 ──────────────────────
     async def totp_get(req):

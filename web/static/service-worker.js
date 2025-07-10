@@ -65,6 +65,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.pathname === '/discord_login') {
+    // Discord OAuth 用のリダイレクトは Set-Cookie をそのまま返す必要がある
+    return;
+  }
+
   // それ以外の API や部分 HTML などは新しい内容を優先
   event.respondWith(networkFirst(request));
 });
