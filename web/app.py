@@ -86,6 +86,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "1").lower() not in {"0", "false", "no"}
 DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
@@ -418,7 +419,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         COOKIE_SECRET,
         cookie_name="wdsid",
         path="/",
-        secure=True,  # HTTPS 限定
+        secure=True if COOKIE_SECURE else False,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="None",  # redirect 後も維持
         max_age=60 * 60 * 24 * 7,  # 7 日
