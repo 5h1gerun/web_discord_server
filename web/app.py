@@ -373,6 +373,21 @@ async def https_redirect_mw(request: web.Request, handler):
             raise HTTPPermanentRedirect(url)
     return await handler(request)
 
+@web.middleware
+async def forwarded_middleware(request: web.Request, handler):
+    # nginx が付けたヘッダー
+    proto = request.headers.get("X-Forwarded-Proto")
+    host  = request.headers.get("X-Forwarded-Host")
+    remote = request.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+
+    if proto or host or remote:
+        # BaseRequest.clone() で scheme / host / remote を上書き
+        request = request.clone(
+            scheme=proto or request.scheme,
+            host=host or request.host,
+            remote=remote or request.remote,
+        )
+    return await handler(request)
 
 # ─────────────── APP Factory ───────────────
 def create_app(bot: Optional[discord.Client] = None) -> web.Application:
@@ -393,6 +408,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     session_setup(app, storage)
 
     # middlewares
+    app.middlewares.append(forwarded_middleware)  # X-Forwarded-* 対応
     app.middlewares.append(https_redirect_mw)
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
