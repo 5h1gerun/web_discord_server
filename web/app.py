@@ -1149,6 +1149,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # CSRF トークンをテンプレに渡す
         resp = _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
         resp.headers["Cache-Control"] = "no-store"
+        sess.changed()
         return resp
 
     # ── POST: 検証 ────────────────────────────
@@ -1178,6 +1179,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             {"error": "コードが違います", "csrf_token": await issue_csrf(req)},
         )
         resp.headers["Cache-Control"] = "no-store"
+        sess.changed()
         return resp
 
     async def logout(req):
