@@ -973,9 +973,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "dst",
             state,
             max_age=300,
+            path="/",
             secure=True,
             httponly=True,
-            samesite="Lax",
+            samesite="None",
         )
         raise resp
 
