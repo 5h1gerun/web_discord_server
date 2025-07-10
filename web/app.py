@@ -944,7 +944,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = app["db"]
 
         if not await db.verify_user(username, password):
-            return _render(
+            resp = _render(
                 req,
                 "login.html",
                 {
@@ -953,6 +953,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
+            resp.del_cookie("dst", path="/")
+            return resp
 
         row = await db.fetchone(
             "SELECT discord_id, totp_enabled FROM users WHERE username = ?", username
@@ -978,10 +980,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
-            raise web.HTTPFound("/totp")
+            resp = web.HTTPFound("/totp")
+            resp.del_cookie("dst", path="/")
+            raise resp
 
         sess["user_id"] = row["discord_id"]
-        raise web.HTTPFound("/")
+        resp = web.HTTPFound("/")
+        resp.del_cookie("dst", path="/")
+        raise resp
 
     async def discord_login(request: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
