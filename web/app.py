@@ -983,19 +983,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
 
-    async def discord_login(req: web.Request):
+    async def discord_login(request: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
 
-        session = await get_session(req)
+        session = await get_session(request)
+
+        # state を保存
         state = secrets.token_urlsafe(32)
-
-        states = set(session.get("oauth_states", []))
-        states.add(state)
-        session["oauth_states"] = list(states)
+        session.setdefault("oauth_states", []).append(state)
         session.changed()
-
-        log.debug("LOGIN session after write: %s", dict(session))
 
         params = {
             "client_id": DISCORD_CLIENT_ID,
@@ -1005,11 +1002,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "state": state,
             "disable_mobile_redirect": "true",
         }
-        resp = web.HTTPSeeOther(
+
+        # リダイレクトレスポンスを返すだけで良い
+        return web.HTTPSeeOther(
             "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         )
-        log.info("LOGIN  Set-Cookie=%s", resp.headers.getall("Set-Cookie", []))
-        return resp
 
     async def discord_callback(req: web.Request):
         # 0) 前置き
