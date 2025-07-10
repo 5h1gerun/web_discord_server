@@ -60,6 +60,14 @@ log = logging.getLogger("web")
 
 # ─────────────── Secrets ───────────────
 COOKIE_SECRET_STR = os.getenv("COOKIE_SECRET", "").strip().strip('"').strip("'")
+if not COOKIE_SECRET_STR:
+    COOKIE_SECRET_FILE = os.getenv("COOKIE_SECRET_FILE", "cookie_secret.key")
+    secret_path = Path(COOKIE_SECRET_FILE)
+    if secret_path.exists():
+        COOKIE_SECRET_STR = secret_path.read_text().strip()
+    else:
+        COOKIE_SECRET_STR = base64.urlsafe_b64encode(os.urandom(32)).decode()
+        secret_path.write_text(COOKIE_SECRET_STR)
 if len(COOKIE_SECRET_STR) != 44:
     raise RuntimeError(
         "COOKIE_SECRET が未設定、または 44 文字の URL-safe Base64 ではありません"
