@@ -22,7 +22,7 @@ import discord
 
 from aiohttp import web
 import aiohttp
-from aiohttp_session import new_session, setup as session_setup
+from aiohttp_session import setup as session_setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import aiohttp_session
 import aiohttp_jinja2
@@ -939,7 +939,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             resp.del_cookie("dst", path="/")
             return resp
 
-        sess = await new_session(req)
+        sess = await get_session(req)
+        sess.invalidate()
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
@@ -953,7 +954,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPFound("/login")
         state = secrets.token_urlsafe(16)
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        sess = await new_session(req)
+        sess = await get_session(req)
+        sess.invalidate()
         sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -974,7 +976,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             secure=True,
             httponly=True,
             samesite="Lax",
-            path="/",
         )
         raise resp
 
