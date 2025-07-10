@@ -985,7 +985,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
         sess = await get_session(req)
         sess.invalidate()
-        sess = await aiohttp_session.new_session(req)
+        # invalidate() 後は new_session() を呼ばず、このセッションに書き込む
         sess["discord_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -1014,6 +1014,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             state,
             resp.headers.getall("Set-Cookie", []),
         )
+        for k, v in resp.headers.items():
+            if k.lower() == "set-cookie":
+                log.info("LOGIN-SETCOOKIE: %s", v)
         raise resp
 
     async def discord_callback(req: web.Request):
