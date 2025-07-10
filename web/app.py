@@ -408,7 +408,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     session_setup(app, storage)
 
     # middlewares
-    app.middlewares.append(0,forwarded_middleware)  # X-Forwarded-* 対応
+    app.middlewares.append(forwarded_middleware)  # X-Forwarded-* 対応
     app.middlewares.append(https_redirect_mw)
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
