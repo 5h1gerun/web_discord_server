@@ -966,7 +966,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return resp
 
         sess = await get_session(req)
-        sess.invalidate()
+        # invalidate() は使わず、必要なキーのみ更新する
+        sess.pop("user_id", None)
+        sess.pop("tmp_user_id", None)
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
@@ -1134,7 +1136,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
-        session.invalidate()
+        # invalidate() は使わずセッションの内容だけをクリア
+        session.clear()
         raise web.HTTPFound("/login")
 
     async def gdrive_auth(req: web.Request):
