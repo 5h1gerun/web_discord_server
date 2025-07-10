@@ -986,11 +986,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
+            sess.changed()
             resp = web.HTTPFound("/totp")
             resp.del_cookie("dst", path="/")
             return resp
 
         sess["user_id"] = row["discord_id"]
+        sess.changed()
         resp = web.HTTPFound("/")
         resp.del_cookie("dst", path="/")
         return resp
@@ -1127,12 +1129,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
+            sess.changed()
             resp = web.HTTPFound("/totp")
             resp.del_cookie("dst", path="/")
             return resp
 
         # 正常ログイン
         sess["user_id"] = discord_id
+        sess.changed()
         resp = web.HTTPFound("/")
         resp.del_cookie("dst", path="/")
         return resp
@@ -1165,6 +1169,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             await db.execute(
                 "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
             )
+            sess.changed()
             return web.HTTPFound("/")
 
         resp = _render(
