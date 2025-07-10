@@ -988,12 +988,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             sess["tmp_user_id"] = row["discord_id"]
             resp = web.HTTPFound("/totp")
             resp.del_cookie("dst", path="/")
-            raise resp
+            return resp
 
         sess["user_id"] = row["discord_id"]
         resp = web.HTTPFound("/")
         resp.del_cookie("dst", path="/")
-        raise resp
+        return resp
 
     async def discord_login(request: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
@@ -1129,7 +1129,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             sess["tmp_user_id"] = discord_id
             resp = web.HTTPFound("/totp")
             resp.del_cookie("dst", path="/")
-            raise resp
+            return resp
 
         # 正常ログイン
         sess["user_id"] = discord_id
@@ -1165,7 +1165,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             await db.execute(
                 "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
             )
-            raise web.HTTPFound("/")
+            return web.HTTPFound("/")
 
         resp = _render(
             req,
@@ -1201,7 +1201,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         app["gdrive_flows"][state] = flow
         sess = await aiohttp_session.get_session(req)
         sess["gdrive_state"] = state
-        raise web.HTTPFound(auth_url)
+        return web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
         sess = await aiohttp_session.get_session(req)
