@@ -70,5 +70,11 @@ def test_no_store_header_prevents_caching():
 
 def test_discord_login_bypassed():
     sw = read_sw()
-    pattern = re.compile(r"url\.pathname === '/discord_login'\)\s*{")
+    pattern = re.compile(r"url\.pathname === '/discord_login'\s*\|\|")
+    assert pattern.search(sw)
+
+
+def test_discord_callback_bypassed():
+    sw = read_sw()
+    pattern = re.compile(r"url\.pathname === '/discord_callback'\)")
     assert pattern.search(sw)

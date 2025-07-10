@@ -60,11 +60,20 @@ log = logging.getLogger("web")
 
 # ─────────────── Secrets ───────────────
 COOKIE_SECRET_STR = os.getenv("COOKIE_SECRET", "").strip().strip('"').strip("'")
+if not COOKIE_SECRET_STR:
+    COOKIE_SECRET_FILE = os.getenv("COOKIE_SECRET_FILE", "cookie_secret.key")
+    secret_path = Path(COOKIE_SECRET_FILE)
+    if secret_path.exists():
+        COOKIE_SECRET_STR = secret_path.read_text().strip()
+    else:
+        COOKIE_SECRET_STR = base64.urlsafe_b64encode(os.urandom(32)).decode()
+        secret_path.write_text(COOKIE_SECRET_STR)
 if len(COOKIE_SECRET_STR) != 44:
     raise RuntimeError(
         "COOKIE_SECRET が未設定、または 44 文字の URL-safe Base64 ではありません"
     )
 COOKIE_SECRET = COOKIE_SECRET_STR
+log.info("COOKIE_SECRET=%s", COOKIE_SECRET)
 
 FILE_HMAC_SECRET = base64.urlsafe_b64decode(
     os.getenv("FILE_HMAC_SECRET", base64.urlsafe_b64encode(os.urandom(32)).decode())
@@ -400,9 +409,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     storage = EncryptedCookieStorage(
         COOKIE_SECRET,
         cookie_name="wdsid",
+        path="/",
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
-        samesite="Lax",  # CSRF 低減
+        samesite="None",  # redirect 後も維持
         max_age=60 * 60 * 24 * 7,  # 7 日
     )
     session_setup(app, storage)
@@ -973,9 +983,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "dst",
             state,
             max_age=300,
+            path="/",
             secure=True,
             httponly=True,
-            samesite="Lax",
+            samesite="None",
         )
         raise resp
 
@@ -986,6 +997,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = req.query.get("state")
         sess_state = sess.pop("discord_state", None)
         cookie_state = req.cookies.get("dst")
+        log.info("discord_callback states: cookie=%s session=%s", cookie_state, sess_state)
         if not state or (sess_state != state and cookie_state != state):
             resp = web.Response(text="invalid state", status=400)
             resp.del_cookie("dst", path="/")
