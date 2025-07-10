@@ -986,14 +986,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def discord_login(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
+
         state = secrets.token_urlsafe(16)
-        # 新しいセッションを開始し、以前の tmp_user_id を残さない
+
+        # ① 既存セッションを取得して空にする
         sess = await get_session(req)
-        sess.invalidate()
-        # invalidate() 後は new_session() を呼ばず、このセッションに書き込む
+        sess.invalidate()                # ここで tmp_user_id などをクリア
+        sess = await aiohttp_session.new_session(req)
+        # ② 必ず何かを書き込む  → これだけで Set-Cookie が付く
         sess["discord_state"] = state
+
+        # ③ OAuth へリダイレクト
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        redirect_uri = f"https://{public_domain}/discord_callback"
+        redirect_uri  = f"https://{public_domain}/discord_callback"
         params = {
             "client_id": DISCORD_CLIENT_ID,
             "redirect_uri": redirect_uri,
@@ -1002,24 +1007,24 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "state": state,
             "disable_mobile_redirect": "true",
         }
-        url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
+        url  = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         resp = web.HTTPFound(url)
+
+        # ④ CSRF 用の dst クッキー
         resp.set_cookie(
-            "dst",
-            state,
-            max_age=300,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="None",
+            "dst", state, max_age=300, path="/",
+            secure=True, httponly=True, samesite="None",
         )
+
         log.debug(
-            "LOGIN: session_id=%s new_state=%s set_cookie=%s",
-            sess.identity,
+            "LOGIN: session_id=%s  new_state=%s  set_cookie=%s",
+            sess.identity,                           # ← ここで NameError にならない
             state,
             resp.headers.getall("Set-Cookie", []),
         )
-        raise resp
+        for v in resp.headers.getall("Set-Cookie", []):
+            log.info("LOGIN-SETCOOKIE: %s", v)
+        return resp
 
     async def discord_callback(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
