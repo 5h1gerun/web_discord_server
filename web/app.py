@@ -987,12 +987,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
 
-        session = await get_session(request)
+        sess = await get_session(request)
+        sess.invalidate()
 
         # state を保存
         state = secrets.token_urlsafe(32)
-        session.setdefault("oauth_states", []).append(state)
-        session.changed()
+        sess["discord_state"] = state
+        sess.changed()
 
         params = {
             "client_id": DISCORD_CLIENT_ID,
@@ -1002,11 +1003,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "state": state,
             "disable_mobile_redirect": "true",
         }
-
-        # リダイレクトレスポンスを返すだけで良い
-        return web.HTTPSeeOther(
+        
+        resp = web.HTTPSeeOther(
             "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         )
+        resp.set_cookie(
+            "dst", state, max_age=300, path="/", secure=True, samesite="None"
+        )
+        log.debug(
+            "LOGIN: session_id=%s new_state=%s set_cookie=%s",
+            sess.identity,
+            state,
+            resp.headers.get("Set-Cookie"),
+        )
+        return resp
 
     async def discord_callback(req: web.Request):
         # 0) 前置き
@@ -1019,25 +1029,27 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # 1) state 判定 ---------------------------------------------------
         log.info("CALLBACK Cookie=%s", req.headers.get("Cookie"))
         session = await get_session(req)
-        log.info("CALLBACK session keys=%s  raw=%s",
-            list(session.keys()), dict(session))
+        log.info(
+            "CALLBACK session keys=%s  raw=%s", list(session.keys()), dict(session)
+        )
         url_state = req.query.get("state", "")
-
-        pending = set(session.get("oauth_states", []))
-        if url_state not in pending:
+        cookie_state = req.cookies.get("dst")
+        sess_state = sess.pop("discord_state", None)
+        log.info(
+            "CALLBACK: dst=%s session_state=%s wdsid=%s",
+            cookie_state,
+            sess_state,
+            session.identity,
+        )
+        if url_state != cookie_state or url_state != sess_state:
             return web.Response(text="invalid state", status=400)
 
         # 使い終わった state を削除
-        pending.discard(url_state)
-        session["oauth_states"] = list(pending)
+        session.pop("discord_state", None)
         session.changed()
 
         # ---- 後始末 -------------------------------------------------
-        pending.discard(url_state)
-        if pending:
-            sess["oauth_states"] = list(pending)
-        else:
-            sess.pop("oauth_states", None)
+        sess.pop("discord_state", None)
 
         # エラー時に返す共通レスポンス
         clear_cookie_resp = web.Response(
