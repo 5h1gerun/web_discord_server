@@ -73,6 +73,7 @@ if len(COOKIE_SECRET_STR) != 44:
         "COOKIE_SECRET が未設定、または 44 文字の URL-safe Base64 ではありません"
     )
 COOKIE_SECRET = COOKIE_SECRET_STR
+log.info("COOKIE_SECRET=%s", COOKIE_SECRET)
 
 FILE_HMAC_SECRET = base64.urlsafe_b64decode(
     os.getenv("FILE_HMAC_SECRET", base64.urlsafe_b64encode(os.urandom(32)).decode())
