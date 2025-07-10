@@ -986,6 +986,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = req.query.get("state")
         sess_state = sess.pop("discord_state", None)
         cookie_state = req.cookies.get("dst")
+        log.info("discord_callback states: cookie=%s session=%s", cookie_state, sess_state)
         if not state or (sess_state != state and cookie_state != state):
             resp = web.Response(text="invalid state", status=400)
             resp.del_cookie("dst", path="/")
