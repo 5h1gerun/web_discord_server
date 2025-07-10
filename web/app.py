@@ -410,7 +410,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         cookie_name="wdsid",
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
-        samesite="Lax",  # CSRF 低減
+        samesite="None",  # redirect 後も維持
         max_age=60 * 60 * 24 * 7,  # 7 日
     )
     session_setup(app, storage)
