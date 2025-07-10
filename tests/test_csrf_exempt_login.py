@@ -7,4 +7,4 @@ def test_login_csrf_exempt():
     start = text.index('async def csrf_protect_mw')
     end = text.index('async def auth_mw')
     part = text[start:end]
-    assert 'request.path == "/login"' in part
+    assert 'request.path in ("/login", "/totp")' in part

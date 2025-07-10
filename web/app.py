@@ -321,8 +321,9 @@ async def _task_worker(app: web.Application):
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        # ログインフォームはセッションが切れていることが多いため、CSRF チェックを省略
-        if request.path == "/login":
+        # ログインと二要素認証フォームはセッションが切れていることが多いため、
+        # CSRF チェックを省略
+        if request.path in ("/login", "/totp"):
             await aiohttp_session.get_session(request)
             return await handler(request)
 
