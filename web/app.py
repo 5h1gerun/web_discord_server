@@ -340,6 +340,8 @@ async def csrf_protect_mw(request: web.Request, handler):
 @web.middleware
 async def auth_mw(request: web.Request, handler):
     sess = await aiohttp_session.get_session(request)
+    if request.cookies.get("wdsid") and sess.new:
+        log.warning("wdsid cookie present but session could not be restored")
     request["user_id"] = sess.get("user_id")
     return await handler(request)
 
