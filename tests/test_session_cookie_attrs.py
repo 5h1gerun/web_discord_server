@@ -9,3 +9,4 @@ def test_session_cookie_samesite_none():
     assert 'cookie_name="wdsid"' in text
     assert 'samesite="None"' in text
     assert 'secure=True' in text
+    assert 'path="/"' in text

@@ -409,6 +409,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     storage = EncryptedCookieStorage(
         COOKIE_SECRET,
         cookie_name="wdsid",
+        path="/",
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="None",  # redirect 後も維持
