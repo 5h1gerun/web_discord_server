@@ -936,7 +936,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
-            resp.del_cookie("dst")
+            resp.del_cookie("dst", path="/")
             return resp
 
         sess = await new_session(req)
@@ -974,6 +974,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             secure=True,
             httponly=True,
             samesite="Lax",
+            path="/",
         )
         raise resp
 
@@ -986,12 +987,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         cookie_state = req.cookies.get("dst")
         if not state or (sess_state != state and cookie_state != state):
             resp = web.Response(text="invalid state", status=400)
-            resp.del_cookie("dst")
+            resp.del_cookie("dst", path="/")
             return resp
         code = req.query.get("code")
         if not code:
             resp = web.HTTPFound("/login")
-            resp.del_cookie("dst")
+            resp.del_cookie("dst", path="/")
             raise resp
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -1008,7 +1009,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 if resp.status != 200:
                     log.error("OAuth token error: %s", await resp.text())
                     err = web.HTTPFound("/login")
-                    err.del_cookie("dst")
+                    err.del_cookie("dst", path="/")
                     raise err
                 tok = await resp.json()
             async with session.get(
@@ -1018,7 +1019,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 if uresp.status != 200:
                     log.error("OAuth user error: %s", await uresp.text())
                     err = web.HTTPFound("/login")
-                    err.del_cookie("dst")
+                    err.del_cookie("dst", path="/")
                     raise err
                 udata = await uresp.json()
 
@@ -1037,18 +1038,18 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
-            resp.del_cookie("dst")
+            resp.del_cookie("dst", path="/")
             return resp
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
             resp = web.HTTPFound("/totp")
-            resp.del_cookie("dst")
+            resp.del_cookie("dst", path="/")
             raise resp
 
         sess["user_id"] = discord_id
         resp = web.HTTPFound("/")
-        resp.del_cookie("dst")
+        resp.del_cookie("dst", path="/")
         raise resp
 
     # ── GET: フォーム表示 ──────────────────────
