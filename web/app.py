@@ -321,6 +321,12 @@ async def _task_worker(app: web.Application):
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        # ログインと二要素認証フォームはセッションが切れていることが多いため、
+        # CSRF チェックを省略
+        if request.path in ("/login", "/totp"):
+            await aiohttp_session.get_session(request)
+            return await handler(request)
+
         session = await aiohttp_session.get_session(request)
 
         # ヘッダー優先。なければフォームから取得。
@@ -944,7 +950,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         db = app["db"]
 
         if not await db.verify_user(username, password):
-            return _render(
+            resp = _render(
                 req,
                 "login.html",
                 {
@@ -953,6 +959,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                     "request": req,
                 },
             )
+            resp.del_cookie("dst", path="/")
+            return resp
 
         row = await db.fetchone(
             "SELECT discord_id, totp_enabled FROM users WHERE username = ?", username
@@ -978,21 +986,28 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
-            raise web.HTTPFound("/totp")
+            sess.changed()
+            resp = web.HTTPFound("/totp")
+            resp.del_cookie("dst", path="/")
+            return resp
 
         sess["user_id"] = row["discord_id"]
-        raise web.HTTPFound("/")
+        sess.changed()
+        resp = web.HTTPFound("/")
+        resp.del_cookie("dst", path="/")
+        return resp
 
     async def discord_login(request: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
 
-        session = await get_session(request)
+        sess = await get_session(request)
+        sess.invalidate()
 
         # state を保存
         state = secrets.token_urlsafe(32)
-        session.setdefault("oauth_states", []).append(state)
-        session.changed()
+        sess["discord_state"] = state
+        sess.changed()
 
         params = {
             "client_id": DISCORD_CLIENT_ID,
@@ -1002,11 +1017,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "state": state,
             "disable_mobile_redirect": "true",
         }
-
-        # リダイレクトレスポンスを返すだけで良い
-        return web.HTTPSeeOther(
+        
+        resp = web.HTTPSeeOther(
             "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         )
+        resp.set_cookie(
+            "dst", state, max_age=300, path="/", secure=True, samesite="None"
+        )
+        log.debug(
+            "LOGIN: session_id=%s new_state=%s set_cookie=%s",
+            sess.identity,
+            state,
+            resp.headers.get("Set-Cookie"),
+        )
+        return resp
 
     async def discord_callback(req: web.Request):
         # 0) 前置き
@@ -1019,25 +1043,27 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # 1) state 判定 ---------------------------------------------------
         log.info("CALLBACK Cookie=%s", req.headers.get("Cookie"))
         session = await get_session(req)
-        log.info("CALLBACK session keys=%s  raw=%s",
-            list(session.keys()), dict(session))
+        log.info(
+            "CALLBACK session keys=%s  raw=%s", list(session.keys()), dict(session)
+        )
         url_state = req.query.get("state", "")
-
-        pending = set(session.get("oauth_states", []))
-        if url_state not in pending:
+        cookie_state = req.cookies.get("dst")
+        sess_state = sess.pop("discord_state", None)
+        log.info(
+            "CALLBACK: dst=%s session_state=%s wdsid=%s",
+            cookie_state,
+            sess_state,
+            session.identity,
+        )
+        if url_state != cookie_state or url_state != sess_state:
             return web.Response(text="invalid state", status=400)
 
         # 使い終わった state を削除
-        pending.discard(url_state)
-        session["oauth_states"] = list(pending)
+        session.pop("discord_state", None)
         session.changed()
 
         # ---- 後始末 -------------------------------------------------
-        pending.discard(url_state)
-        if pending:
-            sess["oauth_states"] = list(pending)
-        else:
-            sess.pop("oauth_states", None)
+        sess.pop("discord_state", None)
 
         # エラー時に返す共通レスポンス
         clear_cookie_resp = web.Response(
@@ -1103,12 +1129,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
+            sess.changed()
             resp = web.HTTPFound("/totp")
             resp.del_cookie("dst", path="/")
-            raise resp
+            return resp
 
         # 正常ログイン
         sess["user_id"] = discord_id
+        sess.changed()
         resp = web.HTTPFound("/")
         resp.del_cookie("dst", path="/")
         return resp
@@ -1121,6 +1149,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # CSRF トークンをテンプレに渡す
         resp = _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
         resp.headers["Cache-Control"] = "no-store"
+        sess.changed()
         return resp
 
     # ── POST: 検証 ────────────────────────────
@@ -1141,7 +1170,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             await db.execute(
                 "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
             )
-            raise web.HTTPFound("/")
+            sess.changed()
+            return web.HTTPFound("/")
 
         resp = _render(
             req,
@@ -1149,6 +1179,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             {"error": "コードが違います", "csrf_token": await issue_csrf(req)},
         )
         resp.headers["Cache-Control"] = "no-store"
+        sess.changed()
         return resp
 
     async def logout(req):
@@ -1177,7 +1208,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         app["gdrive_flows"][state] = flow
         sess = await aiohttp_session.get_session(req)
         sess["gdrive_state"] = state
-        raise web.HTTPFound(auth_url)
+        return web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
         sess = await aiohttp_session.get_session(req)
