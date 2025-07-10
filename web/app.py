@@ -340,8 +340,16 @@ async def csrf_protect_mw(request: web.Request, handler):
 @web.middleware
 async def auth_mw(request: web.Request, handler):
     sess = await aiohttp_session.get_session(request)
+    if request.cookies.get("wdsid") and sess.new:
+        log.warning("wdsid cookie present but session could not be restored")
     request["user_id"] = sess.get("user_id")
     return await handler(request)
+
+
+@web.middleware
+async def debug_mw(req, handler):
+    log.debug("%s %s Cookie=%s", req.method, req.path, req.headers.get("cookie"))
+    return await handler(req)
 
 
 CSP_POLICY = (
@@ -416,9 +424,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         max_age=60 * 60 * 24 * 7,  # 7 日
     )
     session_setup(app, storage)
+    key_bytes = base64.urlsafe_b64decode(COOKIE_SECRET)
+    log.info(
+        "SESSION_KEY=%s COOKIE_NAME=%s aiohttp_session=%s",
+        base64.urlsafe_b64encode(key_bytes).decode(),
+        "wdsid",
+        aiohttp_session.__version__,
+    )
 
     # middlewares
     app.middlewares.append(forwarded_middleware)  # X-Forwarded-* 対応
+    app.middlewares.append(debug_mw)
     app.middlewares.append(https_redirect_mw)
     app.middlewares.append(csrf_protect_mw)
     app.middlewares.append(auth_mw)
@@ -988,16 +1004,29 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             httponly=True,
             samesite="None",
         )
+        log.debug(
+            "LOGIN: session_id=%s new_state=%s set_cookie=%s",
+            sess.identity,
+            state,
+            resp.headers.getall("Set-Cookie", []),
+        )
         raise resp
 
     async def discord_callback(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
+        cookie_state = req.cookies.get("dst")
+        session_state = sess.get("discord_state")
+        wdsid_cookie = req.cookies.get("wdsid")
+        log.info(
+            "CALLBACK: dst=%s session_state=%s wdsid=%s",
+            cookie_state,
+            session_state,
+            bool(wdsid_cookie),
+        )
         state = req.query.get("state")
         sess_state = sess.pop("discord_state", None)
-        cookie_state = req.cookies.get("dst")
-        log.info("discord_callback states: cookie=%s session=%s", cookie_state, sess_state)
         if not state or (sess_state != state and cookie_state != state):
             resp = web.Response(text="invalid state", status=400)
             resp.del_cookie("dst", path="/")
