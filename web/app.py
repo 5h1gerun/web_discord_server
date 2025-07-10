@@ -987,112 +987,119 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
 
-        state = secrets.token_urlsafe(16)
+        session = await get_session(req)
+        state = secrets.token_urlsafe(32)
 
-        # ① 既存セッションを取得して空にする
-        sess = await get_session(req)
-        sess.invalidate()                # ここで tmp_user_id などをクリア
-        sess = await aiohttp_session.new_session(req)
-        # ② 必ず何かを書き込む  → これだけで Set-Cookie が付く
-        sess["discord_state"] = state
+        states = set(session.get("oauth_states", []))
+        states.add(state)
+        session["oauth_states"] = list(states)
+        session.changed()
 
-        # ③ OAuth へリダイレクト
-        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        redirect_uri  = f"https://{public_domain}/discord_callback"
+        log.debug("LOGIN session after write: %s", dict(session))
+
         params = {
             "client_id": DISCORD_CLIENT_ID,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/discord_callback",
             "response_type": "code",
             "scope": "identify",
             "state": state,
             "disable_mobile_redirect": "true",
         }
-        url  = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
-        resp = web.HTTPFound(url)
-
-        # ④ CSRF 用の dst クッキー
-        resp.set_cookie(
-            "dst", state, max_age=300, path="/",
-            secure=True, httponly=True, samesite="None",
+        resp = web.HTTPSeeOther(
+            "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
         )
-
-        log.debug(
-            "LOGIN: session_id=%s  new_state=%s  set_cookie=%s",
-            sess.identity,                           # ← ここで NameError にならない
-            state,
-            resp.headers.getall("Set-Cookie", []),
-        )
-        for v in resp.headers.getall("Set-Cookie", []):
-            log.info("LOGIN-SETCOOKIE: %s", v)
+        log.info("LOGIN  Set-Cookie=%s", resp.headers.getall("Set-Cookie", []))
         return resp
 
     async def discord_callback(req: web.Request):
+        # 0) 前置き
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
-        sess = await aiohttp_session.get_session(req)
-        cookie_state = req.cookies.get("dst")
-        session_state = sess.get("discord_state")
-        wdsid_cookie = req.cookies.get("wdsid")
-        log.info(
-            "CALLBACK: dst=%s session_state=%s wdsid=%s",
-            cookie_state,
-            session_state,
-            bool(wdsid_cookie),
+
+        sess = await get_session(req)
+        db   = req.app["db"]
+
+        # 1) state 判定 ---------------------------------------------------
+        log.info("CALLBACK Cookie=%s", req.headers.get("Cookie"))
+        session = await get_session(req)
+        log.info("CALLBACK session keys=%s  raw=%s",
+            list(session.keys()), dict(session))
+        url_state = req.query.get("state", "")
+
+        pending = set(session.get("oauth_states", []))
+        if url_state not in pending:
+            return web.Response(text="invalid state", status=400)
+
+        # 使い終わった state を削除
+        pending.discard(url_state)
+        session["oauth_states"] = list(pending)
+        session.changed()
+
+        # ---- 後始末 -------------------------------------------------
+        pending.discard(url_state)
+        if pending:
+            sess["oauth_states"] = list(pending)
+        else:
+            sess.pop("oauth_states", None)
+
+        # エラー時に返す共通レスポンス
+        clear_cookie_resp = web.Response(
+            text="oauth flow aborted", status=400
         )
-        state = req.query.get("state")
-        sess_state = sess.pop("discord_state", None)
-        if not state or (sess_state != state and cookie_state != state):
-            resp = web.Response(text="invalid state", status=400)
-            resp.del_cookie("dst", path="/")
-            return resp
-        code = req.query.get("code")
+        clear_cookie_resp.del_cookie("dst", path="/")
+        # 2) code 取得 ----------------------------------------------------
+        code = req.query.get("code") or ""
         if not code:
-            resp = web.HTTPFound("/login")
-            resp.del_cookie("dst", path="/")
-            raise resp
+            return clear_cookie_resp
+
+        # --- 二重使用ブロック ----------------------------------------
+        if code in sess.get("used_codes", set()):
+            return web.Response(text="code already used", status=400)
+        sess.setdefault("used_codes", set()).add(code)
+
+        # 3) アクセストークン取得 ----------------------------------------
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        redirect_uri = f"https://{public_domain}/discord_callback"
+        redirect_uri  = f"https://{public_domain}/discord_callback"
         data = {
-            "client_id": DISCORD_CLIENT_ID,
+            "client_id":     DISCORD_CLIENT_ID,
             "client_secret": DISCORD_CLIENT_SECRET,
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
+            "grant_type":    "authorization_code",
+            "code":          code,
+            "redirect_uri":  redirect_uri,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as session:
-            async with session.post("https://discord.com/api/oauth2/token", data=data, headers=headers) as resp:
-                if resp.status != 200:
-                    log.error("OAuth token error: %s", await resp.text())
-                    err = web.HTTPFound("/login")
-                    err.del_cookie("dst", path="/")
-                    raise err
-                tok = await resp.json()
-            async with session.get(
-                "https://discord.com/api/users/@me",
-                headers={"Authorization": f"Bearer {tok['access_token']}"},
-            ) as uresp:
-                if uresp.status != 200:
-                    log.error("OAuth user error: %s", await uresp.text())
-                    err = web.HTTPFound("/login")
-                    err.del_cookie("dst", path="/")
-                    raise err
-                udata = await uresp.json()
+        log.debug("TOKEN req data: %s", data)
 
+        async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as s:
+            async with s.post("https://discord.com/api/oauth2/token",
+                            data=data, headers=headers) as t:
+                if t.status != 200:
+                    log.warning("OAuth token error %s: %s", t.status, await t.text())
+                    return web.Response(
+                        text=f"token error: {await t.text()}", status=400
+                    )
+                tok = await t.json()
+
+            async with s.get("https://discord.com/api/users/@me",
+                            headers={"Authorization": f"Bearer {tok['access_token']}"}) as u:
+                if u.status != 200:
+                    log.warning("OAuth user error %s: %s", u.status, await u.text())
+                    return web.Response(
+                        text=f"user error: {await u.text()}", status=400
+                    )
+                udata = await u.json()
+
+        # 4) アプリ固有ログイン処理 --------------------------------------
         discord_id = int(udata["id"])
         row = await db.fetchone(
-            "SELECT totp_enabled, totp_verified FROM users WHERE discord_id=?",
-            discord_id,
+            "SELECT totp_enabled, totp_verified FROM users WHERE discord_id=?", discord_id
         )
         if not row:
             resp = _render(
-                req,
-                "login.html",
-                {
-                    "error": "No user found",
-                    "csrf_token": await issue_csrf(req),
-                    "request": req,
-                },
+                req, "login.html",
+                {"error": "No user found",
+                "csrf_token": await issue_csrf(req),
+                "request": req}
             )
             resp.del_cookie("dst", path="/")
             return resp
@@ -1103,10 +1110,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             resp.del_cookie("dst", path="/")
             raise resp
 
+        # 正常ログイン
         sess["user_id"] = discord_id
         resp = web.HTTPFound("/")
         resp.del_cookie("dst", path="/")
-        raise resp
+        return resp
 
     # ── GET: フォーム表示 ──────────────────────
     async def totp_get(req):

@@ -65,9 +65,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname === '/discord_login' || url.pathname === '/discord_callback') {
-    // Discord OAuth 用のリダイレクトは Set-Cookie をそのまま返す必要がある
-    event.respondWith(fetch(request));
+  // ① OAuth 用 URL は最優先でネットワークへパススルー
+  if (url.pathname === '/discord_login' ||
+      url.pathname === '/discord_callback') {
+    // event.respondWith を呼ばずに return
     return;
   }
 
