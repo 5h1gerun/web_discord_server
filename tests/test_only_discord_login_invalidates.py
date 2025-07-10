@@ -7,3 +7,4 @@ def test_only_discord_login_invalidates():
     text = APP_PATH.read_text(encoding='utf-8')
     assert text.count('sess.invalidate()') == 1
     assert 'session.invalidate()' not in text
+    assert 'new_session(' in text
