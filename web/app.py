@@ -331,7 +331,8 @@ async def csrf_protect_mw(request: web.Request, handler):
 @web.middleware
 async def auth_mw(request: web.Request, handler):
     sess = await aiohttp_session.get_session(request)
-    request["user_id"] = sess.get("user_id")
+    auth = sess.setdefault("auth", {})
+    request["user_id"] = auth.get("user_id")
     return await handler(request)
 
 
@@ -636,7 +637,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def shared_index(request):
         db = request.app["db"]
         session = await get_session(request)
-        user_id = session.get("user_id")
+        auth = session.setdefault("auth", {})
+        user_id = auth.get("user_id")
 
         if not user_id:
             raise web.HTTPFound("/login")
@@ -658,7 +660,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def shared_folder_view(request: web.Request):
         # ── 1. セッション＆認証チェック ──
         sess = await aiohttp_session.get_session(request)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
 
@@ -790,7 +793,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             discord_id,
         )
         session = await get_session(request)
-        current_user_id = session.get("user_id")
+        auth = session.setdefault("auth", {})
+        current_user_id = auth.get("user_id")
         base_url = f"{request.scheme}://{request.host}"
         all_folders = await db.fetchall(
             """
@@ -824,7 +828,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     db = Database(DB_PATH)
     app["db"] = db
     app["gdrive_flows"] = {}
-    app["discord_states"] = set()
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -861,7 +864,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def ws_handler(request: web.Request):
         sess = await aiohttp_session.get_session(request)
-        uid = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        uid = auth.get("user_id")
         if not uid:
             raise web.HTTPForbidden()
         ws = web.WebSocketResponse()
@@ -923,12 +927,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             )
 
         sess = await new_session(req)
+        auth = sess.setdefault("auth", {})
 
         if row["totp_enabled"]:
-            sess["tmp_user_id"] = row["discord_id"]
+            auth["tmp_user_id"] = row["discord_id"]
             raise web.HTTPFound("/totp")
 
-        sess["user_id"] = row["discord_id"]
+        auth["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
 
     async def discord_login(req: web.Request):
@@ -937,8 +942,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = secrets.token_urlsafe(16)
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
         sess = await new_session(req)
-        req.app["discord_states"].add(state)
-        sess["discord_state"] = state
+        auth = sess.setdefault("auth", {})
+        auth["oauth_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         params = {
@@ -956,11 +961,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
+        auth = sess.setdefault("auth", {})
         state = req.query.get("state")
-        sess_state = sess.pop("discord_state", None)
-        if not state or sess_state != state or state not in req.app["discord_states"]:
+        sess_state = auth.pop("oauth_state", None)
+        if not state or sess_state != state:
             return web.Response(text="invalid state", status=400)
-        req.app["discord_states"].discard(state)
         code = req.query.get("code")
         if not code:
             raise web.HTTPFound("/login")
@@ -1006,16 +1011,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             )
 
         if row["totp_enabled"] and not row["totp_verified"]:
-            sess["tmp_user_id"] = discord_id
+            auth["tmp_user_id"] = discord_id
             raise web.HTTPFound("/totp")
 
-        sess["user_id"] = discord_id
+        auth["user_id"] = discord_id
         raise web.HTTPFound("/")
 
     # ── GET: フォーム表示 ──────────────────────
     async def totp_get(req):
         sess = await get_session(req)
-        if "tmp_user_id" not in sess:  # 直アクセス対策
+        auth = sess.setdefault("auth", {})
+        if "tmp_user_id" not in auth:  # 直アクセス対策
             raise web.HTTPFound("/login")
         # CSRF トークンをテンプレに渡す
         resp = _render(req, "totp.html", {"csrf_token": await issue_csrf(req)})
@@ -1025,18 +1031,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # ── POST: 検証 ────────────────────────────
     async def totp_post(req):
         sess = await get_session(req)
-        if "tmp_user_id" not in sess:
+        auth = sess.setdefault("auth", {})
+        if "tmp_user_id" not in auth:
             raise web.HTTPFound("/login")
 
         code = (await req.post()).get("code", "")
-        user_id = sess["tmp_user_id"]
+        user_id = auth["tmp_user_id"]
         row = await db.fetchone(
             "SELECT totp_secret FROM users WHERE discord_id=?", user_id
         )
 
         if row and pyotp.TOTP(row["totp_secret"]).verify(code):
-            sess["user_id"] = user_id
-            del sess["tmp_user_id"]
+            auth["user_id"] = user_id
+            del auth["tmp_user_id"]
             await db.execute(
                 "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
             )
@@ -1074,16 +1081,18 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         app["gdrive_flows"][state] = flow
         sess = await aiohttp_session.get_session(req)
-        sess["gdrive_state"] = state
+        auth = sess.setdefault("auth", {})
+        auth["gdrive_state"] = state
         raise web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
         sess = await aiohttp_session.get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
         state = req.query.get("state")
-        sess_state = sess.pop("gdrive_state", None)
+        sess_state = auth.pop("gdrive_state", None)
         if not state or sess_state != state:
             return web.Response(text="invalid state", status=400)
         flow = app["gdrive_flows"].pop(state, None)
@@ -1845,7 +1854,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def send_file_dm(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
 
@@ -1904,7 +1914,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def shared_update_tags(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
         file_id = req.match_info["id"]
@@ -1928,7 +1939,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def shared_upload(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
 
@@ -2040,7 +2052,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def shared_delete(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
 
@@ -2080,7 +2093,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def shared_delete_all(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
 
@@ -2100,7 +2114,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def download_zip(req: web.Request):
         sess = await get_session(req)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             raise web.HTTPFound("/login")
 
@@ -2159,7 +2174,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # ─────────────── Shared ファイルの共有トグル API ───────────────
     async def shared_toggle(request: web.Request):
         sess = await aiohttp_session.get_session(request)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
 
@@ -2277,7 +2293,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         """
         # ── 0. 認証 ───────────────────────────────
         sess = await aiohttp_session.get_session(request)
-        discord_id = sess.get("user_id")
+        auth = sess.setdefault("auth", {})
+        discord_id = auth.get("user_id")
         if not discord_id:
             return web.json_response({"error": "unauthorized"}, status=403)
 
