@@ -891,7 +891,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         return web.json_response({"status": "ok"})
 
     async def login_get(req):
+        prev = await aiohttp_session.get_session(req)
+        pending = prev.pop("pending_qr", None)
         sess = await new_session(req)
+        if pending:
+            sess["pending_qr"] = pending
         csrf = await issue_csrf(req)
         qr_token = secrets.token_urlsafe(16)
         sess["qr_token"] = qr_token
@@ -934,8 +938,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 },
             )
 
+        old_sess = await aiohttp_session.get_session(req)
+        qr_pending = old_sess.pop("pending_qr", None)
         sess = await new_session(req)
-        qr_pending = sess.pop("pending_qr", None)
+        if qr_pending:
+            sess["pending_qr"] = qr_pending
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
@@ -943,19 +950,24 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 sess["pending_qr"] = qr_pending
             raise web.HTTPFound("/totp")
 
-        sess["user_id"] = row["discord_id"]
         if qr_pending:
             info = req.app["qr_tokens"].get(qr_pending)
             if info and info["expires"] > time.time():
                 info["user_id"] = row["discord_id"]
+            return _render(req, "qr_done.html", {"request": req})
+
+        sess["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
 
     async def discord_login(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         state = secrets.token_urlsafe(16)
-        # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        await new_session(req)
+        prev = await aiohttp_session.get_session(req)
+        pending = prev.pop("pending_qr", None)
+        sess = await new_session(req)
+        if pending:
+            sess["pending_qr"] = pending
         req.app["discord_states"].add(state)
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -973,6 +985,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
+        qr_pending = sess.pop("pending_qr", None)
         state = req.query.get("state")
         if not state or state not in req.app["discord_states"]:
             return web.Response(text="invalid state", status=400)
@@ -1023,7 +1036,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
+            if qr_pending:
+                sess["pending_qr"] = qr_pending
             raise web.HTTPFound("/totp")
+
+        if qr_pending:
+            info = req.app["qr_tokens"].get(qr_pending)
+            if info and info["expires"] > time.time():
+                info["user_id"] = discord_id
+            return _render(req, "qr_done.html", {"request": req})
 
         sess["user_id"] = discord_id
         raise web.HTTPFound("/")
@@ -1051,7 +1072,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
 
         if row and pyotp.TOTP(row["totp_secret"]).verify(code):
-            sess["user_id"] = user_id
             qr_pending = sess.pop("pending_qr", None)
             del sess["tmp_user_id"]
             await db.execute(
@@ -1061,6 +1081,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 info = req.app["qr_tokens"].get(qr_pending)
                 if info and info["expires"] > time.time():
                     info["user_id"] = user_id
+                return _render(req, "qr_done.html", {"request": req})
+            sess["user_id"] = user_id
             raise web.HTTPFound("/")
 
         resp = _render(
