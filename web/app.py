@@ -827,6 +827,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # database setup
     db = Database(DB_PATH)
     app["db"] = db
+    app["gdrive_flows"] = {}
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -1084,7 +1085,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess = await aiohttp_session.get_session(req)
         auth = sess.setdefault("auth", {})
         auth["gdrive_state"] = state
-        auth["gdrive_flow"] = flow
+        req.app["gdrive_flows"][state] = flow
         raise web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
@@ -1100,7 +1101,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "Invalid gdrive state: session=%s query=%s", sess_state, state
             )
             return web.Response(text="invalid state", status=400)
-        flow = auth.pop("gdrive_flow", None)
+        flow = req.app["gdrive_flows"].pop(state, None)
         if not flow:
             log.warning("Invalid gdrive state: flow not found for %s", state)
             return web.Response(text="invalid state", status=400)
