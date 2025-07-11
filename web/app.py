@@ -965,6 +965,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = req.query.get("state")
         sess_state = auth.pop("oauth_state", None)
         if not state or sess_state != state:
+            log.warning(
+                "Invalid Discord OAuth state: session=%s query=%s", sess_state, state
+            )
             return web.Response(text="invalid state", status=400)
         code = req.query.get("code")
         if not code:
@@ -1094,9 +1097,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = req.query.get("state")
         sess_state = auth.pop("gdrive_state", None)
         if not state or sess_state != state:
+            log.warning(
+                "Invalid gdrive state: session=%s query=%s", sess_state, state
+            )
             return web.Response(text="invalid state", status=400)
         flow = app["gdrive_flows"].pop(state, None)
         if not flow:
+            log.warning("Invalid gdrive state: flow not found for %s", state)
             return web.Response(text="invalid state", status=400)
         flow.fetch_token(code=req.query.get("code"))
         creds = flow.credentials
