@@ -100,7 +100,7 @@
               </div>
             </div>
           </form>
-          <form method="post" action="/create_folder" class="mb-4">
+          <form id="createFolderForm" method="post" action="/create_folder" class="mb-4">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="parent_id" value="{{ folder_id }}">
             <div class="input-group">
