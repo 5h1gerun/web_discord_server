@@ -2,14 +2,17 @@
 %% Web サーバ上のシーケンス図
 sequenceDiagram
     participant Browser as Browser
+    participant Phone as Phone
     participant SW as Service Worker
     participant Web as aiohttp Web App
     participant DB as SQLite DB
     participant Files as File Storage
 
     Browser->>Web: GET /login
-    Web-->>Browser: ログインページ
+    Web-->>Browser: ログインページ (QR 付き)
     Browser->>SW: サービスワーカー登録
+    Phone->>Web: GET /qr_login/{token}
+    Web-->>Phone: QR ログイン完了
     Browser->>Web: POST /login (認証情報)
     Web->>DB: 認証チェック
     Web-->>Browser: セッションCookie
