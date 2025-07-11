@@ -25,3 +25,13 @@ def test_discord_button_removed():
 def test_qr_done_rendered_on_mobile_flow():
     text = APP_PATH.read_text(encoding='utf-8')
     assert text.count('qr_done.html') >= 4
+
+
+def test_ws_event_handler_added():
+    js = (Path(__file__).resolve().parents[1] / 'web' / 'static' / 'js' / 'main.js').read_text(encoding='utf-8')
+    assert "data.action === 'qr_login'" in js
+
+
+def test_visibility_handler_in_template():
+    html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
+    assert 'visibilitychange' in html

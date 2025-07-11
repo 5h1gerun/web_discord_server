@@ -954,6 +954,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             info = req.app["qr_tokens"].get(qr_pending)
             if info and info["expires"] > time.time():
                 info["user_id"] = row["discord_id"]
+                await broadcast_ws({"action": "qr_login", "token": qr_pending})
             return _render(req, "qr_done.html", {"request": req})
 
         sess["user_id"] = row["discord_id"]
@@ -1044,6 +1045,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             info = req.app["qr_tokens"].get(qr_pending)
             if info and info["expires"] > time.time():
                 info["user_id"] = discord_id
+                await broadcast_ws({"action": "qr_login", "token": qr_pending})
             return _render(req, "qr_done.html", {"request": req})
 
         sess["user_id"] = discord_id
@@ -1081,6 +1083,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 info = req.app["qr_tokens"].get(qr_pending)
                 if info and info["expires"] > time.time():
                     info["user_id"] = user_id
+                    await broadcast_ws({"action": "qr_login", "token": qr_pending})
                 return _render(req, "qr_done.html", {"request": req})
             sess["user_id"] = user_id
             raise web.HTTPFound("/")
@@ -1114,6 +1117,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess = await get_session(req)
         if sess.get("user_id"):
             info["user_id"] = sess["user_id"]
+            await broadcast_ws({"action": "qr_login", "token": token})
             return _render(req, "qr_done.html", {"request": req})
         sess["pending_qr"] = token
         raise web.HTTPFound("/login")
