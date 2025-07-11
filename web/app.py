@@ -868,6 +868,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         ready = ws.can_prepare(request)
         if not ready.ok:
             raise web.HTTPBadRequest(text="Expected WebSocket request")
+        if request.transport is None:
+            raise web.HTTPBadRequest(text="Connection closed")
         await ws.prepare(request)
         app["websockets"].add(ws)
         try:
