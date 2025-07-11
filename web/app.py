@@ -866,7 +866,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPForbidden()
         ws = web.WebSocketResponse()
         ready = ws.can_prepare(request)
-        if not ready.ok or request.transport is None:
+        if not ready.ok:
             raise web.HTTPBadRequest(text="Expected WebSocket request")
         await ws.prepare(request)
         app["websockets"].add(ws)
