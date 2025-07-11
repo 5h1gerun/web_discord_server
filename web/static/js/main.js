@@ -695,7 +695,15 @@ function connectWs() {
   ws.addEventListener('message', (e) => {
     try {
       const data = JSON.parse(e.data);
-      if (data.action === 'reload') reloadFileList();
+      if (data.action === 'reload') {
+        reloadFileList();
+      } else if (
+        data.action === 'qr_login' &&
+        typeof qTok !== 'undefined' &&
+        data.token === qTok
+      ) {
+        location.href = '/';
+      }
     } catch (err) {
       console.error('ws message error', err);
     }

@@ -51,14 +51,31 @@
     </div>
     <script>
       const qTok = "{{ qr_token }}";
+      let pollTimer;
       async function poll() {
         const r = await fetch(`/qr_poll/${qTok}`);
-        if (!r.ok) return setTimeout(poll, 2000);
+        if (!r.ok) return schedule();
         const j = await r.json();
         if (j.status === 'ok') location.href = '/';
         else if (j.status === 'invalid') location.reload();
-        else setTimeout(poll, 2000);
+        else schedule();
       }
+      function schedule() {
+        clearTimeout(pollTimer);
+        if (document.visibilityState === 'visible') {
+          pollTimer = setTimeout(poll, 2000);
+        } else {
+          pollTimer = null;
+        }
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !pollTimer) {
+          poll();
+        } else if (pollTimer && document.visibilityState !== 'visible') {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      });
       poll();
     </script>
   </div>
