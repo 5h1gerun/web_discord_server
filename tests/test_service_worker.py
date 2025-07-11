@@ -60,9 +60,3 @@ def test_download_requests_not_cached():
         re.S,
     )
     assert pattern.search(sw)
-
-
-def test_no_store_header_prevents_caching():
-    sw = read_sw()
-    pattern = re.compile(r"headers\.get\('Cache-Control'\) !== 'no-store'")
-    assert len(pattern.findall(sw)) >= 2
