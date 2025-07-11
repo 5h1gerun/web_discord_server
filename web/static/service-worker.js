@@ -81,9 +81,6 @@ async function handleNavigate(request) {
   }
   try {
     const res = await fetch(request);
-    if (res.type === 'opaqueredirect') {
-      return Response.redirect(res.url, 302);
-    }
     cache.put(request, res.clone());
     return res;
   } catch (_) {
@@ -95,9 +92,6 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   const fetchPromise = fetch(request).then(res => {
-    if (res.type === 'opaqueredirect') {
-      return Response.redirect(res.url, 302);
-    }
     cache.put(request, res.clone());
     return res;
   }).catch(() => cached);
@@ -111,9 +105,6 @@ async function networkFirst(request) {
   }
   try {
     const res = await fetch(request);
-    if (res.type === 'opaqueredirect') {
-      return Response.redirect(res.url, 302);
-    }
     const cache = await caches.open(CACHE_NAME);
     cache.put(request, res.clone());
     return res;
