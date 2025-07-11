@@ -311,6 +311,8 @@ async def _task_worker(app: web.Application):
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        if request.path == "/login":
+            return await handler(request)
         session = await aiohttp_session.get_session(request)
 
         # ヘッダー優先。なければフォームから取得。
@@ -933,10 +935,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def discord_login(req: web.Request):
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
-        state = secrets.token_urlsafe(16)
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        sess = await new_session(req)
-        sess["discord_state"] = state
+        await new_session(req)
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         params = {
@@ -944,7 +944,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "scope": "identify",
-            "state": state,
             "disable_mobile_redirect": "true",
         }
         url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
@@ -954,10 +953,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
-        state = req.query.get("state")
-        sess_state = sess.pop("discord_state", None)
-        if not state or sess_state != state:
-            return web.Response(text="invalid state", status=400)
         code = req.query.get("code")
         if not code:
             raise web.HTTPFound("/login")
