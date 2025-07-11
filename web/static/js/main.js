@@ -690,7 +690,6 @@ if (sendExecBtn) {
 let ws;
 function connectWs() {
   if (ws) return;
-  if (document.body.dataset.loggedIn !== '1') return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
   ws.addEventListener('message', (e) => {
