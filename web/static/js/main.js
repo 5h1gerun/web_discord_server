@@ -615,20 +615,39 @@ document.addEventListener("input", e => {
   });
 
 document.addEventListener('submit', async e => {
-  const form = e.target.closest('.delete-form');
-  if (!form) return;
-  e.preventDefault();
-  if (!confirm('本当に削除しますか？')) return;
-  try {
-    const res = await fetch(form.action, {
-      method: 'POST',
-      body: new FormData(form),
-      credentials: 'same-origin'
-    });
-    if (!res.ok) throw new Error(res.status);
-    await reloadFileList();
-  } catch (err) {
-    alert('削除失敗: ' + err);
+  const del = e.target.closest('.delete-form');
+  if (del) {
+    e.preventDefault();
+    if (!confirm('本当に削除しますか？')) return;
+    try {
+      const res = await fetch(del.action, {
+        method: 'POST',
+        body: new FormData(del),
+        credentials: 'same-origin'
+      });
+      if (!res.ok) throw new Error(res.status);
+      await reloadFileList();
+    } catch (err) {
+      alert('削除失敗: ' + err);
+    }
+    return;
+  }
+
+  const create = e.target.closest('#createFolderForm');
+  if (create) {
+    e.preventDefault();
+    try {
+      const res = await fetch(create.action, {
+        method: 'POST',
+        body: new FormData(create),
+        credentials: 'same-origin'
+      });
+      if (!res.ok) throw new Error(res.status);
+      create.reset();
+      await reloadFileList();
+    } catch (err) {
+      alert('作成失敗: ' + err);
+    }
   }
 });
 
