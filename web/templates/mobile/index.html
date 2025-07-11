@@ -20,8 +20,8 @@
       <button class="btn btn-outline-primary" type="submit">作成</button>
     </div>
   </form>
-  {% if subfolders %}
   <div id="subfolderList">
+  {% if subfolders %}
   <div class="list-group mb-3">
     {% for f in subfolders %}
     <div class="list-group-item d-flex justify-content-between align-items-center">
@@ -40,8 +40,8 @@
     <input type="hidden" name="parent_id" value="{{ folder_id }}">
     <button class="btn btn-danger btn-sm w-100">サブフォルダ全削除</button>
   </form>
-  </div>
   {% endif %}
+  </div>
   </div>
 <div class="progress mt-2" id="uploadProgressWrap" style="height:4px;display:none;">
   <div id="uploadProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100"></div>
