@@ -19,4 +19,4 @@ def test_discord_button_removed():
     pc_html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
     mobile_html = MOBILE_TEMPLATE.read_text(encoding='utf-8')
     assert '/discord_login' not in pc_html
-    assert '/discord_login' not in mobile_html
+    assert '/discord_login' in mobile_html

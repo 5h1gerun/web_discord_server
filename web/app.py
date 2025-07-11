@@ -2507,6 +2507,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
+    app.router.add_get("/discord_login", discord_login)
+    app.router.add_get("/discord_callback", discord_callback)
     app.router.add_get("/qr_image/{token}", qr_image)
     app.router.add_get("/qr_login/{token}", qr_login)
     app.router.add_get("/qr_poll/{token}", qr_poll)
