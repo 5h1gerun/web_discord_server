@@ -5,22 +5,7 @@
   <div class="card mx-auto" style="max-width:480px;">
     <div class="card-header bg-primary text-white">Google Drive 取り込み</div>
     <div class="card-body">
-      <form id="gdriveForm">
-        <div class="mb-3">
-          <label class="form-label">ファイルIDまたは共有リンク</label>
-          <input type="text" class="form-control" name="file_id" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">保存ファイル名(任意)</label>
-          <input type="text" class="form-control" name="filename">
-        </div>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" id="importBtn" class="btn btn-success w-100">
-          取り込み
-          <span id="importSpinner" class="spinner-border spinner-border-sm ms-2" role="status" style="display:none;"></span>
-        </button>
-      </form>
-      <div id="gdriveResult" class="mt-3"></div>
+      <div id="gdriveResult" class="mb-3"></div>
       <hr>
       <div class="input-group mb-2">
         <input id="searchQuery" type="text" class="form-control" placeholder="ファイル名検索">
