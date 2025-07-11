@@ -936,7 +936,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        await new_session(req)
+        # state パラメータを廃止したためセッションのリセットは不要
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         params = {
