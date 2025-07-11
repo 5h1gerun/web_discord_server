@@ -47,12 +47,6 @@ def test_network_first_skips_post_requests():
     assert 'return fetch(request);' in sw
 
 
-def test_handle_navigate_skips_post_requests():
-    sw = read_sw()
-    assert "request.method === 'POST'" in sw
-    assert 'return fetch(request);' in sw
-
-
 def test_download_requests_not_cached():
     sw = read_sw()
     pattern = re.compile(
