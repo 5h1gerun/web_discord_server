@@ -20,3 +20,8 @@ def test_discord_button_removed():
     mobile_html = MOBILE_TEMPLATE.read_text(encoding='utf-8')
     assert '/discord_login' not in pc_html
     assert '/discord_login' in mobile_html
+
+
+def test_qr_done_rendered_on_mobile_flow():
+    text = APP_PATH.read_text(encoding='utf-8')
+    assert text.count('qr_done.html') >= 4
