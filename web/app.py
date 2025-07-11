@@ -88,6 +88,7 @@ MOBILE_TEMPLATES = {
     "shared/index.html": "mobile/shared_index.html",
     "shared/folder_view.html": "mobile/folder_view.html",
     "gdrive_import.html": "mobile/gdrive_import.html",
+    "qr_done.html": "mobile/qr_done.html",
 }
 
 
@@ -825,6 +826,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app["db"] = db
     app["gdrive_flows"] = {}
     app["discord_states"] = set()
+    app["qr_tokens"] = {}
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
@@ -868,6 +870,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         ready = ws.can_prepare(request)
         if not ready.ok:
             raise web.HTTPBadRequest(text="Expected WebSocket request")
+        if request.transport is None:
+            raise web.HTTPBadRequest(text="Connection closed")
         await ws.prepare(request)
         app["websockets"].add(ws)
         try:
@@ -887,8 +891,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         return web.json_response({"status": "ok"})
 
     async def login_get(req):
-        token = await issue_csrf(req)
-        return _render(req, "login.html", {"csrf_token": token, "request": req})
+        prev = await aiohttp_session.get_session(req)
+        pending = prev.pop("pending_qr", None)
+        sess = await new_session(req)
+        if pending:
+            sess["pending_qr"] = pending
+        csrf = await issue_csrf(req)
+        qr_token = secrets.token_urlsafe(16)
+        sess["qr_token"] = qr_token
+        req.app["qr_tokens"][qr_token] = {"user_id": None, "expires": time.time() + 300}
+        return _render(
+            req,
+            "login.html",
+            {"csrf_token": csrf, "qr_token": qr_token, "request": req},
+        )
 
     async def login_post(req):
         data = await req.post()
@@ -922,11 +938,23 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 },
             )
 
+        old_sess = await aiohttp_session.get_session(req)
+        qr_pending = old_sess.pop("pending_qr", None)
         sess = await new_session(req)
+        if qr_pending:
+            sess["pending_qr"] = qr_pending
 
         if row["totp_enabled"]:
             sess["tmp_user_id"] = row["discord_id"]
+            if qr_pending:
+                sess["pending_qr"] = qr_pending
             raise web.HTTPFound("/totp")
+
+        if qr_pending:
+            info = req.app["qr_tokens"].get(qr_pending)
+            if info and info["expires"] > time.time():
+                info["user_id"] = row["discord_id"]
+            return _render(req, "qr_done.html", {"request": req})
 
         sess["user_id"] = row["discord_id"]
         raise web.HTTPFound("/")
@@ -935,8 +963,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         state = secrets.token_urlsafe(16)
-        # 新しいセッションを開始し、以前の tmp_user_id を残さない
-        await new_session(req)
+        prev = await aiohttp_session.get_session(req)
+        pending = prev.pop("pending_qr", None)
+        sess = await new_session(req)
+        if pending:
+            sess["pending_qr"] = pending
         req.app["discord_states"].add(state)
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
@@ -954,6 +985,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET):
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
+        qr_pending = sess.pop("pending_qr", None)
         state = req.query.get("state")
         if not state or state not in req.app["discord_states"]:
             return web.Response(text="invalid state", status=400)
@@ -1004,7 +1036,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         if row["totp_enabled"] and not row["totp_verified"]:
             sess["tmp_user_id"] = discord_id
+            if qr_pending:
+                sess["pending_qr"] = qr_pending
             raise web.HTTPFound("/totp")
+
+        if qr_pending:
+            info = req.app["qr_tokens"].get(qr_pending)
+            if info and info["expires"] > time.time():
+                info["user_id"] = discord_id
+            return _render(req, "qr_done.html", {"request": req})
 
         sess["user_id"] = discord_id
         raise web.HTTPFound("/")
@@ -1032,11 +1072,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
 
         if row and pyotp.TOTP(row["totp_secret"]).verify(code):
-            sess["user_id"] = user_id
+            qr_pending = sess.pop("pending_qr", None)
             del sess["tmp_user_id"]
             await db.execute(
                 "UPDATE users SET totp_verified=1 WHERE discord_id=?", user_id
             )
+            if qr_pending:
+                info = req.app["qr_tokens"].get(qr_pending)
+                if info and info["expires"] > time.time():
+                    info["user_id"] = user_id
+                return _render(req, "qr_done.html", {"request": req})
+            sess["user_id"] = user_id
             raise web.HTTPFound("/")
 
         resp = _render(
@@ -1046,6 +1092,43 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         resp.headers["Cache-Control"] = "no-store"
         return resp
+
+    async def qr_image(req: web.Request):
+        token = req.match_info["token"]
+        info = req.app["qr_tokens"].get(token)
+        if not info or info["expires"] < time.time():
+            raise web.HTTPNotFound()
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        url = f"https://{public_domain}/qr_login/{token}"
+        img = qrcode.make(url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return web.Response(body=buf.getvalue(), content_type="image/png")
+
+    async def qr_login(req: web.Request):
+        token = req.match_info["token"]
+        info = req.app["qr_tokens"].get(token)
+        if not info or info["expires"] < time.time():
+            return web.Response(text="invalid token", status=400)
+        sess = await get_session(req)
+        if sess.get("user_id"):
+            info["user_id"] = sess["user_id"]
+            return _render(req, "qr_done.html", {"request": req})
+        sess["pending_qr"] = token
+        raise web.HTTPFound("/login")
+
+    async def qr_poll(req: web.Request):
+        token = req.match_info["token"]
+        info = req.app["qr_tokens"].get(token)
+        if not info or info["expires"] < time.time():
+            return web.json_response({"status": "invalid"})
+        if info["user_id"]:
+            sess = await new_session(req)
+            sess["user_id"] = info["user_id"]
+            del req.app["qr_tokens"][token]
+            return web.json_response({"status": "ok"})
+        return web.json_response({"status": "pending"})
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
@@ -2450,6 +2533,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_post("/login", login_post)
     app.router.add_get("/discord_login", discord_login)
     app.router.add_get("/discord_callback", discord_callback)
+    app.router.add_get("/qr_image/{token}", qr_image)
+    app.router.add_get("/qr_login/{token}", qr_login)
+    app.router.add_get("/qr_poll/{token}", qr_poll)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/gdrive_auth", gdrive_auth)
