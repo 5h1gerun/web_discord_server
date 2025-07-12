@@ -15,14 +15,9 @@ __pycache__/
 # アップロードファイルなど
 web/static/api/files/
 
-# 開発メモ
-/仕様書.txt
 
 # nginx 実運用設定ファイル（機密情報含む可能性あり）
 nginx/sites-enabled/web_discord_server.conf
-
-#テスト用
-tests/
 
 #フォルダ構成
 folder_structure.txt
