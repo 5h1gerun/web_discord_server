@@ -22,6 +22,9 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 ## 必要な環境
 - Python 3.9 以上
 - `pip` で以下の主要ライブラリをインストールしてください（例: `pip install discord.py aiohttp aiohttp-session aiolimiter python-dotenv pyotp qrcode pillow google-generativeai`）
+- Raspberry Pi 5 と SSD 256GB の構成で動作確認済み
+- リバースプロキシに nginx を使用
+- ドメインは Duck DNS を利用
 
 ## 環境変数
 `.env` ファイルに下記の変数を設定するか、実行環境で指定します。

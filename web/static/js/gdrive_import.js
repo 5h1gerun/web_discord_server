@@ -1,30 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('gdriveForm');
   const result = document.getElementById('gdriveResult');
   const list = document.getElementById('driveFileList');
   const refreshBtn = document.getElementById('refreshFiles');
   const searchInput = document.getElementById('searchQuery');
-  const importBtn = document.getElementById('importBtn');
-  const importSpinner = document.getElementById('importSpinner');
-  if (!form) return;
+  if (!list) return;
 
-  function extractFileId(value) {
-    const m = value.match(/[-\w]{25,}/);
-    return m ? m[0] : value;
-  }
-
-  async function importFile(fileId, filename = '', btn = importBtn) {
+  async function importFile(fileId, filename = '', btn = null) {
     if (!result) return;
     result.textContent = '';
     if (btn) {
       btn.disabled = true;
-      const sp = btn.querySelector('.spinner-border');
-      if (sp) {
-        sp.style.display = 'inline-block';
-      } else {
-        btn.dataset.originalText = btn.textContent;
-        btn.textContent = '取り込み中...';
-      }
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = '取り込み中...';
     }
     try {
       const res = await fetch('/import_gdrive', {
@@ -49,14 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (!res.ok || !data.success) throw new Error(data.error || 'error');
       result.innerHTML = `<div class="alert alert-success">取り込み完了 (ID: ${data.file_id})</div>`;
+      await loadFiles(searchInput ? searchInput.value.trim() : '');
     } catch (err) {
       result.innerHTML = `<div class="alert alert-danger">失敗: ${err.message}</div>`;
     } finally {
       if (btn) {
-        const sp = btn.querySelector('.spinner-border');
-        if (sp) {
-          sp.style.display = 'none';
-        } else if (btn.dataset.originalText) {
+        if (btn.dataset.originalText) {
           btn.textContent = btn.dataset.originalText;
           delete btn.dataset.originalText;
         }
@@ -65,12 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const fileId = extractFileId(form.file_id.value.trim());
-    const filename = form.filename.value.trim();
-    if (fileId) importFile(fileId, filename, importBtn);
-  });
 
   async function loadFiles(query = '') {
     if (!list) return;
