@@ -13,6 +13,9 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 ## ディレクトリ構成
 - `bot/` ... Discord ボット関連コード
 - `web/` ... aiohttp 製 Web アプリ
+- `integrations/` ... Google Drive など外部サービスとの連携モジュール
+- `tests/` ... `pytest` 用のテストスクリプト
+- `docs/` ... システム構成図などのドキュメント
 - `tree_export.py` ... フォルダ構成をテキスト出力する補助スクリプト
 例: `python tree_export.py web -o structure.txt` とすると構成を `structure.txt` に保存できます。
 
@@ -45,6 +48,8 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `VAPID_PUBLIC_KEY` | Push API 用の VAPID 公開鍵 (Base64url) |
 | `DISCORD_CLIENT_ID` | Discord OAuth2 のクライアント ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 のクライアントシークレット |
+| `FORCE_HTTPS` | `1` を指定すると HTTP でのアクセスを HTTPS へリダイレクト |
+| `DISCORD_DM_UPLOAD_LIMIT` | DM 送信を許可するファイルサイズ上限 (バイト) |
 
 `PUBLIC_DOMAIN` は Google OAuth のリダイレクト先だけでなく、Discord OAuth にも使用されます。Google Cloud Console には `https://<PUBLIC_DOMAIN>/gdrive_callback`、Discord には `https://<PUBLIC_DOMAIN>/discord_callback` を登録してください。
 
@@ -104,6 +109,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 - 静的ファイルは `stale-while-revalidate` 戦略で更新され、Push API による通知も利用できます。
 - 動画や画像をブラウザで直接表示できる `?preview=1` パラメータをダウンロードリンクに追加しました。
 - Service Worker は API などの動的リクエストを network-first で処理し、`POST` メソッドはキャッシュを利用しません。
+- `FORCE_HTTPS=1` を設定すると HTTP でアクセスした際に HTTPS へリダイレクトします。
 
 ## データベース初期化
 初回起動時に自動的に SQLite のスキーマが作成されます。既にデータベースが存在する場合はそのまま使用されます。
@@ -111,7 +117,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 ## テスト
 テストは `pytest` で実行できます。
 依存パッケージを `pip install -r requirements.txt` でインストールした後、`pytest` を起動してください。
-現在テストスクリプトは同梱されていません。
+テストコードは `tests/` ディレクトリに含まれており、`pytest -q` で実行できます。
 
 ## セキュリティ
 本システムでは以下の対策を行っています。
@@ -141,6 +147,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 - `docs/sequence_discord.mmd` … Discord 上のシーケンス図
 - `docs/sequence_web.mmd` … Web サーバ上のシーケンス図
 - `docs/sequence_pwa.mmd` … PWA のシーンケース図
+- `docs/WPA.md` … 無線LAN向け WPA 規格の解説
 
 ## ライセンス
 このプロジェクトは MIT ライセンスです。
