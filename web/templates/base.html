@@ -43,8 +43,8 @@
 <!-- 画面右下に表示するトップへ戻るボタン -->
 <button id="scrollToTop" aria-label="トップへ戻る">↑</button>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 px-3">
-  <span class="navbar-brand">WDS</span>
+<nav class="navbar navbar-expand-lg navbar-dark navbar-custom mb-4 px-3">
+  <span class="navbar-brand fw-bold">WDS</span>
   {% if user_id %}
   <div class="ms-auto d-flex align-items-center">
     <!-- Dark Mode スイッチ -->
@@ -93,7 +93,7 @@
   </div>
 </div>
 
-<main class="container-fluid mb-5">
+<main class="container container-main mb-5">
   {% with msgs = get_flashed_messages() %}
     {% if msgs %}
       <div class="alert alert-warning">{{ msgs[0] }}</div>

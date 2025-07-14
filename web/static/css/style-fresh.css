@@ -2,48 +2,48 @@
   Unified Theme for index.html（改善版 + login画面背景 + /static/api対応）
 ────────────────────────────────────*/
 :root {
-  --bg-gradient-light: linear-gradient(135deg, #fef6ff, #e3f2fd);
-  --bg-gradient-dark: linear-gradient(135deg, #1f1a2e, #2a2143);
-  --login-bg-light: linear-gradient(135deg, #f6e7fe, #d1f4ff);
-  --login-bg-dark: linear-gradient(135deg, #2a2143, #1f1a2e);
+  --bg-gradient-light: linear-gradient(135deg, #f0faff, #d6efff);
+  --bg-gradient-dark: linear-gradient(135deg, #15203b, #000814);
+  --login-bg-light: linear-gradient(135deg, #cfe9ff, #e0f7ff);
+  --login-bg-dark: linear-gradient(135deg, #1b2748, #000f2d);
 
   --card-bg-light: #ffffff;
-  --card-bg-dark: #2d233c;
-  --card-border-light: #dfd2f1;
-  --card-border-dark: #453257;
-  --glass-bg-light: rgba(255, 255, 255, 0.8);
-  --glass-bg-dark: rgba(45, 35, 60, 0.85);
-  --shadow-light: rgba(0, 0, 0, 0.1);
-  --shadow-dark: rgba(0, 0, 0, 0.6);
+  --card-bg-dark: #1c2130;
+  --card-border-light: #cfe2ff;
+  --card-border-dark: #2b344a;
+  --glass-bg-light: rgba(255, 255, 255, 0.9);
+  --glass-bg-dark: rgba(28, 33, 48, 0.9);
+  --shadow-light: rgba(0, 0, 0, 0.05);
+  --shadow-dark: rgba(0, 0, 0, 0.7);
 
-  --text-color-light: #1b1b1b;
-  --text-color-dark: #f8f8f8;
+  --text-color-light: #10213b;
+  --text-color-dark: #eaf4ff;
 
-  --link-color-light: #7d35ff;
-  --link-color-dark: #b38fff;
+  --link-color-light: #0d6efd;
+  --link-color-dark: #86b7fe;
 
-  --btn-bg-light: #8e3bf8;
-  --btn-bg-dark: #aa7cfb;
-  --btn-hover-light: #6d2bcf;
-  --btn-hover-dark: #9d68f6;
+  --btn-bg-light: #0d6efd;
+  --btn-bg-dark: #4e7fff;
+  --btn-hover-light: #0b5ed7;
+  --btn-hover-dark: #6fa8fe;
 
-  --table-header-bg-light: #f9f0ff;
-  --table-header-bg-dark: #3c2b54;
+  --table-header-bg-light: #e7f1ff;
+  --table-header-bg-dark: #263755;
   --table-header-color: #212529;
   --table-header-color-dark: #ffffff;
   --table-row-bg-light: #ffffff;
-  --table-row-bg-dark: #2d233c;
-  --table-row-hover-dark: #403051;
-  --table-text-color-dark: #e8eaf0;
+  --table-row-bg-dark: #1c2130;
+  --table-row-hover-dark: #2e3b56;
+  --table-text-color-dark: #eaf4ff;
 
-  --input-bg-light: #faf9fc;
-  --input-bg-dark: #423052;
+  --input-bg-light: #f8fbff;
+  --input-bg-dark: #2b344a;
   --input-text-dark: #ffffff;
 
   --transition-speed: 0.3s;
   --modal-overlay: rgba(0,0,0,0.6);
-  --accent-start: #b54cff;
-  --accent-end: #ff4b9b;
+  --accent-start: #4ca1ff;
+  --accent-end: #007bff;
 }
 
 body {
@@ -419,3 +419,19 @@ body.dark-mode #fileSearch {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- New Layout Elements ---- */
+.navbar-custom {
+  background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+}
+body.dark-mode .navbar-custom {
+  background: #1c2130;
+}
+.navbar-custom .navbar-brand {
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+.container-main {
+  max-width: 1100px;
+}
+

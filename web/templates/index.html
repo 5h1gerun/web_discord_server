@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-5">
+<div class="container container-main py-4">
   <!-- ★ パンくずリストで現在位置を明示 -->
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
@@ -27,114 +27,118 @@
 
   <!-- コピー完了トースト -->
   <div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="copyToast" class="toast align-items-center text-white bg-success border-0 animate__animated animate__fadeInRight" 
+    <div id="copyToast" class="toast align-items-center text-white bg-success border-0 animate__animated animate__fadeInRight"
          role="alert" aria-live="assertive" aria-atomic="true">
       <div class="d-flex">
         <div class="toast-body">リンクをコピーしました！</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+        <button type="button" class="btn-close btn-close-white me-2 m-auto"
                 data-mdb-dismiss="toast" aria-label="Close"></button>
       </div>
     </div>
   </div>
 
-  <!-- ウェルカムカード -->
-  <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInDown hover-grow" data-tilt data-tilt-glare data-tilt-max-glare="0.4" style="border-radius: 1rem;">
-    <div class="card-body text-center">
-      <h2 class="card-title mb-0 fw-bold text-primary">ようこそ、{{ username }} さん</h2>
-    </div>
-  </div>
-
-  <div id="subfolderList" class="mb-3">
-    {% if subfolders %}
-    <div class="list-group">
-      {% for f in subfolders %}
-      <div class="list-group-item d-flex justify-content-between align-items-center">
-        <a href="/?folder={{ f.id }}" class="flex-grow-1 text-decoration-none" data-ajax>
-          <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
-        </a>
-        <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
-        </form>
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <!-- ウェルカムカード -->
+      <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInDown hover-grow" data-tilt data-tilt-glare data-tilt-max-glare="0.4" style="border-radius: 1rem;">
+        <div class="card-body text-center">
+          <h2 class="card-title mb-0 fw-bold text-primary">ようこそ、{{ username }} さん</h2>
+        </div>
       </div>
-      {% endfor %}
-    </div>
-    <form method="post" action="/delete_subfolders" class="mt-2" onsubmit="return confirm('本当に全て削除しますか？');">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="parent_id" value="{{ folder_id }}">
-      <button type="submit" class="btn btn-danger btn-sm">サブフォルダ全削除</button>
-    </form>
-    {% endif %}
-  </div>
 
-  <!-- アップロードセクション -->
-  <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow" data-tilt data-tilt-max="10" style="border-radius: 1rem;">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">ファイルアップロード</h5>
+      <div id="subfolderList" class="mb-3">
+        {% if subfolders %}
+        <div class="list-group">
+          {% for f in subfolders %}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="/?folder={{ f.id }}" class="flex-grow-1 text-decoration-none" data-ajax>
+              <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
+            </a>
+            <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        <form method="post" action="/delete_subfolders" class="mt-2" onsubmit="return confirm('本当に全て削除しますか？');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="parent_id" value="{{ folder_id }}">
+          <button type="submit" class="btn btn-danger btn-sm">サブフォルダ全削除</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
-        <!-- ここがドラッグ受け皿 -->
-        <div class="card-body" id="uploadArea">
-          <form id="uploadForm"
-                action="/upload"
-                method="post"
-                enctype="multipart/form-data"
-                onsubmit="return false;">     <!-- ネイティブ送信を止める -->
-            <input type="hidden" name="folder_id" value="{{ folder_id }}" data-shared="0">
-            <div class="row gx-3 align-items-end mb-4">
-              <div class="col-sm-8">
-                <!-- multiple を付ける -->
-                <input type="file" name="file" class="form-control" multiple required>
+
+    <div class="col-lg-8">
+      <!-- アップロードセクション -->
+      <div class="card mb-4 shadow-2-strong tilt animate__animated animate__fadeInUp hover-grow" data-tilt data-tilt-max="10" style="border-radius: 1rem;">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">ファイルアップロード</h5>
+        </div>
+            <!-- ここがドラッグ受け皿 -->
+            <div class="card-body" id="uploadArea">
+              <form id="uploadForm"
+                    action="/upload"
+                    method="post"
+                    enctype="multipart/form-data"
+                    onsubmit="return false;">
+                <input type="hidden" name="folder_id" value="{{ folder_id }}" data-shared="0">
+                <div class="row gx-3 align-items-end mb-4">
+                  <div class="col-sm-8">
+                    <input type="file" name="file" class="form-control" multiple required>
+                  </div>
+                  <div class="col-sm-4 text-end">
+                    <button type="button"
+                            id="uploadBtn"
+                            class="btn btn-success w-100 ripple"
+                            data-mdb-ripple-init>
+                      <i class="bi bi-cloud-upload-fill me-2"></i>アップロード
+                      <span id="uploadSpinner"
+                            class="spinner-border spinner-border-sm ms-2"
+                            role="status"
+                            style="display:none;"></span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+              <form id="createFolderForm" method="post" action="/create_folder" class="mb-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="parent_id" value="{{ folder_id }}">
+                <div class="input-group">
+                  <input type="text" name="name" class="form-control" placeholder="新しいフォルダ名" required>
+                  <button class="btn btn-outline-primary" type="submit">作成</button>
+                </div>
+              </form>
+              <div class="d-flex flex-column flex-sm-row gap-2 mb-3">
+                <a href="/shared" class="btn btn-outline-primary flex-fill">📁 共有フォルダを確認</a>
+                {% if gdrive_enabled %}
+                  {% if gdrive_authorized %}
+                  <a href="/gdrive_import" class="btn btn-outline-success flex-fill">🔄 Google Drive 取り込み</a>
+                  {% else %}
+                  <a href="/gdrive_auth" class="btn btn-outline-warning flex-fill">🔑 Google Drive 連携</a>
+                  {% endif %}
+                {% endif %}
               </div>
-              <div class="col-sm-4 text-end">
-                <!-- type="button" にして、JS のみで送信 -->
-                <button type="button"
-                        id="uploadBtn"
-                        class="btn btn-success w-100 ripple"
-                        data-mdb-ripple-init>
-                  <i class="bi bi-cloud-upload-fill me-2"></i>アップロード
-                  <span id="uploadSpinner"
-                        class="spinner-border spinner-border-sm ms-2"
-                        role="status"
-                        style="display:none;"></span>
-                </button>
+              <div class="text-center text-muted small">
+                ここにファイルをドラッグ＆ドロップしてアップロード
               </div>
-            </div>
-          </form>
-          <form id="createFolderForm" method="post" action="/create_folder" class="mb-4">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="parent_id" value="{{ folder_id }}">
-            <div class="input-group">
-              <input type="text" name="name" class="form-control" placeholder="新しいフォルダ名" required>
-              <button class="btn btn-outline-primary" type="submit">作成</button>
-            </div>
-          </form>
-          <div class="d-flex flex-column flex-sm-row gap-2 mb-3">
-            <a href="/shared" class="btn btn-outline-primary flex-fill">📁 共有フォルダを確認</a>
-            {% if gdrive_enabled %}
-              {% if gdrive_authorized %}
-              <a href="/gdrive_import" class="btn btn-outline-success flex-fill">🔄 Google Drive 取り込み</a>
-              {% else %}
-              <a href="/gdrive_auth" class="btn btn-outline-warning flex-fill">🔑 Google Drive 連携</a>
-              {% endif %}
-            {% endif %}
-          </div>
-          <div class="text-center text-muted small">
-            ここにファイルをドラッグ＆ドロップしてアップロード
-          </div>
+        </div>
+              <div class="progress mt-2" id="uploadProgressWrap" style="height:6px; display:none;">
+                <div id="uploadProgressBar"
+                    class="progress-bar bg-success"
+                    role="progressbar"
+                    style="width:0%"
+                    aria-valuemin="0"
+                    aria-valuemax="100"></div>
+              </div>
+      </div>
+      <!-- ファイル一覧セクション -->
+        <div id="fileListContainer">
+            {% include "partials/file_table.html" %}
+        </div>
     </div>
-          <div class="progress mt-2" id="uploadProgressWrap" style="height:6px; display:none;">
-            <div id="uploadProgressBar"
-                class="progress-bar bg-success"
-                role="progressbar"
-                style="width:0%"
-                aria-valuemin="0"
-                aria-valuemax="100"></div>
-          </div>
   </div>
-  <!-- ファイル一覧セクション -->
-    <div id="fileListContainer">
-        {% include "partials/file_table.html" %}
-    </div>
 </div>
 
 <!-- モーダル -->
