@@ -54,3 +54,13 @@ def test_download_requests_not_cached():
         re.S,
     )
     assert pattern.search(sw)
+
+
+def test_previews_cached_with_stale_while_revalidate():
+    sw = read_sw()
+    for path in ['/previews/', '/hls/']:
+        pattern = re.compile(
+            rf"url\.pathname\.startsWith\('{path}'\).*staleWhileRevalidate",
+            re.S,
+        )
+        assert pattern.search(sw)

@@ -58,6 +58,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (
+    url.pathname.startsWith('/previews/') ||
+    url.pathname.startsWith('/hls/')
+  ) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
+
+  if (
     url.pathname.startsWith('/download') ||
     url.pathname.startsWith('/shared/download')
   ) {
