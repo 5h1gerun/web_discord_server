@@ -278,12 +278,13 @@ function formatExpiration(sec) {
   const hrs  = Math.floor((sec % 86400) / 3600);
   const mins = Math.floor((sec % 3600) / 60);
   const secs = sec % 60;
-  const parts = [];
-  if (days) parts.push(`${days}日`);
-  if (hrs)  parts.push(`${hrs}時間`);
-  if (mins) parts.push(`${mins}分`);
-  parts.push(`${secs}秒`);
-  return parts.join("");
+  const line1 = [];
+  if (days) line1.push(`${days}日`);
+  if (hrs)  line1.push(`${hrs}時間`);
+  const line2 = [];
+  if (mins) line2.push(`${mins}分`);
+  line2.push(`${secs}秒`);
+  return line1.length ? `${line1.join("")}\n${line2.join("")}` : line2.join("");
 }
 
 function startExpirationCountdowns() {

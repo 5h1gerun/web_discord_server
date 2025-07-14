@@ -498,14 +498,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 days = sec // 86400
                 hrs = (sec % 86400) // 3600
                 mins = (sec % 3600) // 60
-                parts = []
+                secs = sec % 60
+                parts1 = []
                 if days:
-                    parts.append(f"{days}日")
+                    parts1.append(f"{days}日")
                 if hrs:
-                    parts.append(f"{hrs}時間")
+                    parts1.append(f"{hrs}時間")
+                parts2 = []
                 if mins:
-                    parts.append(f"{mins}分")
-                d["expiration_str"] = "".join(parts) if parts else "0分"
+                    parts2.append(f"{mins}分")
+                parts2.append(f"{secs}秒")
+                if parts1:
+                    d["expiration_str"] = "\n".join(["".join(parts1), "".join(parts2)])
+                else:
+                    d["expiration_str"] = "".join(parts2)
 
         # 共有URL
         if token:
