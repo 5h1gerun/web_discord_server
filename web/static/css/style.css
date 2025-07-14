@@ -388,7 +388,11 @@ body.dark-mode #fileSearch {
   border-color: var(--card-border-dark);
 }
 
-/* 長いファイル名がテーブル幅を崩さないよう折り返す */
+/* 長いファイル名は省略表示し、レイアウトが崩れないようにする */
 .file-name {
-  word-break: break-all;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
