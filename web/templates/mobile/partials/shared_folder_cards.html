@@ -10,7 +10,7 @@
       {% else %}
       <i class="bi {{ icon_by_ext(f.original_name) }} fs-3 text-secondary"></i>
       {% endif %}
-      <div class="file-name small" data-file-id="{{ f.id }}">{{ f.original_name }}</div>
+      <div class="file-name small" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</div>
       <div class="text-muted small">{{ f.size|human_size }}</div>
       <div class="file-actions">
         <a href="{{ f.download_url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"><i class="bi bi-download"></i> ダウンロード</a>

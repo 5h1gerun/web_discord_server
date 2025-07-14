@@ -899,7 +899,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         csrf = await issue_csrf(req)
         qr_token = secrets.token_urlsafe(16)
         sess["qr_token"] = qr_token
-        req.app["qr_tokens"][qr_token] = {"user_id": None, "expires": time.time() + 300}
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        url = f"https://{public_domain}/qr_login/{qr_token}"
+        img = qrcode.make(url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        req.app["qr_tokens"][qr_token] = {
+            "user_id": None,
+            "expires": time.time() + 300,
+            "image": buf.getvalue(),
+        }
         return _render(
             req,
             "login.html",
@@ -1101,13 +1111,17 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         info = req.app["qr_tokens"].get(token)
         if not info or info["expires"] < time.time():
             raise web.HTTPNotFound()
-        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        url = f"https://{public_domain}/qr_login/{token}"
-        img = qrcode.make(url)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        return web.Response(body=buf.getvalue(), content_type="image/png")
+        image = info.get("image")
+        if not image:
+            public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+            url = f"https://{public_domain}/qr_login/{token}"
+            img = qrcode.make(url)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+            image = buf.getvalue()
+            info["image"] = image
+        return web.Response(body=image, content_type="image/png")
 
     async def qr_login(req: web.Request):
         token = req.match_info["token"]
