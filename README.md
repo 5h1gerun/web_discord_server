@@ -1,4 +1,4 @@
-# Web Discord Server
+# Web Dcloud Server
 
 ## 概要
 Discord ボットと aiohttp 製 Web サーバーを組み合わせたファイル共有システムです。ボットが起動すると内部で Web サーバーも自動的に立ち上がり、アップロードされたファイルをブラウザから閲覧・ダウンロードできます。
