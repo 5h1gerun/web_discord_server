@@ -52,7 +52,7 @@
                           onerror="previewError(this)">
                     <i class="bi {{ icon_by_ext(f.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
                   </button>
-                  <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                  <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
                 </div>
                 {% elif f.is_video %}
                   <div class="d-flex align-items-center gap-2">
@@ -64,7 +64,7 @@
                               style="max-width:60px;max-height:60px;"
                               muted autoplay loop playsinline onerror="previewError(this)"></video>
                       </button>
-                    <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                    <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
                   </div>
                 {% elif f.mime.startswith('application/pdf') or f.mime.startswith('application/vnd') %}
                   <div class="d-flex align-items-center gap-2">
@@ -76,7 +76,7 @@
                          onerror="previewError(this)">
                     <i class="bi {{ icon_by_ext(f.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
                   </button>
-                    <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                    <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
                   </div>
                 {% else %}
                 <div class="d-flex align-items-center gap-2">
@@ -84,7 +84,7 @@
                           style="width:60px;height:60px" onclick="window.open('{{ f.url }}', '_blank')">
                     <i class="bi bi-file-earmark-text" style="font-size: 2rem;"></i>
                   </button>
-                  <span class="file-name" data-file-id="{{ f.id }}">{{ f.original_name }}</span>
+                  <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
                 </div>
               {% endif %}
             </td>

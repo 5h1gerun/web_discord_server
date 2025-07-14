@@ -387,3 +387,12 @@ body.dark-mode #fileSearch {
   color: var(--input-text-dark);
   border-color: var(--card-border-dark);
 }
+
+/* 長いファイル名は省略表示し、レイアウトが崩れないようにする */
+.file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

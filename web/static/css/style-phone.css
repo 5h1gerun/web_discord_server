@@ -60,7 +60,10 @@ main {
 .file-card .file-name {
   font-weight: 600;
   margin-top: 0.5rem;
-  word-break: break-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
 }
 
