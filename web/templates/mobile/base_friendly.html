@@ -15,11 +15,17 @@
 </head>
 <body>
 <nav class="navbar navbar-dark bg-primary py-2">
-  <div class="container-fluid justify-content-between">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
     <span class="navbar-brand mb-0 h1">WDS</span>
-    {% if user_id %}
-    <a href="/logout" class="btn btn-light btn-sm">Logout</a>
-    {% endif %}
+    <div class="d-flex align-items-center">
+      <div class="form-check form-switch text-white me-2">
+        <input class="form-check-input" type="checkbox" id="darkModeSwitch">
+        <label class="form-check-label" for="darkModeSwitch">🌙</label>
+      </div>
+      {% if user_id %}
+      <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+      {% endif %}
+    </div>
   </div>
 </nav>
 <main class="container py-4">
