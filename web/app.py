@@ -1176,22 +1176,24 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             include_granted_scopes="true",
             prompt="consent",
         )
-        app["gdrive_flows"][state] = flow
+        # state と紐づけてユーザーIDも保持しておく
+        app["gdrive_flows"][state] = (flow, discord_id)
         sess = await aiohttp_session.get_session(req)
         sess["gdrive_state"] = state
         raise web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
         sess = await aiohttp_session.get_session(req)
-        discord_id = sess.get("user_id")
-        if not discord_id:
-            raise web.HTTPFound("/login")
         state = req.query.get("state")
         sess_state = sess.pop("gdrive_state", None)
-        if not state or sess_state != state:
+        data = app["gdrive_flows"].pop(state or sess_state, None)
+        if not data:
             return web.Response(text="invalid state", status=400)
-        flow = app["gdrive_flows"].pop(state, None)
-        if not flow:
+        flow, stored_id = data
+        discord_id = sess.get("user_id", stored_id)
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        if state and sess_state and sess_state != state:
             return web.Response(text="invalid state", status=400)
         flow.fetch_token(code=req.query.get("code"))
         creds = flow.credentials
