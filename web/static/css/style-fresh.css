@@ -410,3 +410,8 @@ body.dark-mode #fileSearch {
   color: var(--input-text-dark);
   border-color: var(--card-border-dark);
 }
+
+/* 長いファイル名がテーブル幅を崩さないよう折り返す */
+.file-name {
+  word-break: break-all;
+}
