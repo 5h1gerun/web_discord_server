@@ -132,3 +132,6 @@ body.dark-mode .form-control:focus {
   box-shadow: 0 0 6px #64b5f6;
   border-color: #64b5f6;
 }
+body.dark-mode .file-card .file-name {
+  color: #f5f5f5;
+}
