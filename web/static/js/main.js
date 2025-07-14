@@ -44,6 +44,24 @@ function previewError(img) {
   img.classList.add('d-none');
 }
 
+// Intersection Observer で遅延読込
+function initLazyPreview(root = document) {
+  if (!('IntersectionObserver' in window)) return;
+  const targets = root.querySelectorAll('img.lazy-preview[data-src], video.lazy-preview[data-src]');
+  const opts = { rootMargin: '200px 0px' };
+  const io = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        el.src = el.dataset.src;
+        el.removeAttribute('data-src');
+        observer.unobserve(el);
+      }
+    });
+  }, opts);
+  targets.forEach(el => io.observe(el));
+}
+
 /*─────────────────────────────
     History-API / AJAX ナビゲータ
 ─────────────────────────────*/
@@ -137,6 +155,8 @@ async function reloadFileList() {
   if (q) filterTable(q);
   // 再描画後に期限カウントダウン再起動
   startExpirationCountdowns();
+  // Intersection Observer を再登録
+  initLazyPreview(container);
   // 残り期限のカウントダウンを再起動
   // 共有トグルのクリックはイベントデリゲーションで処理するため
   // ここでは個別のイベント登録を行わない
@@ -533,6 +553,7 @@ function rebindDynamicHandlers() {
   if (typeof startExpirationCountdowns === "function") {
     startExpirationCountdowns();
   }
+  initLazyPreview();
 }
 
 // 初回ロード時にも呼ぶ
