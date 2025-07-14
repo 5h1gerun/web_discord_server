@@ -39,7 +39,7 @@ def test_visibility_handler_in_template():
 
 def test_login_get_stores_qr_image():
     text = APP_PATH.read_text(encoding='utf-8')
-    assert '"image": buf.getvalue()' in text
+    assert 'await _generate_qr_image' in text
 
 
 def test_qr_image_uses_cached_data():
