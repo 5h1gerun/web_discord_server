@@ -371,7 +371,11 @@ async function handleToggle(toggle, expiration) {
     // 共有状態が変わった際はプレビューURLも変わるため一覧を再取得
     await reloadFileList();
   } catch (err) {
-    alert("共有切替エラー: " + err.message);
+    let msg = err && err.message ? err.message : String(err);
+    if (msg === 'Failed to fetch') {
+      msg = 'サーバーに接続できません。ネットワークを確認してください。';
+    }
+    alert('共有切替エラー: ' + msg);
   }
 }
 

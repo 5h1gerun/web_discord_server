@@ -1,7 +1,10 @@
 from pathlib import Path
 import types
 import sys
-from PIL import Image
+try:
+    from PIL import Image
+except Exception:
+    Image = None
 import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -29,6 +32,38 @@ class _DummyPdf:
 dummy_pdf2.PdfReader = _DummyPdf
 sys.modules["PyPDF2"] = dummy_pdf2
 
+if Image is None:
+    dummy_pil = types.ModuleType("PIL")
+    class _DummyImg:
+        def save(self, *a, **k):
+            import pathlib
+            if a:
+                p = pathlib.Path(a[0])
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text("dummy")
+    dummy_pil.Image = types.SimpleNamespace(open=lambda *a, **k: _DummyImg(), new=lambda *a, **k: _DummyImg())
+    dummy_pil.UnidentifiedImageError = Exception
+    sys.modules["PIL"] = dummy_pil
+    sys.modules["PIL.Image"] = dummy_pil.Image
+
+    # Fallback modules for optional dependencies
+    dummy_docx = types.ModuleType("docx")
+    class _DummyDoc:
+        def __init__(self, *a, **k):
+            self.paragraphs = []
+        def add_paragraph(self, text=""):
+            self.paragraphs.append(types.SimpleNamespace(text=text))
+        def save(self, *a, **k):
+            import pathlib
+            if a:
+                p = pathlib.Path(a[0])
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text("dummy")
+    dummy_docx.Document = _DummyDoc
+    sys.modules.setdefault("docx", dummy_docx)
+    sys.modules.setdefault("pptx", types.ModuleType("pptx")).Presentation = lambda *a, **k: types.SimpleNamespace(slides=[])
+    sys.modules.setdefault("openpyxl", types.ModuleType("openpyxl")).load_workbook = lambda *a, **k: types.SimpleNamespace(worksheets=[])
+
 import bot.auto_tag as auto_tag
 
 class DummyResp:
@@ -54,6 +89,7 @@ def test_generate_tags(monkeypatch, tmp_path):
     assert tags == "tagA, tagB"
 
 
+@pytest.mark.skipif(Image is None, reason="Pillow not installed")
 def test_generate_tags_binary(monkeypatch, tmp_path):
     f = tmp_path / "unknown.bin"
     img = Image.new("RGB", (1, 1), color="red")
