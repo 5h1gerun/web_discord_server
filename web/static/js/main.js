@@ -281,11 +281,8 @@ function formatExpiration(sec) {
   const parts = [];
   if (days) parts.push(`${days}日`);
   if (hrs)  parts.push(`${hrs}時間`);
-  if (mins) {
-    parts.push(`${mins}分\n${secs}秒`);
-  } else {
-    parts.push(`${secs}秒`);
-  }
+  if (mins) parts.push(`${mins}分`);
+  parts.push(`${secs}秒`);
   return parts.join("");
 }
 

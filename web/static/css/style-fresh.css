@@ -428,7 +428,3 @@ body.dark-mode #fileSearch {
   white-space: nowrap;
 }
 
-/* PC版では共有期限の分と秒を改行して表示 */
-.expiration-cell small {
-  white-space: pre-line;
-}
