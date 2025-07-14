@@ -106,6 +106,10 @@ main {
   font-size: 0.75rem;
 }
 
+.expiration-cell small {
+  white-space: pre-line;
+}
+
 /* --- Dark Mode --- */
 body.dark-mode {
   background: #121212;

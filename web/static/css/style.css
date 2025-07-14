@@ -396,3 +396,8 @@ body.dark-mode #fileSearch {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 残り期限を改行付きで表示する */
+.expiration-cell small {
+  white-space: pre-line;
+}
