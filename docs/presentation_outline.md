@@ -1,4 +1,4 @@
-# Web Discord Server プレゼン用まとめ
+# Web Dcloud Server プレゼン用まとめ
 
 本ドキュメントは、PowerPoint で本システムを紹介する際の要点を箇条書きで整理したものです。
 

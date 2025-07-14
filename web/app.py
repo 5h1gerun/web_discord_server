@@ -162,6 +162,20 @@ async def issue_csrf(request: web.Request) -> str:
     return session["csrf_token"]
 
 
+async def _generate_qr_image(token: str) -> bytes:
+    """Return PNG bytes for a QR login token."""
+    public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+
+    def _create() -> bytes:
+        url = f"https://{public_domain}/qr_login/{token}"
+        img = qrcode.make(url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    return await asyncio.to_thread(_create)
+
+
 async def _send_shared_webhook(db: Database, folder_id: int, message: str) -> None:
     """指定フォルダの Webhook にメッセージを送信"""
     rec = await db.get_shared_folder(int(folder_id))
@@ -905,16 +919,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         csrf = await issue_csrf(req)
         qr_token = secrets.token_urlsafe(16)
         sess["qr_token"] = qr_token
-        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        url = f"https://{public_domain}/qr_login/{qr_token}"
-        img = qrcode.make(url)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
+        image = await _generate_qr_image(qr_token)
         req.app["qr_tokens"][qr_token] = {
             "user_id": None,
             "expires": time.time() + 300,
-            "image": buf.getvalue(),
+            "image": image,
         }
         return _render(
             req,
@@ -1119,13 +1128,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPNotFound()
         image = info.get("image")
         if not image:
-            public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-            url = f"https://{public_domain}/qr_login/{token}"
-            img = qrcode.make(url)
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            buf.seek(0)
-            image = buf.getvalue()
+            image = await _generate_qr_image(token)
             info["image"] = image
         return web.Response(body=image, content_type="image/png")
 
@@ -1176,22 +1179,24 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             include_granted_scopes="true",
             prompt="consent",
         )
-        app["gdrive_flows"][state] = flow
+        # state と紐づけてユーザーIDも保持しておく
+        app["gdrive_flows"][state] = (flow, discord_id)
         sess = await aiohttp_session.get_session(req)
         sess["gdrive_state"] = state
         raise web.HTTPFound(auth_url)
 
     async def gdrive_callback(req: web.Request):
         sess = await aiohttp_session.get_session(req)
-        discord_id = sess.get("user_id")
+        state = req.query.get("state")
+        data = app["gdrive_flows"].pop(state, None)
+        if not data:
+            return web.Response(text="invalid state", status=400)
+        flow, stored_id = data
+        discord_id = sess.get("user_id", stored_id)
         if not discord_id:
             raise web.HTTPFound("/login")
-        state = req.query.get("state")
         sess_state = sess.pop("gdrive_state", None)
-        if not state or sess_state != state:
-            return web.Response(text="invalid state", status=400)
-        flow = app["gdrive_flows"].pop(state, None)
-        if not flow:
+        if sess_state and sess_state != state:
             return web.Response(text="invalid state", status=400)
         flow.fetch_token(code=req.query.get("code"))
         creds = flow.credentials
