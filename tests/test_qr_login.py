@@ -35,3 +35,13 @@ def test_ws_event_handler_added():
 def test_visibility_handler_in_template():
     html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
     assert 'visibilitychange' in html
+
+
+def test_login_get_stores_qr_image():
+    text = APP_PATH.read_text(encoding='utf-8')
+    assert '"image": buf.getvalue()' in text
+
+
+def test_qr_image_uses_cached_data():
+    text = APP_PATH.read_text(encoding='utf-8')
+    assert 'info.get("image")' in text
