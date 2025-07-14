@@ -227,6 +227,30 @@ body.dark-mode a:hover {
     color: #88b0f2 !important;
 }
 
+/* ── Navbar accent style ── */
+.navbar-accent {
+  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+}
+.navbar-accent .navbar-brand,
+.navbar-accent .nav-link {
+  color: #fff !important;
+}
+.navbar-accent .nav-link:hover {
+  text-shadow: 0 0 4px var(--accent-end);
+}
+
+/* ── Hero section ── */
+.hero {
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px var(--shadow-light);
+  backdrop-filter: blur(5px);
+}
+body.dark-mode .hero {
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 6px 16px var(--shadow-dark);
+}
+
 /* ── リストグループ（index.html／folder_view）のダークモード対応 ── */
 /* 通常（ライト） */
 .list-group {
