@@ -224,6 +224,14 @@ body.dark-mode a:hover {
     color: #88b0f2 !important;
 }
 
+/* 共有フォルダ一覧のリンク色をダークモード用に調整 */
+body.dark-mode a.list-group-item-action {
+  color: var(--text-color-dark) !important;
+}
+body.dark-mode a.list-group-item-action:hover {
+  color: var(--link-color-dark) !important;
+}
+
 /* ── リストグループ（index.html／folder_view）のダークモード対応 ── */
 /* 通常（ライト） */
 .list-group {
