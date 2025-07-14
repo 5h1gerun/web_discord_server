@@ -15,6 +15,12 @@ def test_login_template_has_qr_image():
     assert '/qr_image/' in html
 
 
+def test_pc_login_has_no_form_fields():
+    html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
+    assert 'name="username"' not in html
+    assert 'name="password"' not in html
+
+
 def test_discord_button_removed():
     pc_html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
     mobile_html = MOBILE_TEMPLATE.read_text(encoding='utf-8')
@@ -39,7 +45,7 @@ def test_visibility_handler_in_template():
 
 def test_login_get_stores_qr_image():
     text = APP_PATH.read_text(encoding='utf-8')
-    assert '"image": buf.getvalue()' in text
+    assert 'await _generate_qr_image' in text
 
 
 def test_qr_image_uses_cached_data():
