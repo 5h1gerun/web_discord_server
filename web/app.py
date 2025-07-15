@@ -1161,7 +1161,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def logout(req):
         session = await aiohttp_session.get_session(req)
         session.invalidate()
-        raise web.HTTPFound("/login")
+        raise web.HTTPFound("/login?logged_out=1")
 
     async def gdrive_auth(req: web.Request):
         discord_id = req.get("user_id")

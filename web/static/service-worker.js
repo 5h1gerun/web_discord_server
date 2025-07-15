@@ -144,3 +144,11 @@ self.addEventListener('notificationclick', event => {
     })
   );
 });
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.action === 'clearCache') {
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    );
+  }
+});
