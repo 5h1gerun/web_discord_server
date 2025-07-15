@@ -9,11 +9,10 @@ sequenceDiagram
     participant Files as File Storage
 
     Browser->>Web: GET /login
-    Web-->>Browser: ログインページ (QR 付き)
+    Web-->>Browser: ログインページ (QR のみ)
     Browser->>SW: サービスワーカー登録
     Phone->>Web: GET /qr_login/{token}
     Web-->>Phone: QR ログイン完了
-    Browser->>Web: POST /login (認証情報)
     Web->>DB: 認証チェック
     Web-->>Browser: セッションCookie
     Browser->>Web: POST /upload (ファイル)
