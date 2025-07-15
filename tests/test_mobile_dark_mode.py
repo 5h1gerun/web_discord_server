@@ -62,3 +62,12 @@ def test_css_has_dark_list_group_rule():
     assert snippet in phone_css
     assert snippet in mobile_css
     assert snippet in friendly_css
+
+def test_css_has_dark_send_modal_rule():
+    phone_css = CSS_PHONE.read_text(encoding='utf-8')
+    mobile_css = CSS_MOBILE.read_text(encoding='utf-8')
+    friendly_css = CSS_FRIENDLY.read_text(encoding='utf-8')
+    snippet = 'body.dark-mode #sendModal .form-select'
+    assert snippet in phone_css
+    assert snippet in mobile_css
+    assert snippet in friendly_css

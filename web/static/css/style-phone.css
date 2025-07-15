@@ -156,3 +156,15 @@ body.dark-mode .list-group-item:last-child {
 body.dark-mode .list-group-item:hover {
   background-color: #35373f;
 }
+
+/* Send Modal Dark Mode */
+body.dark-mode #sendModal .modal-content {
+  background-color: #3a3c45;
+  color: #ffffff;
+}
+body.dark-mode #sendModal .form-select,
+body.dark-mode #sendModal .form-control {
+  background-color: #3a3c45;
+  color: #ffffff;
+  border-color: #444556;
+}
