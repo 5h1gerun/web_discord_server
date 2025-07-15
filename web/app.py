@@ -306,6 +306,7 @@ async def _task_worker(app: web.Application):
             log.exception("Background task failed: %s", e)
         finally:
             queue.task_done()
+            await app["broadcast_ws"]({"action": "reload"})
 
 
 # ─────────────── Middleware ───────────────
@@ -833,10 +834,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app["gdrive_flows"] = {}
     app["discord_states"] = set()
     app["qr_tokens"] = {}
+    app["task_queue"] = asyncio.Queue()
+    app["broadcast_ws"] = None  # placeholder, assigned later
 
     async def on_startup(app: web.Application):
         await init_db(DB_PATH)
         await db.open()
+        app["worker"] = asyncio.create_task(_task_worker(app))
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -891,6 +895,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for ws in list(app["websockets"]):
             if not ws.closed:
                 await ws.send_json(message)
+
+    app["broadcast_ws"] = broadcast_ws
 
     # handlers
     async def health(req):

@@ -64,3 +64,8 @@ def test_previews_cached_with_stale_while_revalidate():
             re.S,
         )
         assert pattern.search(sw)
+
+def test_stale_while_revalidate_checks_status():
+    sw = read_sw()
+    pattern = re.compile(r"res\.ok\)\s*\{\s*cache.put", re.S)
+    assert pattern.search(sw)
