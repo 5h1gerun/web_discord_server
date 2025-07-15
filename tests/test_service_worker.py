@@ -56,6 +56,13 @@ def test_download_requests_not_cached():
     assert pattern.search(sw)
 
 
+def test_download_check_before_navigate():
+    sw = read_sw()
+    download_pos = sw.index("url.pathname.startsWith('/download')")
+    navigate_pos = sw.index("request.mode === 'navigate'")
+    assert download_pos < navigate_pos
+
+
 def test_previews_cached_with_stale_while_revalidate():
     sw = read_sw()
     for path in ['/previews/', '/hls/']:

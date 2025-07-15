@@ -48,6 +48,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (
+    url.pathname.startsWith('/download') ||
+    url.pathname.startsWith('/shared/download')
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
     return;
@@ -63,14 +71,6 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/hls/')
   ) {
     event.respondWith(staleWhileRevalidate(request));
-    return;
-  }
-
-  if (
-    url.pathname.startsWith('/download') ||
-    url.pathname.startsWith('/shared/download')
-  ) {
-    event.respondWith(fetch(request));
     return;
   }
 
