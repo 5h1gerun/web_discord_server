@@ -6,6 +6,37 @@ function getCsrfToken() {
   return m ? m.getAttribute('content') : "";
 }
 
+async function refreshCsrfToken() {
+  try {
+    const res = await fetch('/csrf_token', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const m = document.querySelector('meta[name="csrf-token"]');
+    if (m && data.csrf_token) {
+      m.setAttribute('content', data.csrf_token);
+    }
+  } catch (err) {
+    console.error('failed to refresh csrf token', err);
+  }
+}
+
+const origFetch = window.fetch;
+window.fetch = async function(input, init = {}) {
+  const method = (init.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    await refreshCsrfToken();
+    const token = getCsrfToken();
+    init.headers = new Headers(init.headers || {});
+    if (!init.headers.has('X-CSRF-Token')) {
+      init.headers.set('X-CSRF-Token', token);
+    }
+    if (init.body instanceof FormData && !init.body.has('csrf_token')) {
+      init.body.append('csrf_token', token);
+    }
+  }
+  return origFetch(input, init);
+};
+
 /*──────────────────────
   フルプレビュー表示
 ──────────────────────*/
@@ -432,7 +463,7 @@ function copyLink(id) {
 }
 // ── XMLHttpRequest で進捗を拾う関数 ───────────────────
 function uploadWithProgress(url, formData) {
-  return new Promise((resolve, reject) => {
+  return refreshCsrfToken().then(() => new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     // ── ① プログレスバー要素取得（以降は “wrap/bar” に統一）
@@ -488,7 +519,7 @@ function uploadWithProgress(url, formData) {
     xhr.onerror = () => reject(new Error("network error"));
 
     xhr.send(formData);
-  });
+  }));
 }
 function filterTable(term) {
   const rows = document.querySelectorAll("#fileListContainer tbody tr");
