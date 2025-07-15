@@ -896,6 +896,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     async def health(req):
         return web.json_response({"status": "ok"})
 
+    async def csrf_token(req: web.Request):
+        token = await issue_csrf(req)
+        return web.json_response({"csrf_token": token})
+
     async def login_get(req):
         prev = await aiohttp_session.get_session(req)
         pending = prev.pop("pending_qr", None)
@@ -2553,6 +2557,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     # routes
     app.router.add_get("/health", health)
+    app.router.add_get("/csrf_token", csrf_token)
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
     app.router.add_get("/discord_login", discord_login)
