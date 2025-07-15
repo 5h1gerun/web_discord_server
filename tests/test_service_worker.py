@@ -70,3 +70,8 @@ def test_has_cache_clear_message_handler():
     sw = read_sw()
     assert "addEventListener('message'" in sw
     assert 'caches.delete' in sw
+
+def test_stale_while_revalidate_checks_status():
+    sw = read_sw()
+    pattern = re.compile(r"res\.ok\)\s*\{\s*cache.put", re.S)
+    assert pattern.search(sw)
