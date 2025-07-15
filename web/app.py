@@ -917,7 +917,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         buf.seek(0)
         req.app["qr_tokens"][qr_token] = {
             "user_id": None,
-            "expires": time.time() + 300,
+            "expires": time.time() + 600,
             "image": buf.getvalue(),
         }
         return _render(
