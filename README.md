@@ -117,6 +117,7 @@ Web サーバー部分は `aiohttp` を用いた非同期アプリケーショ�
 - Service Worker は API などの動的リクエストを network-first で処理し、`POST` メソッドはキャッシュを利用しません。
 - ログアウト後は Service Worker のキャッシュを自動削除します。
 - `FORCE_HTTPS=1` を設定すると HTTP でアクセスした際に HTTPS へリダイレクトします。
+- すべての HTML/JSON レスポンスを自動で Gzip/Brotli 圧縮します。
 
 ## データベース初期化
 初回起動時に自動的に SQLite のスキーマが作成されます。既にデータベースが存在する場合はそのまま使用されます。

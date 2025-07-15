@@ -22,6 +22,7 @@ import discord
 
 from aiohttp import web
 import aiohttp
+from aiohttp.web_middlewares import compress_middleware
 from aiohttp_session import new_session, setup as session_setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import aiohttp_session
@@ -400,6 +401,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.middlewares.append(auth_mw)
     app.middlewares.append(rl_mw)  # DoS / ブルートフォース緩和
     app.middlewares.append(csp_mw)
+    app.middlewares.append(compress_middleware)
 
     # jinja2 setup
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)))
