@@ -1,4 +1,5 @@
-const CACHE_NAME = 'wds-cache-v3';
+const CACHE_VERSION = 'v4';
+const CACHE_NAME = `wds-cache-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline';
 const OFFLINE_URLS = [
   '/',
