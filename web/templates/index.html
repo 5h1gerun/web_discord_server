@@ -52,14 +52,14 @@
         <a href="/?folder={{ f.id }}" class="flex-grow-1 text-decoration-none" data-ajax>
           <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
         </a>
-        <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+        <form method="post" action="/delete_folder/{{ f.id }}" class="delete-form" onsubmit="return confirm('削除しますか？');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
         </form>
       </div>
       {% endfor %}
     </div>
-    <form method="post" action="/delete_subfolders" class="mt-2" onsubmit="return confirm('本当に全て削除しますか？');">
+    <form method="post" action="/delete_subfolders" class="mt-2 delete-form" onsubmit="return confirm('本当に全て削除しますか？');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="parent_id" value="{{ folder_id }}">
       <button type="submit" class="btn btn-danger btn-sm">サブフォルダ全削除</button>

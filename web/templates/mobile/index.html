@@ -28,14 +28,14 @@
       <a href="/mobile?folder={{ f.id }}" class="flex-grow-1 text-decoration-none">
         <i class="bi bi-folder-fill me-2"></i>{{ f.name }}
       </a>
-      <form method="post" action="/delete_folder/{{ f.id }}" onsubmit="return confirm('削除しますか？');">
+      <form method="post" action="/delete_folder/{{ f.id }}" class="delete-form" onsubmit="return confirm('削除しますか？');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
       </form>
     </div>
     {% endfor %}
   </div>
-  <form method="post" action="/delete_subfolders" class="mb-3" onsubmit="return confirm('本当に全て削除しますか？');">
+  <form method="post" action="/delete_subfolders" class="mb-3 delete-form" onsubmit="return confirm('本当に全て削除しますか？');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="parent_id" value="{{ folder_id }}">
     <button class="btn btn-danger btn-sm w-100">サブフォルダ全削除</button>
