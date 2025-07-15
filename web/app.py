@@ -22,7 +22,7 @@ import discord
 
 from aiohttp import web
 import aiohttp
-from aiohttp.web_middlewares import compress_middleware
+from aiohttp_compress import compress_middleware
 from aiohttp_session import new_session, setup as session_setup
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import aiohttp_session
