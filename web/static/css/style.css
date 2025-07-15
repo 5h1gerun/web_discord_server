@@ -401,3 +401,6 @@ body.dark-mode #fileSearch {
 .expiration-cell small {
   white-space: pre-line;
 }
+body.dark-mode .expiration-cell small {
+  color: var(--text-color-dark);
+}

@@ -14,6 +14,14 @@
   {% block extra_meta %}{% endblock %}
 </head>
 <body>
+<!-- FOUC 対策：CSS 読み込み前に body.dark-mode を付与 -->
+<script>
+    const theme       = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (theme === 'dark' || (theme === null && prefersDark)) {
+      document.body.classList.add('dark-mode');
+    }
+</script>
 <nav class="navbar navbar-dark bg-primary py-2">
   <div class="container-fluid d-flex align-items-center justify-content-between">
     <span class="navbar-brand mb-0 h1">WDS</span>
