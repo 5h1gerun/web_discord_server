@@ -24,6 +24,15 @@ def test_phone_css_has_dark_mode_rules():
     text = CSS_PHONE.read_text(encoding='utf-8')
     assert 'body.dark-mode' in text
 
+def test_mobile_templates_have_fouc_script():
+    phone = BASE_PHONE.read_text(encoding='utf-8')
+    mobile = BASE_MOBILE.read_text(encoding='utf-8')
+    friendly = BASE_FRIENDLY.read_text(encoding='utf-8')
+    snippet = 'prefers-color-scheme: dark'
+    assert snippet in phone
+    assert snippet in mobile
+    assert snippet in friendly
+
 def test_mobile_css_has_dark_filename_rule():
     text = CSS_MOBILE.read_text(encoding='utf-8')
     assert 'body.dark-mode .file-card .file-name' in text
@@ -35,3 +44,12 @@ def test_friendly_css_has_dark_filename_rule():
 def test_phone_css_has_dark_filename_rule():
     text = CSS_PHONE.read_text(encoding='utf-8')
     assert 'body.dark-mode .file-card .file-name' in text
+
+def test_css_has_dark_expiration_rule():
+    phone_css = CSS_PHONE.read_text(encoding='utf-8')
+    mobile_css = CSS_MOBILE.read_text(encoding='utf-8')
+    friendly_css = CSS_FRIENDLY.read_text(encoding='utf-8')
+    snippet = 'body.dark-mode .expiration-cell small'
+    assert snippet in phone_css
+    assert snippet in mobile_css
+    assert snippet in friendly_css
