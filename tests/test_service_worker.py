@@ -75,3 +75,10 @@ def test_stale_while_revalidate_checks_status():
     sw = read_sw()
     pattern = re.compile(r"res\.ok\)\s*\{\s*cache.put", re.S)
     assert pattern.search(sw)
+
+
+def test_cache_version_variable():
+    sw = read_sw()
+    assert 'const CACHE_VERSION' in sw
+    pattern = re.compile(r"const CACHE_NAME = `wds-cache-\${CACHE_VERSION}`;")
+    assert pattern.search(sw)
