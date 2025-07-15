@@ -120,6 +120,10 @@
     window.addEventListener('load', async () => {
       try {
         const reg = await navigator.serviceWorker.register('/service-worker.js?v={{ static_version }}');
+        const params = new URLSearchParams(location.search);
+        if (params.has('logged_out') && reg.active) {
+          reg.active.postMessage({ action: 'clearCache' });
+        }
         const vapid = '{{ vapid_public_key }}';
         if ('PushManager' in window && vapid) {
           if (Notification.permission === 'default') {

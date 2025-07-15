@@ -97,7 +97,9 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   const fetchPromise = fetch(request).then(res => {
-    cache.put(request, res.clone());
+    if (res.ok) {
+      cache.put(request, res.clone());
+    }
     return res;
   }).catch(() => cached);
   return cached || fetchPromise;
@@ -143,4 +145,12 @@ self.addEventListener('notificationclick', event => {
       if (clients.openWindow) return clients.openWindow(url);
     })
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.action === 'clearCache') {
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    );
+  }
 });
