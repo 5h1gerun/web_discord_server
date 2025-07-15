@@ -1,4 +1,4 @@
-"""aiohttp Web application core for Web_Discord_Server."""
+"""aiohttp Web application core for Web_Dcloud_Server."""
 
 from __future__ import annotations
 import time
