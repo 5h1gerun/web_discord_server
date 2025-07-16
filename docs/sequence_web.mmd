@@ -20,3 +20,5 @@ sequenceDiagram
     Web->>DB: メタデータ登録
     Web-->>Browser: 完了レスポンス
     Browser->>Web: GET /download?preview=1
+    Web->>SW: キャッシュ登録
+    SW-->>Browser: 更新通知

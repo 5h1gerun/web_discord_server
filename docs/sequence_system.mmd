@@ -24,3 +24,5 @@ sequenceDiagram
     Web->>DB: 情報取得
     Web->>Files: ファイル取得
     Web->>Browser: ファイル送信
+    Browser->>SW: キャッシュ保存
+    SW-->>Browser: 完了

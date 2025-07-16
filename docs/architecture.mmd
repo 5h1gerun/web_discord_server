@@ -28,3 +28,7 @@ graph TD
     Web --"Copy"--> Drive
     Web --"Auto Tag"--> Gemini
     Bot --"Send Files"--> A
+    subgraph Metrics
+        M[(Metrics Script)]
+    end
+    Web --"Collects Metrics"--> M
