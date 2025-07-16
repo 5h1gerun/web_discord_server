@@ -24,3 +24,14 @@
   <i class="bi bi-discord me-2"></i>Discordでログイン
 </a>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+  setInterval(refreshCsrfToken, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshCsrfToken();
+    }
+  });
+</script>
+{% endblock %}

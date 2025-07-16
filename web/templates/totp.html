@@ -44,3 +44,14 @@
   </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+  setInterval(refreshCsrfToken, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshCsrfToken();
+    }
+  });
+</script>
+{% endblock %}
