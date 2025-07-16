@@ -95,6 +95,7 @@ main {
 
 #fileListContainer .input-group {
   margin-top: 0.25rem;
+  width: 100%;
 }
 
 .tag-input {
