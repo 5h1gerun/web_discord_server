@@ -12,6 +12,3 @@ WPAは、Wi-Fiネットワークのセキュリティを高めるために策定
 
 ## 参考
 - [Wi-Fi Alliance](https://www.wi-fi.org/)
-
-### 更新情報
-内容を見直しました。

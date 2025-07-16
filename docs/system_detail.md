@@ -105,6 +105,3 @@ Python 3.9 以上と依存パッケージのインストール後、`pytest -q` 
 - `docs/sequence_pwa.mmd` … PWA でのオフライン動作シーン
 
 以上が Web Dcloud Server の全体像です。詳細な設定やコマンドについては各 README を参照してください。
-
-## 変更履歴
-説明を更新しました。
