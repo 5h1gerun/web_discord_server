@@ -151,9 +151,14 @@ def _download_base() -> Optional[str]:
     return f"https://{dl_domain}".rstrip("/")
 
 
-def _make_download_url(path: str) -> str:
-    base = _download_base()
-    return f"{base}{path}" if base else path
+def _make_download_url(path: str, external: bool = False) -> str:
+    """Return a download URL. If ``external`` is True and ``DOWNLOAD_DOMAIN``
+    is set, the domain is prefixed to ``path``. Otherwise ``path`` is returned
+    unchanged so that authentication cookies are sent to the current host."""
+    if external:
+        base = _download_base()
+        return f"{base}{path}" if base else path
+    return path
 
 
 async def issue_csrf(request: web.Request) -> str:
@@ -619,7 +624,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
             signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            f["url"] = _make_download_url(f["download_path"])
+            # 認証付きリンクは同一ドメインを使用
+            f["url"] = f["download_path"]
             f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -750,12 +756,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 # プレビュー用は inline 表示させるため preview=1
                 f["download_path"] = f"/shared/download/{token}"
                 f["preview_url"] = f"{f['download_path']}?preview=1"
-                f["download_url"] = _make_download_url(f"{f['download_path']}?dl=1")
+                f["download_url"] = _make_download_url(
+                    f"{f['download_path']}?dl=1", external=True
+                )
                 preview_fallback = f["preview_url"]
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                f["download_url"] = _make_download_url(f["download_path"])
+                # 認証クッキーを維持するため同一ドメインに限定
+                f["download_url"] = f["download_path"]
                 preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
@@ -1304,7 +1313,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            f["url"] = _make_download_url(f["download_path"])
+            # 認証維持のため DOWNLOAD_DOMAIN を使わない
+            f["url"] = f["download_path"]
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1398,7 +1408,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            f["url"] = _make_download_url(f["download_path"])
+            # スマホ版も認証付きは同ドメイン
+            f["url"] = f["download_path"]
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
