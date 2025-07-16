@@ -93,3 +93,9 @@ def test_cache_version_variable():
 def test_precache_first_page():
     sw = read_sw()
     assert '/partial/files?page=1' in sw
+
+
+def test_no_store_header_checks_exist():
+    sw = read_sw()
+    pattern = re.compile(r"/no-store/i\.test\(", re.S)
+    assert len(pattern.findall(sw)) >= 2
