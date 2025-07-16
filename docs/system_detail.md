@@ -54,6 +54,7 @@ Web Dcloud Server の Web 部は aiohttp を利用した非同期サーバーで
 - アップロード済みファイルの検索・共有・タグ編集
 - 共有フォルダや Google Drive 連携機能
 - Service Worker を利用したオフライン対応と Push 通知
+- ファイル一覧はページングされ、`FILES_PER_PAGE` で件数を調整可能。初回ページは Service Worker が事前キャッシュ
 - QR コードを用いた PC・スマホ間の連携ログイン
 - `/health` や `/csrf_token` など API ベースのエンドポイントも備え、PWA からの利用を想定
 
@@ -70,6 +71,7 @@ Web Dcloud Server の Web 部は aiohttp を利用した非同期サーバーで
 | `GDRIVE_TOKEN` | 認証後に生成されるトークンの保存先 |
 | `BOT_OWNER_ID` | ボット管理者の Discord ユーザー ID |
 | `FORCE_HTTPS` | `1` を指定すると HTTP から HTTPS へ自動リダイレクト |
+| `FILES_PER_PAGE` | ファイル一覧 API の1ページあたり件数。既定値 `50` |
 | `VAPID_PUBLIC_KEY` | Push API 用の VAPID 公開鍵 |
 
 その他の環境変数については `README.md` を参照してください。
