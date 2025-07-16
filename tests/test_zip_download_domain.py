@@ -7,7 +7,9 @@ TEMPLATE_MOBILE = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'm
 
 def test_zip_url_variable_defined():
     text = APP_PATH.read_text(encoding='utf-8')
-    assert "zip_url = _make_download_url(f\"/zip/{folder_id}\", external=True)" in text
+    assert "zip_token = _sign_token(" in text
+    assert "/zip/{folder_id}?token=" in text
+    assert "external=True" in text
 
 
 def test_templates_use_zip_url():

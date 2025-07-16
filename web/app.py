@@ -842,7 +842,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             discord_id,
         )
         # ── 5. コンテキスト返却 ──
-        zip_url = _make_download_url(f"/zip/{folder_id}", external=True)
+        zip_token = _sign_token(
+            f"zip-{folder_id}-{discord_id}", now_ts + URL_EXPIRES_SEC
+        )
+        zip_url = _make_download_url(
+            f"/zip/{folder_id}?token={zip_token}", external=True
+        )
         return _render(
             request,
             "shared/folder_view.html",
@@ -2275,13 +2280,22 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         raise web.HTTPFound(f"/shared/{folder_id}")
 
     async def download_zip(req: web.Request):
-        sess = await get_session(req)
-        discord_id = sess.get("user_id")
-        if not discord_id:
-            raise web.HTTPFound("/login")
-
         folder_id = req.match_info.get("folder_id")
+        token = req.query.get("token")
         db = req.app["db"]
+        discord_id = None
+        if token:
+            tok_val = _verify_token(token)
+            if tok_val and tok_val.startswith("zip-"):
+                tok_folder, tok_user = tok_val[4:].split("-", 1)
+                if tok_folder == folder_id:
+                    discord_id = tok_user
+        if not discord_id:
+            sess = await get_session(req)
+            discord_id = sess.get("user_id")
+            if not discord_id:
+                raise web.HTTPFound("/login")
+
         member = await db.fetchone(
             "SELECT 1 FROM shared_folder_members WHERE folder_id = ? AND discord_user_id = ?",
             folder_id,
