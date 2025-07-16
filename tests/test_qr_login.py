@@ -15,10 +15,10 @@ def test_login_template_has_qr_image():
     assert '/qr_image/' in html
 
 
-def test_discord_button_removed():
+def test_discord_button_present():
     pc_html = LOGIN_TEMPLATE.read_text(encoding='utf-8')
     mobile_html = MOBILE_TEMPLATE.read_text(encoding='utf-8')
-    assert '/discord_login' not in pc_html
+    assert '/discord_login' in pc_html
     assert '/discord_login' in mobile_html
 
 
