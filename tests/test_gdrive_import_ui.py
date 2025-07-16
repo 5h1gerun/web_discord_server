@@ -32,3 +32,13 @@ def test_back_link_ajax():
     assert 'data-ajax' in pc
     assert 'data-ajax' in mobile
 
+
+def test_clear_button_and_spinner():
+    pc = TEMPLATE.read_text(encoding='utf-8')
+    mobile = MOBILE_TEMPLATE.read_text(encoding='utf-8')
+    js = JS_PATH.read_text(encoding='utf-8')
+    assert 'clearSearch' in pc
+    assert 'clearSearch' in mobile
+    assert 'spinner-border' in js
+    assert 'list-group-item-action' in js
+
