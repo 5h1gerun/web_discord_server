@@ -11,6 +11,7 @@ const OFFLINE_URLS = [
   '/static/js/main.js',
   '/static/favicon.png',
   '/manifest.json',
+  '/partial/files?page=1',
   // CDN assets for faster LCP on PWA
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.4.0/mdb.min.css',
