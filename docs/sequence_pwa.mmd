@@ -21,3 +21,6 @@ sequenceDiagram
     SW->>Browser: フォーカス/新規タブ
     Browser->>Web: 再接続
     Web-->>Browser: 最新データ
+    Browser->>SW: キャッシュ更新確認
+    SW-->>Browser: 更新完了
+
