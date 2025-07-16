@@ -1262,6 +1262,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
         await app["db"].set_gdrive_token(user_id, None)
+        sess = await aiohttp_session.get_session(req)
+        old_state = sess.pop("gdrive_state", None)
+        if old_state:
+            app["gdrive_flows"].pop(old_state, None)
         raise web.HTTPFound("/gdrive_auth")
 
     async def index(req):
