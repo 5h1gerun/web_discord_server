@@ -356,7 +356,7 @@ async def csp_mw(request: web.Request, handler):
     return resp
 
 
-limiters = defaultdict(lambda: AsyncLimiter(200, 60))  # 60 秒あたり 200 リクエスト / IP
+limiters = defaultdict(lambda: AsyncLimiter(1000, 60))  # 60 秒あたり 1000 リクエスト / IP
 
 
 @web.middleware
