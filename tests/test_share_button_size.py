@@ -8,3 +8,9 @@ def test_shared_toggle_has_larger_size():
     assert '.shared-toggle' in text
     assert 'padding: 0.4rem 0.6rem;' in text
     assert 'font-size: 0.9rem;' in text
+
+
+def test_sharebox_input_group_full_width():
+    text = CSS_PATH.read_text(encoding='utf-8')
+    assert '#fileListContainer .input-group' in text
+    assert 'width: 100%;' in text

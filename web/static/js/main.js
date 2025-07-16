@@ -144,9 +144,12 @@ async function reloadFileList() {
   const fldInput = document.querySelector('input[name="folder_id"]');
   const folderId = fldInput?.value;
   const isShared = fldInput?.dataset.shared === "1";
+  const useMobile= window.IS_MOBILE === true;
   const url      = isShared && folderId
                      ? `/shared/${folderId}`
-                     : `/partial/files${folderId ? `?folder=${folderId}` : ''}`;
+                     : useMobile
+                       ? `/mobile${folderId ? '?folder=' + folderId : ''}`
+                       : `/partial/files${folderId ? '?folder=' + folderId : ''}`;
 
   try {
     const res  = await fetch(url, { credentials: "same-origin" });
