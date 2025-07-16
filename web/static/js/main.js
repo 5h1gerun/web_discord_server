@@ -463,7 +463,7 @@ function copyLink(id) {
   navigator.clipboard.writeText(input.value).then(() => {
     const toastEl = document.getElementById('copyToast');
     if (toastEl && window.mdb?.Toast) {
-      new mdb.Toast(toastEl).show();
+      new mdb.Toast(toastEl, { autohide: true, delay: 3000 }).show();
     }
   });
 }
