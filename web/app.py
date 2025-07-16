@@ -79,7 +79,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
 DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
-FILES_PER_PAGE = int(os.getenv("FILES_PER_PAGE", 50))
+FILES_PER_PAGE = int(os.getenv("FILES_PER_PAGE", 90))
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ─────────────── Helpers ───────────────
@@ -943,7 +943,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         buf.seek(0)
         req.app["qr_tokens"][qr_token] = {
             "user_id": None,
-            "expires": time.time() + 600,
+            "expires": time.time() + 1200,
             "image": buf.getvalue(),
         }
         return _render(
