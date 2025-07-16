@@ -842,11 +842,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             discord_id,
         )
         # ── 5. コンテキスト返却 ──
+        zip_url = _make_download_url(f"/zip/{folder_id}", external=True)
         return _render(
             request,
             "shared/folder_view.html",
             {
                 "folder_id": folder_id,
+                "zip_url": zip_url,
                 "user_id": current_user_id,
                 "request": request,
                 "base_url": base_url,
