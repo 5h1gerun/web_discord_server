@@ -852,7 +852,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     db = Database(DB_PATH)
     app["db"] = db
     app["gdrive_flows"] = {}
-    app["discord_states"] = set()
     app["qr_tokens"] = {}
     app["task_queue"] = asyncio.Queue()
     app["broadcast_ws"] = None  # placeholder, assigned later
@@ -1015,7 +1014,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess = await new_session(req)
         if pending:
             sess["pending_qr"] = pending
-        req.app["discord_states"].add(state)
+        sess["oauth_state"] = state
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/discord_callback"
         params = {
@@ -1034,9 +1033,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess = await aiohttp_session.get_session(req)
         qr_pending = sess.pop("pending_qr", None)
         state = req.query.get("state")
-        if not state or state not in req.app["discord_states"]:
+        stored_state = sess.pop("oauth_state", None)
+        if not state or state != stored_state:
             return web.Response(text="invalid state", status=400)
-        req.app["discord_states"].discard(state)
         code = req.query.get("code")
         if not code:
             raise web.HTTPFound("/login")
