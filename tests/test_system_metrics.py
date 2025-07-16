@@ -23,3 +23,12 @@ def test_metric_ranges():
     assert metrics["loadavg_5min"] >= 0.0
     assert metrics["loadavg_15min"] >= 0.0
 
+
+def test_get_network_speed():
+    speed = system_metrics.get_network_speed(0.05)
+    required = {"bytes_recv_per_sec", "bytes_sent_per_sec"}
+    assert required <= speed.keys()
+    for key in required:
+        assert isinstance(speed[key], float)
+        assert speed[key] >= 0.0
+

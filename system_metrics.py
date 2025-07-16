@@ -1,7 +1,8 @@
 import os
 import json
 import shutil
-from typing import Dict
+import time
+from typing import Dict, Tuple
 
 
 def get_system_metrics() -> Dict[str, float]:
@@ -42,7 +43,46 @@ def get_system_metrics() -> Dict[str, float]:
     }
 
 
+def _read_net_bytes() -> Tuple[int, int]:
+    """Return total received and sent bytes for non-loopback interfaces."""
+    rx_total = tx_total = 0
+    try:
+        with open("/proc/net/dev") as f:
+            lines = f.readlines()[2:]
+        for line in lines:
+            if ':' not in line:
+                continue
+            iface, data = line.split(":", 1)
+            iface = iface.strip()
+            if iface == "lo":
+                continue
+            fields = data.split()
+            if len(fields) >= 9:
+                rx_total += int(fields[0])
+                tx_total += int(fields[8])
+    except FileNotFoundError:
+        pass
+    return rx_total, tx_total
+
+
+def get_network_speed(interval: float = 1.0) -> Dict[str, float]:
+    """Measure network throughput in bytes/sec over the given interval."""
+    rx1, tx1 = _read_net_bytes()
+    start = time.monotonic()
+    time.sleep(max(interval, 0.01))
+    rx2, tx2 = _read_net_bytes()
+    elapsed = max(time.monotonic() - start, 0.01)
+    recv_rate = max(rx2 - rx1, 0) / elapsed
+    send_rate = max(tx2 - tx1, 0) / elapsed
+    return {
+        "bytes_recv_per_sec": float(recv_rate),
+        "bytes_sent_per_sec": float(send_rate),
+    }
+
+
 if __name__ == "__main__":
     metrics = get_system_metrics()
+    speed = get_network_speed(1.0)
+    metrics.update(speed)
     print(json.dumps(metrics, indent=2))
 
