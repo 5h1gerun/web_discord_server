@@ -8,3 +8,4 @@ def test_gdrive_callback_redirects_on_invalid_state():
     start = next(i for i, l in enumerate(lines) if 'async def gdrive_callback' in l)
     snippet = '\n'.join(lines[start:start + 20])
     assert '"/gdrive_auth")' in snippet
+    assert 'sess.invalidate()' in snippet
