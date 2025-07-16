@@ -1254,6 +1254,16 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             {"csrf_token": token, "static_version": int(time.time()), "request": req},
         )
 
+    async def gdrive_switch(req: web.Request):
+        discord_id = req.get("user_id")
+        if not discord_id:
+            raise web.HTTPFound("/login")
+        user_id = await app["db"].get_user_pk(discord_id)
+        if not user_id:
+            raise web.HTTPFound("/login")
+        await app["db"].set_gdrive_token(user_id, None)
+        raise web.HTTPFound("/gdrive_auth")
+
     async def index(req):
         discord_id = req.get("user_id")
         if not discord_id:
@@ -2627,6 +2637,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/qr_poll/{token}", qr_poll)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
+    app.router.add_get("/gdrive_switch", gdrive_switch)
     app.router.add_get("/gdrive_auth", gdrive_auth)
     app.router.add_get("/gdrive_callback", gdrive_callback)
     app.router.add_get("/gdrive_files", gdrive_files)
