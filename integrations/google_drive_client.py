@@ -2,7 +2,7 @@ import os
 import io
 import json
 from pathlib import Path
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -23,11 +23,14 @@ _SCOPES = [
 _CRED_PATH = os.getenv("GDRIVE_CREDENTIALS")
 
 
-def build_flow(redirect_uri: str) -> Flow:
+def build_flow(redirect_uri: str, *, state: Optional[str] = None) -> Flow:
     if not _CRED_PATH:
         raise RuntimeError("GDRIVE_CREDENTIALS is not set")
     return Flow.from_client_secrets_file(
-        _CRED_PATH, scopes=_SCOPES, redirect_uri=redirect_uri
+        _CRED_PATH,
+        scopes=_SCOPES,
+        redirect_uri=redirect_uri,
+        state=state,
     )
 
 

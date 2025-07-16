@@ -191,7 +191,7 @@ class Database:
         )
         return row["gdrive_token"] if row and row["gdrive_token"] else None
 
-    async def set_gdrive_token(self, user_id: int, token: str) -> None:
+    async def set_gdrive_token(self, user_id: int, token: Optional[str]) -> None:
         await self.execute(
             "UPDATE users SET gdrive_token=? WHERE id=?",
             token,
