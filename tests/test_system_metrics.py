@@ -32,3 +32,15 @@ def test_get_network_speed():
         assert isinstance(speed[key], float)
         assert speed[key] >= 0.0
 
+
+def test_get_server_process_metrics():
+    metrics = system_metrics.get_server_process_metrics(0.05)
+    required = {"process_cpu_percent", "process_memory_rss_bytes", "open_fd_count"}
+    assert required <= metrics.keys()
+    assert isinstance(metrics["process_cpu_percent"], float)
+    assert metrics["process_cpu_percent"] >= 0.0
+    assert isinstance(metrics["process_memory_rss_bytes"], float)
+    assert metrics["process_memory_rss_bytes"] >= 0.0
+    assert isinstance(metrics["open_fd_count"], int)
+    assert metrics["open_fd_count"] >= 0
+

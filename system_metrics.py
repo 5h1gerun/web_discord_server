@@ -80,9 +80,62 @@ def get_network_speed(interval: float = 1.0) -> Dict[str, float]:
     }
 
 
+def _read_process_times(pid: int) -> int:
+    """Return user+system jiffies for the given process."""
+    with open(f"/proc/{pid}/stat") as f:
+        fields = f.read().split()
+    utime = int(fields[13])
+    stime = int(fields[14])
+    return utime + stime
+
+
+def _read_total_jiffies() -> int:
+    """Return total jiffies for the system."""
+    with open("/proc/stat") as f:
+        fields = f.readline().split()[1:]
+    return sum(int(x) for x in fields)
+
+
+def _read_process_rss(pid: int) -> int:
+    """Return RSS in bytes for the given process."""
+    with open(f"/proc/{pid}/status") as f:
+        for line in f:
+            if line.startswith("VmRSS:"):
+                return int(line.split()[1]) * 1024
+    return 0
+
+
+def get_server_process_metrics(interval: float = 0.1, pid: int | None = None) -> Dict[str, float]:
+    """Return CPU and memory usage stats for this server process."""
+    if pid is None:
+        pid = os.getpid()
+    try:
+        p1 = _read_process_times(pid)
+        t1 = _read_total_jiffies()
+        time.sleep(max(interval, 0.01))
+        p2 = _read_process_times(pid)
+        t2 = _read_total_jiffies()
+        cpu_percent = 0.0
+        if t2 > t1:
+            cpu_percent = 100.0 * (p2 - p1) / (t2 - t1)
+        rss = _read_process_rss(pid)
+        fd_count = len(os.listdir(f"/proc/{pid}/fd"))
+    except FileNotFoundError:
+        cpu_percent = 0.0
+        rss = 0
+        fd_count = 0
+    return {
+        "process_cpu_percent": float(max(cpu_percent, 0.0)),
+        "process_memory_rss_bytes": float(max(rss, 0)),
+        "open_fd_count": int(max(fd_count, 0)),
+    }
+
+
 if __name__ == "__main__":
     metrics = get_system_metrics()
     speed = get_network_speed(1.0)
+    proc = get_server_process_metrics(0.1)
     metrics.update(speed)
+    metrics.update(proc)
     print(json.dumps(metrics, indent=2))
 
