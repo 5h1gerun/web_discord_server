@@ -89,3 +89,7 @@ def test_cache_version_variable():
     assert 'const CACHE_VERSION' in sw
     pattern = re.compile(r"const CACHE_NAME = `wds-cache-\${CACHE_VERSION}`;")
     assert pattern.search(sw)
+
+def test_precache_first_page():
+    sw = read_sw()
+    assert '/partial/files?page=1' in sw

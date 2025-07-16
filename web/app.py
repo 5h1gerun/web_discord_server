@@ -79,6 +79,7 @@ DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
 DM_UPLOAD_LIMIT = int(os.getenv("DISCORD_DM_UPLOAD_LIMIT", 8 << 20))
+FILES_PER_PAGE = int(os.getenv("FILES_PER_PAGE", 90))
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ─────────────── Helpers ───────────────
@@ -587,11 +588,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         # ファイル一覧取得
         # SELECT で expiration_sec も取得する
         folder = request.query.get("folder", "")
+        page = int(request.query.get("page", "1") or "1")
+        if page < 1:
+            page = 1
+        offset = (page - 1) * FILES_PER_PAGE
         rows = await db.fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ? "
+            "ORDER BY uploaded_at DESC LIMIT ? OFFSET ?",
             user_id,
             folder,
+            FILES_PER_PAGE + 1,
+            offset,
         )
+        has_next = len(rows) > FILES_PER_PAGE
+        if has_next:
+            rows = rows[:-1]
         now = int(datetime.now(timezone.utc).timestamp())
         file_objs: List[Dict[str, object]] = []
 
@@ -620,7 +631,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # CSRF トークン発行
         token = await issue_csrf(request)
-        return {"files": file_objs, "csrf_token": token, "user_id": discord_id}
+        return {
+            "files": file_objs,
+            "csrf_token": token,
+            "user_id": discord_id,
+            "page": page,
+            "has_next": has_next,
+            "folder_id": folder,
+        }
 
     @aiohttp_jinja2.template("partials/search_results.html")
     async def search_files_api(request: web.Request):
@@ -925,7 +943,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         buf.seek(0)
         req.app["qr_tokens"][qr_token] = {
             "user_id": None,
-            "expires": time.time() + 600,
+            "expires": time.time() + 1200,
             "image": buf.getvalue(),
         }
         return _render(
@@ -1254,11 +1272,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         username = user_row["username"] if user_row else "Unknown"
         # expiration_sec を含めて取得するように
         folder = req.query.get("folder", "")
+        page = int(req.query.get("page", "1") or "1")
+        if page < 1:
+            page = 1
+        offset = (page - 1) * FILES_PER_PAGE
         rows = await app["db"].fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ? "
+            "ORDER BY uploaded_at DESC LIMIT ? OFFSET ?",
             user_id,
             folder,
+            FILES_PER_PAGE + 1,
+            offset,
         )
+        has_next = len(rows) > FILES_PER_PAGE
+        if has_next:
+            rows = rows[:-1]
         parent_id = int(folder) if folder else None
         subfolders = await app["db"].list_user_folders(user_id, parent_id)
         breadcrumbs = []
@@ -1308,6 +1336,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "folder_id": folder,
                 "subfolders": subfolders,
                 "breadcrumbs": breadcrumbs,
+                "page": page,
+                "has_next": has_next,
                 "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
                 "gdrive_authorized": (
                     bool(await app["db"].get_gdrive_token(user_id))
@@ -1345,11 +1375,21 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         username = user_row["username"] if user_row else "Unknown"
         folder = req.query.get("folder", "")
+        page = int(req.query.get("page", "1") or "1")
+        if page < 1:
+            page = 1
+        offset = (page - 1) * FILES_PER_PAGE
         rows = await app["db"].fetchall(
-            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ?",
+            "SELECT *, expiration_sec, expires_at FROM files WHERE user_id = ? AND folder = ? "
+            "ORDER BY uploaded_at DESC LIMIT ? OFFSET ?",
             user_id,
             folder,
+            FILES_PER_PAGE + 1,
+            offset,
         )
+        has_next = len(rows) > FILES_PER_PAGE
+        if has_next:
+            rows = rows[:-1]
         parent_id = int(folder) if folder else None
         subfolders = await app["db"].list_user_folders(user_id, parent_id)
         now_ts = int(datetime.now(timezone.utc).timestamp())
@@ -1388,6 +1428,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 "username": username,
                 "folder_id": folder,
                 "subfolders": subfolders,
+                "page": page,
+                "has_next": has_next,
                 "gdrive_enabled": bool(GDRIVE_CREDENTIALS),
                 "gdrive_authorized": (
                     bool(await app["db"].get_gdrive_token(user_id))

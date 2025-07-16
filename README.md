@@ -53,6 +53,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 のクライアントシークレット |
 | `FORCE_HTTPS` | `1` を指定すると HTTP でのアクセスを HTTPS へリダイレクト |
 | `DISCORD_DM_UPLOAD_LIMIT` | DM 送信を許可するファイルサイズ上限 (バイト) |
+| `FILES_PER_PAGE` | ファイル一覧をページ表示する際の1ページあたりの件数。既定値 `50` |
 
 `PUBLIC_DOMAIN` は Google OAuth のリダイレクト先だけでなく、Discord OAuth にも使用されます。Google Cloud Console には `https://<PUBLIC_DOMAIN>/gdrive_callback`、Discord には `https://<PUBLIC_DOMAIN>/discord_callback` を登録してください。
 

@@ -146,21 +146,24 @@ async function reloadFileList() {
   const isShared = fldInput?.dataset.shared === "1";
   const url      = isShared && folderId
                      ? `/shared/${folderId}`
-                     : window.location.pathname + window.location.search;
+                     : `/partial/files${folderId ? `?folder=${folderId}` : ''}`;
 
   try {
     const res  = await fetch(url, { credentials: "same-origin" });
     if (!res.ok) throw new Error("一覧取得失敗: HTTP " + res.status);
 
     const html = await res.text();
-    // フルページ取得か部分断片か両方に対応
-    const parser  = new DOMParser();
-    const doc     = parser.parseFromString(html, "text/html");
-    const newCont = doc.getElementById("fileListContainer");
-    container.innerHTML = newCont ? newCont.innerHTML : html;
-    if (folderBlock) {
-      const newFolders = doc.getElementById("subfolderList");
-      folderBlock.innerHTML = newFolders ? newFolders.innerHTML : "";
+    if (url.startsWith('/partial/files')) {
+      container.innerHTML = html;
+    } else {
+      const parser  = new DOMParser();
+      const doc     = parser.parseFromString(html, "text/html");
+      const newCont = doc.getElementById("fileListContainer");
+      container.innerHTML = newCont ? newCont.innerHTML : html;
+      if (folderBlock) {
+        const newFolders = doc.getElementById("subfolderList");
+        folderBlock.innerHTML = newFolders ? newFolders.innerHTML : "";
+      }
     }
 
     // 再初期化：Tilt, Ripple, Tooltip など
