@@ -2,7 +2,7 @@ import os
 import json
 import shutil
 import time
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 
 def get_system_metrics() -> Dict[str, float]:
@@ -105,7 +105,7 @@ def _read_process_rss(pid: int) -> int:
     return 0
 
 
-def get_server_process_metrics(interval: float = 0.1, pid: int | None = None) -> Dict[str, float]:
+def get_server_process_metrics(interval: float = 0.1, pid: Optional[int] = None) -> Dict[str, float]:
     """Return CPU and memory usage stats for this server process."""
     if pid is None:
         pid = os.getpid()
