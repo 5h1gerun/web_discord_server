@@ -22,3 +22,10 @@ def test_import_refreshes_list():
     text = JS_PATH.read_text(encoding='utf-8')
     assert text.count('loadFiles(') >= 5
 
+
+def test_back_link_ajax():
+    pc = TEMPLATE.read_text(encoding='utf-8')
+    mobile = MOBILE_TEMPLATE.read_text(encoding='utf-8')
+    assert 'data-ajax' in pc
+    assert 'data-ajax' in mobile
+
