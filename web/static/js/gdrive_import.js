@@ -5,6 +5,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('searchQuery');
   if (!list) return;
 
+  function iconByName(name) {
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+    const map = {
+      jpg: 'bi-file-earmark-image',
+      jpeg: 'bi-file-earmark-image',
+      png: 'bi-file-earmark-image',
+      gif: 'bi-file-earmark-image',
+      mp4: 'bi-file-earmark-play',
+      mov: 'bi-file-earmark-play',
+      mp3: 'bi-file-earmark-music',
+      wav: 'bi-file-earmark-music',
+      pdf: 'bi-file-earmark-pdf',
+      zip: 'bi-file-earmark-zip',
+      rar: 'bi-file-earmark-zip',
+      '7z': 'bi-file-earmark-zip'
+    };
+    return map[ext] || 'bi-file-earmark';
+  }
+
   async function importFile(fileId, filename = '', btn = null) {
     if (!result) return;
     result.textContent = '';
@@ -53,28 +72,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadFiles(query = '') {
     if (!list) return;
-    list.textContent = 'loading...';
+    list.innerHTML = '<div class="text-center text-muted">loading...</div>';
     try {
       const url = query ? `/gdrive_files?q=${encodeURIComponent(query)}` : '/gdrive_files';
-      const res = await fetch(url, {credentials: 'same-origin'});
+      const res = await fetch(url, { credentials: 'same-origin' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'error');
       list.textContent = '';
       data.files.forEach(f => {
-        const div = document.createElement('div');
-        div.className = 'd-flex align-items-center mb-2';
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex align-items-center';
+        const icon = document.createElement('i');
+        icon.className = 'bi ' + iconByName(f.name) + ' me-2';
+        item.appendChild(icon);
         const span = document.createElement('span');
+        span.className = 'flex-grow-1 text-truncate';
         span.textContent = f.name;
-        div.appendChild(span);
+        item.appendChild(span);
         const btn = document.createElement('button');
-        btn.className = 'btn btn-sm btn-primary ms-auto';
+        btn.className = 'btn btn-sm btn-outline-primary ms-auto';
         btn.textContent = '取り込み';
         btn.addEventListener('click', () => importFile(f.id, f.name, btn));
-        div.appendChild(btn);
-        list.appendChild(div);
+        item.appendChild(btn);
+        list.appendChild(item);
       });
     } catch (err) {
-      list.textContent = `一覧取得に失敗しました: ${err.message}`;
+      list.innerHTML = `<div class="text-danger">一覧取得に失敗しました: ${err.message}</div>`;
     }
   }
 

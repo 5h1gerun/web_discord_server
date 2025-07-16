@@ -4,13 +4,13 @@
 {% block content %}
 <h2 class="h4 mb-3">Google Drive 取り込み</h2>
 <div id="gdriveResult" class="mb-3"></div>
-<hr>
-<div class="input-group mb-2">
+<div class="input-group mb-3">
+  <span class="input-group-text"><i class="bi bi-search"></i></span>
   <input id="searchQuery" type="text" class="form-control" placeholder="ファイル名検索">
   <button id="refreshFiles" type="button" class="btn btn-outline-secondary">最新</button>
 </div>
-<div id="driveFileList"></div>
-<a href="/" class="btn btn-link mt-3" data-ajax>&larr; 個人フォルダに戻る</a>
+<div id="driveFileList" class="list-group mb-3"></div>
+<a href="/" class="btn btn-link" data-ajax>&larr; 個人フォルダに戻る</a>
 {% endblock %}
 
 {% block extra_js %}

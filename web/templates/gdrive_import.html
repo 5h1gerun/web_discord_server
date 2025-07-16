@@ -6,13 +6,13 @@
     <div class="card-header bg-primary text-white">Google Drive 取り込み</div>
     <div class="card-body">
       <div id="gdriveResult" class="mb-3"></div>
-      <hr>
-      <div class="input-group mb-2">
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input id="searchQuery" type="text" class="form-control" placeholder="ファイル名検索">
         <button id="refreshFiles" type="button" class="btn btn-outline-secondary">最新</button>
       </div>
-      <div id="driveFileList"></div>
-      <a href="/" class="btn btn-link mt-3" data-ajax>&larr; 個人フォルダに戻る</a>
+      <div id="driveFileList" class="list-group mb-3"></div>
+      <a href="/" class="btn btn-link" data-ajax>&larr; 個人フォルダに戻る</a>
     </div>
   </div>
 </div>
