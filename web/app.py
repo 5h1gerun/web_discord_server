@@ -624,8 +624,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             # ダウンロード用署名付き URL（ログインユーザだけが使う）
             signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            # 認証付きリンクは同一ドメインを使用
-            f["url"] = f["download_path"]
+            # 認証付きリンクも DOWNLOAD_DOMAIN を使用
+            f["url"] = _make_download_url(f["download_path"], external=True)
             f["user_id"] = discord_id
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
@@ -763,8 +763,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                # 認証クッキーを維持するため同一ドメインに限定
-                f["download_url"] = f["download_path"]
+                # 認証付きでも DOWNLOAD_DOMAIN を使用
+                f["download_url"] = _make_download_url(
+                    f["download_path"], external=True
+                )
                 preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
@@ -1313,8 +1315,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            # 認証維持のため DOWNLOAD_DOMAIN を使わない
-            f["url"] = f["download_path"]
+            # 認証付きでも DOWNLOAD_DOMAIN を使用
+            f["url"] = _make_download_url(f["download_path"], external=True)
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
@@ -1408,8 +1410,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            # スマホ版も認証付きは同ドメイン
-            f["url"] = f["download_path"]
+            # スマホ版でも DOWNLOAD_DOMAIN を使用
+            f["url"] = _make_download_url(f["download_path"], external=True)
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
