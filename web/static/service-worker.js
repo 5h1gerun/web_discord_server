@@ -83,12 +83,33 @@ async function handleNavigate(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) {
-    fetch(request).then(res => cache.put(request, res.clone())).catch(() => {});
-    return cached;
+    const cc = cached.headers.get('Cache-Control') || '';
+    if (!/no-store/i.test(cc)) {
+      fetch(request).then(res => {
+        const cc2 = res.headers.get('Cache-Control') || '';
+        if (res.ok && !/no-store/i.test(cc2)) {
+          cache.put(request, res.clone());
+        }
+      }).catch(() => {});
+      return cached;
+    }
+    try {
+      const res = await fetch(request);
+      const cc2 = res.headers.get('Cache-Control') || '';
+      if (!/no-store/i.test(cc2)) {
+        cache.put(request, res.clone());
+      }
+      return res;
+    } catch (_) {
+      return cached;
+    }
   }
   try {
     const res = await fetch(request);
-    cache.put(request, res.clone());
+    const cc = res.headers.get('Cache-Control') || '';
+    if (!/no-store/i.test(cc)) {
+      cache.put(request, res.clone());
+    }
     return res;
   } catch (_) {
     return caches.match(OFFLINE_PAGE);
@@ -115,10 +136,31 @@ async function networkFirst(request) {
   try {
     const res = await fetch(request);
     const cache = await caches.open(CACHE_NAME);
-    cache.put(request, res.clone());
+    const cc = res.headers.get('Cache-Control') || '';
+    if (!/no-store/i.test(cc)) {
+      cache.put(request, res.clone());
+    }
     return res;
   } catch (_) {
-    return caches.match(request);
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(request);
+    if (cached) {
+      const cc = cached.headers.get('Cache-Control') || '';
+      if (/no-store/i.test(cc)) {
+        try {
+          const res = await fetch(request);
+          const cc2 = res.headers.get('Cache-Control') || '';
+          if (!/no-store/i.test(cc2)) {
+            cache.put(request, res.clone());
+          }
+          return res;
+        } catch (_) {
+          return cached;
+        }
+      }
+      return cached;
+    }
+    throw _;
   }
 }
 
