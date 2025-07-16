@@ -860,7 +860,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     # database setup
     db = Database(DB_PATH)
     app["db"] = db
-    app["gdrive_flows"] = {}
     app["qr_tokens"] = {}
     app["task_queue"] = asyncio.Queue()
     app["broadcast_ws"] = None  # placeholder, assigned later
@@ -1205,9 +1204,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not user_id:
             raise web.HTTPFound("/login")
         sess = await aiohttp_session.get_session(req)
-        old_state = sess.pop("gdrive_state", None)
-        if old_state:
-            app["gdrive_flows"].pop(old_state, None)
+        sess.pop("gdrive_state", None)
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/gdrive_callback"
         from integrations.google_drive_client import build_flow
@@ -1218,7 +1215,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             include_granted_scopes="true",
             prompt="consent",
         )
-        app["gdrive_flows"][state] = flow
         sess = await aiohttp_session.get_session(req)
         sess["gdrive_state"] = state
         raise web.HTTPFound(auth_url)
@@ -1232,9 +1228,11 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         sess_state = sess.pop("gdrive_state", None)
         if not state or sess_state != state:
             return web.Response(text="invalid state", status=400)
-        flow = app["gdrive_flows"].pop(state, None)
-        if not flow:
-            return web.Response(text="invalid state", status=400)
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        redirect_uri = f"https://{public_domain}/gdrive_callback"
+        from integrations.google_drive_client import build_flow
+
+        flow = build_flow(redirect_uri, state=state)
         flow.fetch_token(code=req.query.get("code"))
         creds = flow.credentials
         user_id = await app["db"].get_user_pk(discord_id)
@@ -1267,9 +1265,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPFound("/login")
         await app["db"].set_gdrive_token(user_id, None)
         sess = await aiohttp_session.get_session(req)
-        old_state = sess.pop("gdrive_state", None)
-        if old_state:
-            app["gdrive_flows"].pop(old_state, None)
+        sess.pop("gdrive_state", None)
         raise web.HTTPFound("/gdrive_auth")
 
     async def index(req):
