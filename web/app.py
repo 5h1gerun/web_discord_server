@@ -1229,7 +1229,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         state = req.query.get("state")
         sess_state = sess.pop("gdrive_state", None)
         if not state or sess_state != state:
-            raise web.HTTPFound("/gdrive_auth")
+            return await gdrive_auth(req)
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
         redirect_uri = f"https://{public_domain}/gdrive_callback"
         from integrations.google_drive_client import build_flow
