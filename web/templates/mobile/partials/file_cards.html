@@ -4,9 +4,9 @@
   <div class="card file-card">
     <div class="card-body">
       {% if f.is_image %}
-      <img data-src="{{ f.preview_url }}" loading="lazy" class="rounded lazy-preview" onerror="previewError(this)">
+      <img src="{{ f.preview_url }}" class="rounded lazy-preview" onerror="previewError(this)">
       {% elif f.is_video %}
-      <video data-src="{{ f.preview_url }}" preload="metadata" class="rounded lazy-preview" muted autoplay loop playsinline></video>
+      <video src="{{ f.preview_url }}" preload="metadata" class="rounded lazy-preview" muted autoplay loop playsinline></video>
       {% else %}
       <i class="bi {{ icon_by_ext(f.original_name) }} fs-3 text-secondary"></i>
       {% endif %}
