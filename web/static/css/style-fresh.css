@@ -491,3 +491,15 @@ body.dark-mode .breadcrumb-pills .breadcrumb-item {
 body.dark-mode .breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
   color: var(--link-color-dark);
 }
+
+/* ────────────────────────────
+   PC 画面向けの中央寄せレイアウト
+   1200px 以上では幅を固定して見やすく
+────────────────────────────*/
+@media (min-width: 1200px) {
+  .pc-container {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
