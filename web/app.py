@@ -347,9 +347,9 @@ async def auth_mw(request: web.Request, handler):
 CSP_POLICY = (
     "default-src 'self'; "
     "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
-    "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline'; "
+    "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com 'unsafe-inline'; "
     "img-src 'self' data:; "
-    "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+    "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; "
     "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
 )
 
