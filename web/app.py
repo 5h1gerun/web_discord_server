@@ -375,7 +375,9 @@ async def csp_mw(request: web.Request, handler):
     return resp
 
 
-limiters = defaultdict(lambda: AsyncLimiter(1000, 60))  # 60 秒あたり 1000 リクエスト / IP
+limiters = defaultdict(
+    lambda: AsyncLimiter(1000, 60)
+)  # 60 秒あたり 1000 リクエスト / IP
 
 
 @web.middleware
@@ -635,17 +637,39 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["is_image"] = bool(mime and mime.startswith("image/"))
             f["is_video"] = bool(mime and mime.startswith("video/"))
 
-            # ダウンロード用署名付き URL（ログインユーザだけが使う）
-            signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
-            f["download_path"] = f"/download/{signed}"
-            # 認証付きリンクも DOWNLOAD_DOMAIN を使用
-            f["url"] = _make_download_url(f["download_path"], external=True)
             f["user_id"] = discord_id
+            if f.get("is_shared"):
+                token = f.get("token")
+                if not token:
+                    exp = now + f["expiration_sec"]
+                    token = _sign_token(f["id"], exp)
+                    await db.execute(
+                        "UPDATE files SET token=?, expiration_sec=?, expires_at=? WHERE id=?",
+                        token,
+                        f["expiration_sec"],
+                        exp,
+                        f["id"],
+                    )
+                    await db.commit()
+                    f["token"] = token
+                f["download_path"] = f"/shared/download/{token}"
+                f["download_url"] = _make_download_url(
+                    f"{f['download_path']}?dl=1", external=True
+                )
+                preview_fallback = f"{f['download_path']}?preview=1"
+            else:
+                signed = _sign_token(f["id"], now + URL_EXPIRES_SEC)
+                f["download_path"] = f"/download/{signed}"
+                f["download_url"] = _make_download_url(
+                    f["download_path"], external=True
+                )
+                preview_fallback = f"{f['download_path']}?preview=1"
+
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = f["download_path"] + "?preview=1"
+                f["preview_url"] = preview_fallback
 
             file_objs.append(f)
 
@@ -1056,7 +1080,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "scope": "identify",
             "state": state,
         }
-        url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(params)
+        url = "https://discord.com/api/oauth2/authorize?" + urllib.parse.urlencode(
+            params
+        )
         raise web.HTTPFound(url)
 
     async def discord_callback(req: web.Request):
@@ -1082,7 +1108,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         async with aiohttp.ClientSession(timeout=HTTP_TIMEOUT) as session:
-            async with session.post("https://discord.com/api/oauth2/token", data=data, headers=headers) as resp:
+            async with session.post(
+                "https://discord.com/api/oauth2/token", data=data, headers=headers
+            ) as resp:
                 if resp.status != 200:
                     log.error("OAuth token error: %s", await resp.text())
                     raise web.HTTPFound("/login")
@@ -1281,7 +1309,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             {"csrf_token": token, "static_version": int(time.time()), "request": req},
         )
 
-
     async def index(req):
         discord_id = req.get("user_id")
         if not discord_id:
@@ -1434,25 +1461,44 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for r in rows:
             f = await _file_to_dict(r, req)
             f["user_id"] = discord_id
-            signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-            f["download_path"] = f"/download/{signed}"
-            # スマホ版でも DOWNLOAD_DOMAIN を使用
-            f["url"] = _make_download_url(f["download_path"], external=True)
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
             f["is_image"] = bool(mime and mime.startswith("image/"))
             f["is_video"] = bool(mime and mime.startswith("video/"))
 
+            if f.get("is_shared"):
+                token = f.get("token")
+                if not token:
+                    exp = now_ts + f["expiration_sec"]
+                    token = _sign_token(f["id"], exp)
+                    await app["db"].execute(
+                        "UPDATE files SET token=?, expiration_sec=?, expires_at=? WHERE id=?",
+                        token,
+                        f["expiration_sec"],
+                        exp,
+                        f["id"],
+                    )
+                    await app["db"].commit()
+                    f["token"] = token
+                f["download_path"] = f"/shared/download/{token}"
+                f["download_url"] = _make_download_url(
+                    f"{f['download_path']}?dl=1", external=True
+                )
+                preview_fallback = f"{f['download_path']}?preview=1"
+            else:
+                signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+                f["download_path"] = f"/download/{signed}"
+                f["download_url"] = _make_download_url(
+                    f["download_path"], external=True
+                )
+                preview_fallback = f"{f['download_path']}?preview=1"
+
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = f["download_path"] + "?preview=1"
-
-            f["is_shared"] = bool(r["is_shared"])
-            if f["is_shared"]:
-                f["token"] = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+                f["preview_url"] = preview_fallback
 
             files.append(f)
 
@@ -1764,7 +1810,9 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
             query = req.query.get("q", "")
             if query:
-                items, new_token = await asyncio.to_thread(search_files, token_json, query)
+                items, new_token = await asyncio.to_thread(
+                    search_files, token_json, query
+                )
             else:
                 items, new_token = await asyncio.to_thread(list_files, token_json)
             if new_token != token_json:
@@ -1775,24 +1823,28 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             return web.json_response({"success": False, "error": str(e)}, status=400)
         except Exception as e:
             log.exception("Google Drive list failed")
-            return web.json_response(
-                {"success": False, "error": str(e)}, status=500
-            )
+            return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def import_shared(req: web.Request):
         """Import a shared file into the user's personal folder."""
         discord_id = req.get("user_id")
         if not discord_id:
-            return web.json_response({"success": False, "error": "forbidden"}, status=403)
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
 
         data = await req.json()
         token = data.get("token")
         if not token:
-            return web.json_response({"success": False, "error": "missing token"}, status=400)
+            return web.json_response(
+                {"success": False, "error": "missing token"}, status=400
+            )
 
         fid = _verify_token(token)
         if not fid:
-            return web.json_response({"success": False, "error": "invalid token"}, status=400)
+            return web.json_response(
+                {"success": False, "error": "invalid token"}, status=400
+            )
 
         db = req.app["db"]
         rec = await db.fetchone(
@@ -1801,11 +1853,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             token,
         )
         if not rec:
-            return web.json_response({"success": False, "error": "not found"}, status=404)
+            return web.json_response(
+                {"success": False, "error": "not found"}, status=404
+            )
 
         user_id = await db.get_user_pk(discord_id)
         if not user_id:
-            return web.json_response({"success": False, "error": "forbidden"}, status=403)
+            return web.json_response(
+                {"success": False, "error": "forbidden"}, status=403
+            )
 
         new_id = str(uuid.uuid4())
         src_path = Path(rec["path"])
