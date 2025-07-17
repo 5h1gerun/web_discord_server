@@ -42,3 +42,8 @@ def test_clear_button_and_spinner():
     assert 'spinner-border' in js
     assert 'list-group-item-action' in js
 
+
+def test_pc_width():
+    html = TEMPLATE.read_text(encoding='utf-8')
+    assert 'max-width:640px' in html
+
