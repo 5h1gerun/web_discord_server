@@ -131,7 +131,7 @@ def test_skip_corrupted_file(monkeypatch, tmp_path):
 
 
 @pytest.mark.skipif(Image is None, reason="Pillow not installed")
-def test_generate_tags_binary(monkeypatch, tmp_path):
+def test_skip_unknown_extension(monkeypatch, tmp_path):
     f = tmp_path / "unknown.bin"
     img = Image.new("RGB", (1, 1), color="red")
     img.save(f, format="PNG")
@@ -142,7 +142,7 @@ def test_generate_tags_binary(monkeypatch, tmp_path):
     monkeypatch.setenv("GEMINI_API_KEY", "dummy")
     monkeypatch.setattr(auto_tag, "genai", dummy_genai)
     tags = auto_tag.generate_tags(f)
-    assert tags == "tagA, tagB"
+    assert tags == ""
 
 
 def test_generate_tags_docx(monkeypatch, tmp_path):
@@ -190,3 +190,27 @@ def test_skip_exe_file(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_tag, "genai", dummy_genai)
     tags = auto_tag.generate_tags(f)
     assert tags == ""
+
+
+def test_text_truncation(monkeypatch, tmp_path):
+    long_text = "a" * 500
+    f = tmp_path / "long.txt"
+    f.write_text(long_text)
+
+    captured = {}
+
+    class CapModel:
+        def generate_content(self, prompt):
+            captured["prompt"] = prompt
+            return DummyResp("tagC")
+
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: CapModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+    monkeypatch.setattr(auto_tag, "MAX_TAG_SOURCE_LENGTH", 100)
+    tags = auto_tag.generate_tags(f)
+    assert tags == "tagC"
+    assert captured["prompt"].endswith(long_text[:100])
