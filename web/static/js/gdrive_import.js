@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshBtn = document.getElementById('refreshFiles');
   const searchInput = document.getElementById('searchQuery');
   const clearBtn = document.getElementById('clearSearch');
-  const clearBtn = document.getElementById('clearSearch');
   if (!list) return;
 
   function truncateName(name, limit = 40) {
@@ -83,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const url = query ? `/gdrive_files?q=${encodeURIComponent(query)}` : '/gdrive_files';
       const res = await fetch(url, { credentials: 'same-origin' });
-      const res = await fetch(url, { credentials: 'same-origin' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'error');
       list.textContent = '';
@@ -96,11 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       data.files.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'list-group-item list-group-item-action d-flex align-items-center';
-        const icon = document.createElement('i');
-        icon.className = 'bi ' + iconByName(f.name) + ' me-2';
-        item.appendChild(icon);
         const item = document.createElement('div');
         item.className = 'list-group-item list-group-item-action d-flex align-items-center';
         const icon = document.createElement('i');
@@ -144,9 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateClear = () => {
       if (clearBtn) clearBtn.classList.toggle('d-none', !searchInput.value);
       timer = setTimeout(() => loadFiles(searchInput.value.trim()), 500);
-    };
-    const updateClear = () => {
-      if (clearBtn) clearBtn.classList.toggle('d-none', !searchInput.value);
     };
     searchInput.addEventListener('input', () => {
       updateClear();
