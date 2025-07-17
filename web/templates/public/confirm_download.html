@@ -72,7 +72,7 @@
 
   </div>
   <div class="card-footer text-end">
-    <a href="javascript:history.back()"
+    <a href="{{ request.headers.get('Referer', '/') }}"
        class="btn btn-outline-secondary">戻る</a>
   </div>
 </div>
