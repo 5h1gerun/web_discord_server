@@ -16,4 +16,4 @@ def test_base_public_contains_dark_switch():
 
 def test_confirm_download_uses_download_url_variable():
     text = HTML.read_text(encoding='utf-8')
-    assert 'href="{{ download_url' in text
+    assert "href=\"{{ download_url or (request.path + '?dl=1') }}\"" in text

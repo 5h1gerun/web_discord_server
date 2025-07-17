@@ -2298,7 +2298,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         else:
             file_dict["preview_url"] = f"{req.path}?preview=1"
 
-        download_url = _make_download_url(req.path + "?dl=1", external=True)
+        download_url = req.path + "?dl=1"
         return _render(
             req,
             "public/confirm_download.html",
@@ -2711,7 +2711,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             file_dict["preview_url"] = f"/previews/{preview_file.name}"
         else:
             file_dict["preview_url"] = f"{req.path}?preview=1"
-        download_url = _make_download_url(req.path + "?dl=1", external=True)
+        download_url = req.path + "?dl=1"
         return _render(
             req,
             "public/confirm_download.html",
