@@ -33,8 +33,10 @@ def test_css_thumb_size_variable():
     assert '--thumb-size: 40px' in css
 
 
-def test_templates_use_thumb_size_variable():
+def test_templates_use_thumb_classes():
     file_html = FILE_TABLE.read_text(encoding='utf-8')
     shared_html = SHARED_TABLE.read_text(encoding='utf-8')
-    assert 'var(--thumb-size)' in file_html
-    assert 'var(--thumb-size)' in shared_html
+    assert 'thumb-btn' in file_html
+    assert 'thumb-media' in file_html
+    assert 'thumb-btn' in shared_html
+    assert 'thumb-media' in shared_html
