@@ -16,6 +16,25 @@ from docx import Document
 from pptx import Presentation
 from openpyxl import load_workbook
 
+# Gemini へ送信するテキストの最大長
+MAX_TAG_SOURCE_LENGTH = 2000
+
+# 処理対象とする拡張子一覧
+SUPPORTED_EXTENSIONS = {
+    ".txt",
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".pptx",
+    ".ppt",
+    ".xlsx",
+    ".xls",
+    ".csv",
+    ".png",
+    ".jpg",
+    ".jpeg",
+}
+
 
 def generate_tags(file_path: Path, original_name: str | None = None) -> str:
     """Analyze the file and return comma separated tags using Gemini.
@@ -30,6 +49,10 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
+        return ""
+
+    ext = Path(original_name or file_path).suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
         return ""
 
     # API キー設定＆モデル準備（温度や出力トークン数もここでまとめて指定）
@@ -65,7 +88,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         text = data.decode(errors="ignore")
         prompt = (
             "以下のテキストから重要と思われるキーワードを5個抽出し、"
-            "カンマ区切りで出力してください:\n" + text[:16000]
+            "カンマ区切りで出力してください:\n" + text[:MAX_TAG_SOURCE_LENGTH]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -91,7 +114,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
             return resp.text.strip()
         prompt = (
             "以下のPDF本文から重要と思われるキーワードを5個抽出し、"
-            "カンマ区切りで出力してください:\n" + full_text[:16000]
+            "カンマ区切りで出力してください:\n" + full_text[:MAX_TAG_SOURCE_LENGTH]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -105,7 +128,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
             return ""
         prompt = (
             "以下の文書から重要と思われるキーワードを5個抽出し、"
-            "カンマ区切りで出力してください:\n" + full_text[:16000]
+            "カンマ区切りで出力してください:\n" + full_text[:MAX_TAG_SOURCE_LENGTH]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -123,7 +146,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         full_text = "\n".join(texts)
         prompt = (
             "以下のプレゼンテーションから重要と思われるキーワードを5個抽出し、"
-            "カンマ区切りで出力してください:\n" + full_text[:16000]
+            "カンマ区切りで出力してください:\n" + full_text[:MAX_TAG_SOURCE_LENGTH]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -140,7 +163,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         full_text = "\n".join(texts)
         prompt = (
             "以下の表計算シートから重要と思われるキーワードを5個抽出し、"
-            "カンマ区切りで出力してください:\n" + full_text[:16000]
+            "カンマ区切りで出力してください:\n" + full_text[:MAX_TAG_SOURCE_LENGTH]
         )
         resp = model.generate_content(prompt)
         return resp.text.strip()
@@ -162,7 +185,7 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         if text and text.strip():
             prompt = (
                 "以下のテキストから重要と思われるキーワードを5個抽出し、"
-                "カンマ区切りで出力してください:\n" + text[:16000]
+                "カンマ区切りで出力してください:\n" + text[:MAX_TAG_SOURCE_LENGTH]
             )
             resp = model.generate_content(prompt)
             return resp.text.strip()
