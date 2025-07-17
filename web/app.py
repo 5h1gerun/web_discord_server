@@ -317,6 +317,19 @@ async def _task_worker(app: web.Application):
             await app["broadcast_ws"]({"action": "reload"})
 
 
+async def _cleanup_chunks() -> None:
+    """定期的に未完了のチャンクを削除する。"""
+    while True:
+        try:
+            now = time.time()
+            for d in CHUNK_DIR.iterdir():
+                if d.is_dir() and now - d.stat().st_mtime > 3600:
+                    shutil.rmtree(d, ignore_errors=True)
+        except Exception as e:
+            log.warning("chunk cleanup failed: %s", e)
+        await asyncio.sleep(3600)
+
+
 # ─────────────── Middleware ───────────────
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
@@ -871,6 +884,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await init_db(DB_PATH)
         await db.open()
         app["worker"] = asyncio.create_task(_task_worker(app))
+        app["chunk_cleanup"] = asyncio.create_task(_cleanup_chunks())
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -878,6 +892,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             worker.cancel()
             try:
                 await worker
+            except asyncio.CancelledError:
+                pass
+        cleaner = app.get("chunk_cleanup")
+        if cleaner:
+            cleaner.cancel()
+            try:
+                await cleaner
             except asyncio.CancelledError:
                 pass
 
