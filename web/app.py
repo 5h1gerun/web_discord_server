@@ -1892,6 +1892,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 file_id,
             )
         await request.app["db"].commit()
+        await broadcast_ws({"action": "reload"})
 
         payload = {"status": "ok", "is_shared": new_state, "expiration": exp_sec}
         if token:
@@ -2102,6 +2103,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         data = await req.post()
         tags = data.get("tags", "")
         await req.app["db"].update_tags(file_id, tags)
+        await broadcast_ws({"action": "reload"})
         return web.json_response({"status": "ok", "tags": tags})
 
     async def send_file_dm(req: web.Request):
@@ -2185,6 +2187,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         data = await req.post()
         tags = data.get("tags", "")
         await db.update_shared_tags(file_id, tags)
+        await broadcast_ws({"action": "reload"})
         return web.json_response({"status": "ok", "tags": tags})
 
     async def shared_upload(req: web.Request):
@@ -2470,6 +2473,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 file_id,
             )
         await db.commit()
+        await broadcast_ws({"action": "reload"})
 
         action = "共有しました" if new_state else "共有を解除しました"
         await _send_shared_webhook(
@@ -2527,6 +2531,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             "UPDATE files SET original_name = ? WHERE id = ?", new_name, file_id
         )
         await db.commit()
+
+        await broadcast_ws({"action": "reload"})
 
         return web.json_response({"status": "ok", "new_name": new_name})
 
@@ -2592,6 +2598,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f"\N{PENCIL} <@{discord_id}> が `{sf['file_name']}` を `{new_name}` にリネームしました。",
         )
 
+        await broadcast_ws({"action": "reload"})
+
         return web.json_response({"status": "ok", "new_name": new_name})
 
     async def create_folder(request: web.Request):
@@ -2607,6 +2615,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPBadRequest()
         parent_id = int(parent) if parent else None
         await db.create_user_folder(user_id, name, parent_id)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
     async def delete_folder(request: web.Request):
