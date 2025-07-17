@@ -435,3 +435,27 @@ body.dark-mode #fileSearch {
 body.dark-mode .expiration-cell small {
   color: var(--text-color-dark);
 }
+
+/* ── Breadcrumb Pills ── */
+.breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-light);
+  color: var(--text-color-light);
+  padding: 0.25rem 0.75rem;
+  border-radius: 2rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item {
+  margin-left: 0.5rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  content: "\F285";
+  font-family: "bootstrap-icons";
+  color: var(--link-color-light);
+  padding-right: 0.25rem;
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-dark);
+  color: var(--text-color-dark);
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  color: var(--link-color-dark);
+}

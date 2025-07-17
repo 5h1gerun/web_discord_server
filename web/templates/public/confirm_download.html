@@ -18,6 +18,10 @@
 {% block content %}
 <div class="container py-5">
   <div class="card shadow-sm mx-auto" style="max-width: 720px;">
+    <div class="card-header bg-primary text-white">
+      <i class="bi bi-download me-1" aria-hidden="true"></i>
+      <span class="visually-hidden">download icon</span>ファイルダウンロード
+    </div>
     <div class="card-body text-center">
 
       <!-- タイトル・ファイル情報 -->
@@ -62,12 +66,16 @@
       </div>
 
       <!-- 操作ボタン -->
-      <div class="mt-4 d-flex justify-content-center gap-3">
-        <a href="{{ request.path }}?dl=1"
-           class="btn btn-primary px-4">ダウンロード</a>
-      </div>
-
+    <div class="mt-4 d-flex justify-content-center gap-3">
+      <a href="{{ request.path }}?dl=1"
+         class="btn btn-primary px-4">ダウンロード</a>
     </div>
+
   </div>
+  <div class="card-footer text-end">
+    <a href="{{ request.headers.get('Referer', '/') }}"
+       class="btn btn-outline-secondary">戻る</a>
+  </div>
+</div>
 </div>
 {% endblock %}
