@@ -161,6 +161,15 @@ body.dark-mode .form-control:focus {
 @media (max-width: 576px) {
   .card { margin: 0 0.5rem; }
   .btn { font-size: 0.9rem; padding: 0.5rem 1rem; }
+  /* ファイル名を複数行表示してレイアウトを維持 */
+  .file-name {
+    white-space: normal;
+    word-break: break-word;
+  }
+  /* テーブル全体が収まらない場合は横スクロール */
+  .table-responsive {
+    overflow-x: auto;
+  }
 }
 
 /* Tooltip fixes */
