@@ -7,6 +7,8 @@ TEMPLATES = [
     Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'shared' / 'folder_view.html',
     Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'shared' / 'index.html',
     Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'mobile' / 'folder_view.html',
+    Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'gdrive_import.html',
+    Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'mobile' / 'gdrive_import.html',
 ]
 
 def test_css_has_breadcrumb_pills():
