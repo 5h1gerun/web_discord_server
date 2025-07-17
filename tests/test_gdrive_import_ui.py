@@ -52,6 +52,13 @@ def test_pc_width():
     assert 'max-width:640px' in html
 
 
+def test_search_has_border():
+    pc = TEMPLATE.read_text(encoding='utf-8')
+    mobile = MOBILE_TEMPLATE.read_text(encoding='utf-8')
+    assert 'input-group mb-3 border' in pc
+    assert 'input-group mb-3 border' in mobile
+
+
 def test_clear_button_and_spinner():
     pc = TEMPLATE.read_text(encoding='utf-8')
     mobile = MOBILE_TEMPLATE.read_text(encoding='utf-8')
