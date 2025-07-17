@@ -662,7 +662,11 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("input", e => {
     if (e.target.id === "fileSearch") {
       filterTable(e.target.value.toLowerCase());
-    } else if (e.target.classList.contains("tag-input")) {
+    }
+  });
+
+document.addEventListener("change", e => {
+    if (e.target.classList.contains("tag-input")) {
       const fid  = e.target.dataset.fileId;
       const isShared = e.target.dataset.shared === "1";
       const form = new FormData();
