@@ -44,43 +44,37 @@
             <td>
               {% if f.is_image %}
               <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-secondary p-0 border-0"
-                        style="width:60px;height:60px"
+                <button class="btn btn-outline-secondary thumb-btn"
                         onclick="showFull('{{ f.download_path }}?preview=1'); return false;">
                   <img src="{{ f.preview_url }}"
-                      class="img-fluid rounded lazy-preview"
-                      style="max-height:60px;" onerror="previewError(this)">
+                      class="img-fluid rounded lazy-preview thumb-media" onerror="previewError(this)">
                   <i class="bi {{ icon_by_ext(f.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
                 </button>
                   <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
               </div>
               {% elif f.is_video %}
               <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-secondary p-0 border-0"
-                        style="width:60px;height:60px"
+                <button class="btn btn-outline-secondary thumb-btn"
                         onclick="showFull('{{ f.hls_url or (f.download_path + '?preview=1') }}', true); return false;">
                   <video src="{{ f.preview_url }}" preload="metadata"
-                          class="w-100 h-100 rounded object-fit-cover lazy-preview"
-                          style="max-width:60px;max-height:60px;"
+                          class="rounded lazy-preview thumb-media"
                           muted autoplay loop playsinline onerror="previewError(this)"></video>
                 </button>
                 <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
               </div>
               {% elif f.mime.startswith('application/pdf') or f.mime.startswith('application/vnd') %}
               <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-secondary p-0 border-0"
-                        style="width:60px;height:60px"
+                <button class="btn btn-outline-secondary thumb-btn"
                         onclick="showFull('{{ f.preview_url }}'); return false;">
                   <img src="{{ f.preview_url }}"
-                       class="img-fluid rounded lazy-preview" style="max-height:60px;" onerror="previewError(this)">
+                       class="img-fluid rounded lazy-preview thumb-media" onerror="previewError(this)">
                   <i class="bi {{ icon_by_ext(f.original_name) }} fs-2 text-secondary fallback-icon d-none"></i>
                 </button>
                   <span class="file-name" data-file-id="{{ f.id }}" title="{{ f.original_name }}">{{ f.original_name }}</span>
               </div>
               {% else %}
               <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-secondary p-0 border-0"
-                        style="width:60px;height:60px"
+                <button class="btn btn-outline-secondary thumb-btn"
                         onclick="window.open('{{ f.download_url }}', '_blank'); return false;">
                   <i class="bi bi-file-earmark-text" style="font-size:2rem;"></i>
                 </button>

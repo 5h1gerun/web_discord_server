@@ -75,3 +75,27 @@ body.dark-mode #sendModal .form-control {
   color: #ffffff;
   border-color: #444556;
 }
+
+/* ── Breadcrumb Pills ── */
+.breadcrumb-pills .breadcrumb-item {
+  background-color: #ffffff;
+  color: #212529;
+  padding: 0.25rem 0.75rem;
+  border-radius: 2rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item {
+  margin-left: 0.5rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  content: "\F285";
+  font-family: "bootstrap-icons";
+  color: #0d6efd;
+  padding-right: 0.25rem;
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item {
+  background-color: #2e3038;
+  color: #f5f5f5;
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  color: #64b5f6;
+}

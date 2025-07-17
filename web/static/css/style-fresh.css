@@ -44,6 +44,22 @@
   --modal-overlay: rgba(0,0,0,0.6);
   --accent-start: #b54cff;
   --accent-end: #ff4b9b;
+  --thumb-size: 60px;
+}
+
+/* サムネイルボタン共通サイズ */
+.thumb-btn {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  padding: 0;
+  border: none;
+}
+
+/* 画像・動画プレビューサイズ調整 */
+.thumb-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 body {
@@ -159,8 +175,24 @@ body.dark-mode .form-control:focus {
 
 /* Responsive tweaks */
 @media (max-width: 576px) {
+  :root { --thumb-size: 40px; }
   .card { margin: 0 0.5rem; }
   .btn { font-size: 0.9rem; padding: 0.5rem 1rem; }
+  /* ファイル名を複数行表示してレイアウトを維持 */
+  .file-name {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.85rem;
+  }
+  /* テーブル全体が収まらない場合は横スクロール */
+  .table-responsive {
+    overflow-x: auto;
+  }
+  .table th,
+  .table td {
+    padding: 0.25rem;
+    font-size: 0.85rem;
+  }
 }
 
 /* Tooltip fixes */
@@ -434,4 +466,28 @@ body.dark-mode #fileSearch {
 }
 body.dark-mode .expiration-cell small {
   color: var(--text-color-dark);
+}
+
+/* ── Breadcrumb Pills ── */
+.breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-light);
+  color: var(--text-color-light);
+  padding: 0.25rem 0.75rem;
+  border-radius: 2rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item {
+  margin-left: 0.5rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  content: "\F285";
+  font-family: "bootstrap-icons";
+  color: var(--link-color-light);
+  padding-right: 0.25rem;
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-dark);
+  color: var(--text-color-dark);
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  color: var(--link-color-dark);
 }
