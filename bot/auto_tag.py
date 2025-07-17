@@ -43,9 +43,19 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         generation_config=gen_cfg,
     )
 
+    # ファイルサイズが 1GB 以上ならタグ付けをスキップ
+    try:
+        if file_path.stat().st_size >= 1_000_000_000:
+            return ""
+    except Exception:
+        return ""
+
     # ファイル読み込み
     mime, _ = mimetypes.guess_type(original_name or str(file_path))
-    data = file_path.read_bytes()
+    try:
+        data = file_path.read_bytes()
+    except Exception:
+        return ""
 
     if not mime:
         mime = "application/octet-stream"
@@ -62,8 +72,11 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
 
     # 2) PDF はテキスト抽出を試み、失敗時はバイナリ解析
     if mime == "application/pdf":
-        reader = PdfReader(str(file_path))
-        pages = [p.extract_text() or "" for p in reader.pages]
+        try:
+            reader = PdfReader(str(file_path))
+            pages = [p.extract_text() or "" for p in reader.pages]
+        except Exception:
+            return ""
         full_text = "\n".join(pages)
         if not full_text.strip():
             b64 = base64.b64encode(data).decode()
@@ -85,8 +98,11 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
 
     # 2-2) Office 系ファイルはテキストへ変換して解析
     if mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        doc = Document(str(file_path))
-        full_text = "\n".join(p.text for p in doc.paragraphs)
+        try:
+            doc = Document(str(file_path))
+            full_text = "\n".join(p.text for p in doc.paragraphs)
+        except Exception:
+            return ""
         prompt = (
             "以下の文書から重要と思われるキーワードを5個抽出し、"
             "カンマ区切りで出力してください:\n" + full_text[:16000]
@@ -95,12 +111,15 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         return resp.text.strip()
 
     if mime == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-        pres = Presentation(str(file_path))
-        texts: list[str] = []
-        for slide in pres.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    texts.append(shape.text)
+        try:
+            pres = Presentation(str(file_path))
+            texts: list[str] = []
+            for slide in pres.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        texts.append(shape.text)
+        except Exception:
+            return ""
         full_text = "\n".join(texts)
         prompt = (
             "以下のプレゼンテーションから重要と思われるキーワードを5個抽出し、"
@@ -110,11 +129,14 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         return resp.text.strip()
 
     if mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-        wb = load_workbook(file_path, data_only=True)
-        texts: list[str] = []
-        for ws in wb.worksheets:
-            for row in ws.iter_rows(values_only=True):
-                texts.append(" ".join(str(c) for c in row if c is not None))
+        try:
+            wb = load_workbook(file_path, data_only=True)
+            texts: list[str] = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    texts.append(" ".join(str(c) for c in row if c is not None))
+        except Exception:
+            return ""
         full_text = "\n".join(texts)
         prompt = (
             "以下の表計算シートから重要と思われるキーワードを5個抽出し、"

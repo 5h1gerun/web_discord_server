@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import types
 import sys
 try:
@@ -87,6 +88,46 @@ def test_generate_tags(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_tag, "genai", dummy_genai)
     tags = auto_tag.generate_tags(f)
     assert tags == "tagA, tagB"
+
+
+def test_skip_large_file(monkeypatch, tmp_path):
+    f = tmp_path / "big.txt"
+    f.write_text("x")
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: DummyModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+
+    orig_stat = Path.stat
+
+    def fake_stat(self):
+        st = list(orig_stat(self))
+        st[6] = 1_000_000_001
+        return os.stat_result(st)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    tags = auto_tag.generate_tags(f)
+    assert tags == ""
+
+
+def test_skip_corrupted_file(monkeypatch, tmp_path):
+    f = tmp_path / "bad.txt"
+    f.write_text("x")
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: DummyModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+
+    def raise_error(*a, **k):
+        raise OSError("broken")
+
+    monkeypatch.setattr(Path, "read_bytes", raise_error)
+    tags = auto_tag.generate_tags(f)
+    assert tags == ""
 
 
 @pytest.mark.skipif(Image is None, reason="Pillow not installed")
