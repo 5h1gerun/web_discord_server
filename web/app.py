@@ -2528,6 +2528,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         )
         await db.commit()
 
+        await broadcast_ws({"action": "reload"})
+
         return web.json_response({"status": "ok", "new_name": new_name})
 
     async def rename_shared_file(request: web.Request):
@@ -2592,6 +2594,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f"\N{PENCIL} <@{discord_id}> が `{sf['file_name']}` を `{new_name}` にリネームしました。",
         )
 
+        await broadcast_ws({"action": "reload"})
+
         return web.json_response({"status": "ok", "new_name": new_name})
 
     async def create_folder(request: web.Request):
@@ -2607,6 +2611,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPBadRequest()
         parent_id = int(parent) if parent else None
         await db.create_user_folder(user_id, name, parent_id)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
     async def delete_folder(request: web.Request):
