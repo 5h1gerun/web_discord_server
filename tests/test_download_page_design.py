@@ -12,3 +12,8 @@ def test_confirm_download_has_back_button():
 def test_base_public_contains_dark_switch():
     text = BASE_PUBLIC.read_text(encoding='utf-8')
     assert 'darkModeSwitch' in text
+
+
+def test_confirm_download_uses_download_url_variable():
+    text = HTML.read_text(encoding='utf-8')
+    assert "href=\"{{ download_url or (request.path + '?dl=1') }}\"" in text
