@@ -2607,6 +2607,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             raise web.HTTPBadRequest()
         parent_id = int(parent) if parent else None
         await db.create_user_folder(user_id, name, parent_id)
+        await broadcast_ws({"action": "reload"})
         raise web.HTTPFound(request.headers.get("Referer", "/"))
 
     async def delete_folder(request: web.Request):
