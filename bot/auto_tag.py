@@ -43,9 +43,9 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
         generation_config=gen_cfg,
     )
 
-    # ファイルサイズが 1GB 以上ならタグ付けをスキップ
+    # ファイルサイズが 500MB 以上ならタグ付けをスキップ
     try:
-        if file_path.stat().st_size >= 1_000_000_000:
+        if file_path.stat().st_size >= 500_000_000:
             return ""
     except Exception:
         return ""
@@ -147,6 +147,10 @@ def generate_tags(file_path: Path, original_name: str | None = None) -> str:
 
     # 2-3) Gemini がサポートしていない ZIP ファイルはタグ生成をスキップ
     if mime == "application/zip":
+        return ""
+
+    # 2-4) 実行ファイルはセキュリティ上スキップ
+    if mime in {"application/x-msdos-program", "application/x-msdownload"}:
         return ""
 
     # 3) MIME 未判定だがテキストとして解釈できる場合

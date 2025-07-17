@@ -104,7 +104,7 @@ def test_skip_large_file(monkeypatch, tmp_path):
 
     def fake_stat(self):
         st = list(orig_stat(self))
-        st[6] = 1_000_000_001
+        st[6] = 500_000_001
         return os.stat_result(st)
 
     monkeypatch.setattr(Path, "stat", fake_stat)
@@ -162,3 +162,31 @@ def test_generate_tags_docx(monkeypatch, tmp_path):
     monkeypatch.setattr(auto_tag, "genai", dummy_genai)
     tags = auto_tag.generate_tags(f)
     assert tags == "tagA, tagB"
+
+
+def test_skip_zip_file(monkeypatch, tmp_path):
+    import zipfile
+    z = tmp_path / "test.zip"
+    with zipfile.ZipFile(z, "w") as zp:
+        zp.writestr("a.txt", "hello")
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: DummyModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+    tags = auto_tag.generate_tags(z)
+    assert tags == ""
+
+
+def test_skip_exe_file(monkeypatch, tmp_path):
+    f = tmp_path / "app.exe"
+    f.write_bytes(b"binary")
+    dummy_genai = types.SimpleNamespace(
+        configure=lambda **kw: None,
+        GenerativeModel=lambda *a, **kw: DummyModel(),
+    )
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(auto_tag, "genai", dummy_genai)
+    tags = auto_tag.generate_tags(f)
+    assert tags == ""
