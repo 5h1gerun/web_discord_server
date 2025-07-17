@@ -1793,7 +1793,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         size = dst_path.stat().st_size
         sha256sum = hashlib.sha256(dst_path.read_bytes()).hexdigest()
-        tags = rec.get("tags", "")
+        tags = rec["tags"]
 
         mime, _ = mimetypes.guess_type(rec["file_name"])
 
@@ -1932,7 +1932,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         }
         if path.exists():
             return web.FileResponse(path, headers=headers)
-        if rec.get("gdrive_id") and GDRIVE_CREDENTIALS:
+        if rec["gdrive_id"] and GDRIVE_CREDENTIALS:
             try:
                 from integrations.google_drive_client import download_file as gd_dl
 
