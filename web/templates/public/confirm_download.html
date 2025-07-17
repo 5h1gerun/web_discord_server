@@ -69,6 +69,9 @@
     <div class="mt-4 d-flex justify-content-center gap-3">
       <a href="{{ request.path }}?dl=1"
          class="btn btn-primary px-4">ダウンロード</a>
+      {% if user_id %}
+      <button id="importBtn" class="btn btn-success px-4">個人フォルダに保存</button>
+      {% endif %}
     </div>
 
   </div>
@@ -78,4 +81,31 @@
   </div>
 </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+{% if user_id %}
+<script>
+document.getElementById('importBtn').addEventListener('click', async () => {
+  const token = '{{ request.match_info["token"] }}';
+  try {
+    const res = await fetch('/import_shared', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': getCsrfToken()
+      },
+      body: JSON.stringify({ token })
+    });
+    if (res.ok) {
+      alert('保存しました');
+    } else {
+      alert('保存に失敗しました');
+    }
+  } catch (e) {
+    alert('保存に失敗しました');
+  }
+});
+</script>
+{% endif %}
 {% endblock %}
