@@ -41,6 +41,7 @@ def test_clear_button_and_spinner():
     assert 'clearSearch' in mobile
     assert 'spinner-border' in js
     assert 'list-group-item-action' in js
+    assert 'flex-shrink-0' in js
 
 
 def test_pc_width():

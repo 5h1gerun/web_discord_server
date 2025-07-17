@@ -92,10 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
         item.appendChild(icon);
         const span = document.createElement('span');
         span.className = 'flex-grow-1 text-truncate';
+        span.style.minWidth = '0';
         span.textContent = f.name;
         item.appendChild(span);
         const btn = document.createElement('button');
-        btn.className = 'btn btn-sm btn-outline-primary ms-auto';
+        btn.className = 'btn btn-sm btn-outline-primary ms-auto flex-shrink-0';
+        btn.style.minWidth = '6em';
         btn.textContent = '取り込み';
         btn.addEventListener('click', () => importFile(f.id, f.name, btn));
         item.appendChild(btn);
