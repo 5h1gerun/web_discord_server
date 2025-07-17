@@ -355,6 +355,7 @@ async function handleToggle(toggle, expiration) {
   const fileId = toggle.dataset.fileId;
   const url    = toggle.dataset.url;
   try {
+    await refreshCsrfToken();
     const res = await fetch(url, {
       method:      "POST",
       credentials: "same-origin",
