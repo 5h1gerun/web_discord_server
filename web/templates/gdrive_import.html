@@ -2,15 +2,21 @@
 {% block title %}Google Drive 取り込み{% endblock %}
 {% block content %}
 <div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb breadcrumb-pills">
+      <li class="breadcrumb-item"><a href="/">ホーム</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Google Drive 取り込み</li>
+    </ol>
+  </nav>
   <div class="card mx-auto" style="max-width:640px;">
     <div class="card-header bg-primary text-white">Google Drive 取り込み</div>
     <div class="card-body">
       <div id="gdriveResult" class="mb-3"></div>
-      <div class="input-group mb-3">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input id="searchQuery" type="text" class="form-control" placeholder="ファイル名検索">
+      <div class="input-group mb-3 border border-white rounded">
+        <span class="input-group-text border-white"><i class="bi bi-search"></i></span>
+        <input id="searchQuery" type="text" class="form-control border-white" placeholder="ファイル名検索">
         <button id="clearSearch" type="button" class="btn btn-outline-secondary d-none"><i class="bi bi-x-lg"></i></button>
-        <button id="refreshFiles" type="button" class="btn btn-outline-secondary">最新</button>
+        <button id="refreshFiles" type="button" class="btn btn-outline-secondary border-white">最新</button>
       </div>
       <div id="driveFileList" class="list-group mb-3"></div>
       <a href="/" class="btn btn-link" data-ajax>&larr; 個人フォルダに戻る</a>
