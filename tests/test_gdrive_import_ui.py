@@ -55,10 +55,12 @@ def test_pc_width():
 def test_search_has_border():
     pc = TEMPLATE.read_text(encoding='utf-8')
     mobile = MOBILE_TEMPLATE.read_text(encoding='utf-8')
-    assert 'input-group mb-3 border border-secondary' in pc
-    assert 'input-group mb-3 border border-secondary' in mobile
-    assert 'input-group-text border border-secondary' in pc
-    assert 'input-group-text border border-secondary' in mobile
+    assert 'input-group mb-3' in pc
+    assert 'input-group mb-3' in mobile
+    assert 'input-group-text border-secondary' in pc
+    assert 'input-group-text border-secondary' in mobile
+    assert 'form-control border-secondary' in pc
+    assert 'form-control border-secondary' in mobile
 
 
 def test_clear_button_and_spinner():
