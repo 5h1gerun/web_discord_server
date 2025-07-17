@@ -4,7 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const refreshBtn = document.getElementById('refreshFiles');
   const searchInput = document.getElementById('searchQuery');
   const clearBtn = document.getElementById('clearSearch');
+  const clearBtn = document.getElementById('clearSearch');
   if (!list) return;
+
+  function truncateName(name, limit = 40) {
+    return name.length > limit ? name.slice(0, limit) + '…' : name;
+  }
 
   function iconByName(name) {
     const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
@@ -74,12 +79,18 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadFiles(query = '') {
     if (!list) return;
     list.innerHTML = '<div class="d-flex justify-content-center my-3"><div class="spinner-border text-secondary" role="status"></div></div>';
+    list.innerHTML = '<div class="d-flex justify-content-center my-3"><div class="spinner-border text-secondary" role="status"></div></div>';
     try {
       const url = query ? `/gdrive_files?q=${encodeURIComponent(query)}` : '/gdrive_files';
+      const res = await fetch(url, { credentials: 'same-origin' });
       const res = await fetch(url, { credentials: 'same-origin' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'error');
       list.textContent = '';
+      if (data.files.length === 0) {
+        list.innerHTML = '<div class="text-center text-muted">ファイルが見つかりません</div>';
+        return;
+      }
       if (data.files.length === 0) {
         list.innerHTML = '<div class="text-center text-muted">ファイルが見つかりません</div>';
         return;
@@ -90,7 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const icon = document.createElement('i');
         icon.className = 'bi ' + iconByName(f.name) + ' me-2';
         item.appendChild(icon);
+        const item = document.createElement('div');
+        item.className = 'list-group-item list-group-item-action d-flex align-items-center';
+        const icon = document.createElement('i');
+        icon.className = 'bi ' + iconByName(f.name) + ' me-2';
+        item.appendChild(icon);
         const span = document.createElement('span');
+        span.className = 'flex-grow-1 text-truncate';
+        span.style.minWidth = '0';
+        span.textContent = truncateName(f.name);
+        span.title = f.name;
+        item.appendChild(span);
         span.className = 'flex-grow-1 text-truncate';
         span.style.minWidth = '0';
         span.textContent = f.name;
@@ -98,12 +119,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.createElement('button');
         btn.className = 'btn btn-sm btn-outline-primary ms-auto flex-shrink-0';
         btn.style.minWidth = '6em';
+        btn.className = 'btn btn-sm btn-outline-primary ms-auto flex-shrink-0';
+        btn.style.minWidth = '6em';
         btn.textContent = '取り込み';
         btn.addEventListener('click', () => importFile(f.id, f.name, btn));
         item.appendChild(btn);
         list.appendChild(item);
+        item.appendChild(btn);
+        list.appendChild(item);
       });
     } catch (err) {
+      list.innerHTML = `<div class="text-danger">一覧取得に失敗しました: ${err.message}</div>`;
       list.innerHTML = `<div class="text-danger">一覧取得に失敗しました: ${err.message}</div>`;
     }
   }
@@ -117,13 +143,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const updateClear = () => {
       if (clearBtn) clearBtn.classList.toggle('d-none', !searchInput.value);
+      timer = setTimeout(() => loadFiles(searchInput.value.trim()), 500);
     };
+    const updateClear = () => {
+      if (clearBtn) clearBtn.classList.toggle('d-none', !searchInput.value);
+    };
+    searchInput.addEventListener('input', () => {
+      updateClear();
+      triggerSearch();
+    });
     searchInput.addEventListener('input', () => {
       updateClear();
       triggerSearch();
     });
     searchInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') e.preventDefault();
+    });
+    updateClear();
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        clearBtn.classList.add('d-none');
+      }
+      loadFiles();
     });
     updateClear();
   }
