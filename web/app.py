@@ -38,6 +38,7 @@ import io, qrcode, pyotp
 from PIL import Image
 import subprocess
 from pdf2image import convert_from_path
+import shutil
 
 from bot.db import init_db  # スキーマ初期化用
 
@@ -1757,6 +1758,71 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 {"success": False, "error": str(e)}, status=500
             )
 
+    async def import_shared(req: web.Request):
+        """Import a shared file into the user's personal folder."""
+        discord_id = req.get("user_id")
+        if not discord_id:
+            return web.json_response({"success": False, "error": "forbidden"}, status=403)
+
+        data = await req.json()
+        token = data.get("token")
+        if not token:
+            return web.json_response({"success": False, "error": "missing token"}, status=400)
+
+        fid = _verify_token(token)
+        if not fid:
+            return web.json_response({"success": False, "error": "invalid token"}, status=400)
+
+        db = req.app["db"]
+        rec = await db.fetchone(
+            "SELECT * FROM shared_files WHERE id = ? AND token = ? AND is_shared = 1",
+            fid,
+            token,
+        )
+        if not rec:
+            return web.json_response({"success": False, "error": "not found"}, status=404)
+
+        user_id = await db.get_user_pk(discord_id)
+        if not user_id:
+            return web.json_response({"success": False, "error": "forbidden"}, status=403)
+
+        new_id = str(uuid.uuid4())
+        src_path = Path(rec["path"])
+        dst_path = DATA_DIR / new_id
+        shutil.copy2(src_path, dst_path)
+
+        size = dst_path.stat().st_size
+        sha256sum = hashlib.sha256(dst_path.read_bytes()).hexdigest()
+        tags = rec.get("tags", "")
+
+        mime, _ = mimetypes.guess_type(rec["file_name"])
+
+        prev_src = PREVIEW_DIR / f"{rec['id']}.jpg"
+        prev_dst = PREVIEW_DIR / f"{new_id}.jpg"
+        if prev_src.exists():
+            shutil.copy2(prev_src, prev_dst)
+
+        hls_src = HLS_DIR / rec["id"]
+        hls_dst = HLS_DIR / new_id
+        if hls_src.exists():
+            shutil.copytree(hls_src, hls_dst, dirs_exist_ok=True)
+        elif mime and mime.startswith("video"):
+            asyncio.create_task(_generate_hls(dst_path, new_id))
+
+        await db.add_file(
+            new_id,
+            user_id,
+            "",
+            rec["file_name"],
+            str(dst_path),
+            size,
+            sha256sum,
+            tags,
+            None,
+        )
+        await broadcast_ws({"action": "reload"})
+        return web.json_response({"success": True, "file_id": new_id})
+
     async def toggle_shared(request: web.Request):
         discord_id = request.get("user_id")
         if not discord_id:
@@ -2645,6 +2711,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
     app.router.add_post("/import_gdrive", import_gdrive)
+    app.router.add_post("/import_shared", import_shared)
     app.router.add_get("/download/{token}", download)
     app.router.add_post("/upload_chunked", upload_chunked)
     app.router.add_post("/toggle_shared/{id}", toggle_shared)
