@@ -67,7 +67,7 @@
 
       <!-- 操作ボタン -->
     <div class="mt-4 d-flex justify-content-center gap-3">
-      <a href="{{ request.path }}?dl=1"
+      <a href="{{ download_url or (request.path + '?dl=1') }}"
          class="btn btn-primary px-4">ダウンロード</a>
       {% if user_id %}
       <button id="importBtn" class="btn btn-success px-4">個人フォルダに保存</button>
