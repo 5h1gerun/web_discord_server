@@ -353,7 +353,7 @@ async def _cleanup_orphan_files(app: web.Application) -> None:
                 valid_paths = set()
 
             for p in DATA_DIR.iterdir():
-                if p in {CHUNK_DIR, PREVIEW_DIR, HLS_DIR}:
+                if p in {CHUNK_DIR, PREVIEW_DIR, HLS_DIR} or p == DB_PATH:
                     continue
                 if not valid_paths:
                     break
