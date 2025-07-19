@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Optional
 from .help import setup_help
+from .db import init_db
 
 import discord
 from discord import app_commands
@@ -823,6 +824,9 @@ def setup_commands(bot: discord.Client):
     # --------------- /setup_qr -------------
     @tree.command(name="setup_qr", description="自動設定 QR を DM で受け取ります。")
     async def setup_qr(inter: discord.Interaction):
+        await init_db(bot.db.db_path)
+        if bot.db.conn is None:
+            await bot.db.open()
         await inter.response.defer(ephemeral=True)
         if not await bot.db.user_exists(inter.user.id):
             await inter.followup.send("ユーザ登録が見つかりません。", ephemeral=True); return
