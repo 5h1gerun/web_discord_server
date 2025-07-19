@@ -9,3 +9,8 @@ def test_orphan_cleanup_task_defined():
     assert 'asyncio.create_task(_cleanup_orphan_files(app))' in text
     assert 'DATA_DIR.iterdir()' in text
     assert 'p == DB_PATH' in text or 'DB_PATH' in text
+
+
+def test_orphan_cleanup_checks_shared_files():
+    text = APP_PATH.read_text(encoding='utf-8')
+    assert 'SELECT path FROM shared_files' in text

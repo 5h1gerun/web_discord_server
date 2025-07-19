@@ -349,6 +349,9 @@ async def _cleanup_orphan_files(app: web.Application) -> None:
                 valid_paths = {
                     r["path"] for r in await db.fetchall("SELECT path FROM files")
                 }
+                valid_paths.update(
+                    r["path"] for r in await db.fetchall("SELECT path FROM shared_files")
+                )
             else:
                 valid_paths = set()
 
