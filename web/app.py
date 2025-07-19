@@ -335,23 +335,28 @@ async def _cleanup_orphan_files(app: web.Application) -> None:
     db: Database = app["db"]
     while True:
         try:
-            rows = await db.fetchall(
-                "SELECT id, path FROM files WHERE user_id NOT IN (SELECT id FROM users)"
-            )
-            for r in rows:
-                try:
-                    Path(r["path"]).unlink(missing_ok=True)
-                except Exception:
-                    pass
-                await db.delete_file(r["id"])
+            if DB_PATH.exists():
+                rows = await db.fetchall(
+                    "SELECT id, path FROM files WHERE user_id NOT IN (SELECT id FROM users)"
+                )
+                for r in rows:
+                    try:
+                        Path(r["path"]).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    await db.delete_file(r["id"])
 
-            # DB に登録されていない実ファイルの削除
-            valid_paths = {
-                r["path"] for r in await db.fetchall("SELECT path FROM files")
-            }
+                valid_paths = {
+                    r["path"] for r in await db.fetchall("SELECT path FROM files")
+                }
+            else:
+                valid_paths = set()
+
             for p in DATA_DIR.iterdir():
                 if p in {CHUNK_DIR, PREVIEW_DIR, HLS_DIR}:
                     continue
+                if not valid_paths:
+                    break
                 if p.is_file() and str(p) not in valid_paths:
                     try:
                         p.unlink()
