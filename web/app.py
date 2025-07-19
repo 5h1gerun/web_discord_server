@@ -822,7 +822,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 f["download_path"] = f"/shared/download/{token}"
                 f["preview_url"] = f"{f['download_path']}?preview=1"
                 f["download_url"] = _make_download_url(
-                    f"{f['download_path']}?dl=1", external=True
+                    f["download_path"], external=True
                 )
                 preview_fallback = f["preview_url"]
             else:
