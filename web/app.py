@@ -831,10 +831,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                # 認証付きでも DOWNLOAD_DOMAIN を使用
-                f["download_url"] = _make_download_url(
-                    f["download_path"], external=True
-                )
+                # 非共有ファイルは DOWNLOAD_DOMAIN を使用しない
+                f["download_url"] = _make_download_url(f["download_path"])
                 preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
@@ -1428,8 +1426,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             f["user_id"] = discord_id
             signed = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
             f["download_path"] = f"/download/{signed}"
-            # 認証付きでも DOWNLOAD_DOMAIN を使用
-            f["url"] = _make_download_url(f["download_path"], external=True)
+            # 非共有ファイルは DOWNLOAD_DOMAIN を使用しない
+            f["url"] = _make_download_url(f["download_path"])
 
             mime, _ = mimetypes.guess_type(f["original_name"])
             f["mime"] = mime or "application/octet-stream"
