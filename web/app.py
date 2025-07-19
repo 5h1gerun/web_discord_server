@@ -330,6 +330,20 @@ async def _cleanup_chunks() -> None:
         await asyncio.sleep(3600)
 
 
+async def _cleanup_setup_tokens(app: web.Application) -> None:
+    """期限切れの自動設定トークンを削除"""
+    while True:
+        try:
+            now = time.time()
+            tokens = list(app["setup_tokens"].items())
+            for t, info in tokens:
+                if info["expires"] < now:
+                    del app["setup_tokens"][t]
+        except Exception as e:
+            log.warning("setup token cleanup failed: %s", e)
+        await asyncio.sleep(600)
+
+
 # ─────────────── Middleware ───────────────
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
@@ -877,6 +891,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     db = Database(DB_PATH)
     app["db"] = db
     app["qr_tokens"] = {}
+    app["setup_tokens"] = {}
     app["task_queue"] = asyncio.Queue()
     app["broadcast_ws"] = None  # placeholder, assigned later
 
@@ -885,6 +900,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.open()
         app["worker"] = asyncio.create_task(_task_worker(app))
         app["chunk_cleanup"] = asyncio.create_task(_cleanup_chunks())
+        app["setup_cleanup"] = asyncio.create_task(_cleanup_setup_tokens(app))
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -899,6 +915,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             cleaner.cancel()
             try:
                 await cleaner
+            except asyncio.CancelledError:
+                pass
+        s_cleaner = app.get("setup_cleanup")
+        if s_cleaner:
+            s_cleaner.cancel()
+            try:
+                await s_cleaner
             except asyncio.CancelledError:
                 pass
 
@@ -1214,6 +1237,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             del req.app["qr_tokens"][token]
             return web.json_response({"status": "ok"})
         return web.json_response({"status": "pending"})
+
+    async def setup_credentials(req: web.Request):
+        token = req.match_info["token"]
+        info = req.app["setup_tokens"].pop(token, None)
+        if not info or info["expires"] < time.time():
+            raise web.HTTPNotFound()
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        info = {
+            "username": info["username"],
+            "password": info["password"],
+            "totp_secret": info["secret"],
+            "login_url": f"https://{public_domain}/login",
+        }
+        return web.json_response(info)
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
@@ -2732,6 +2769,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/qr_image/{token}", qr_image)
     app.router.add_get("/qr_login/{token}", qr_login)
     app.router.add_get("/qr_poll/{token}", qr_poll)
+    app.router.add_get("/setup/{token}", setup_credentials)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/gdrive_auth", gdrive_auth)
