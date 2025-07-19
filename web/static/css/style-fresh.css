@@ -458,9 +458,13 @@ body.dark-mode #fileSearch {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 18rem; /* 長すぎる名前は省略表示 */
 }
 
 /* 残り期限を改行付きで表示する */
+.expiration-cell {
+  width: 8rem; /* 期限表示に十分な幅を確保 */
+}
 .expiration-cell small {
   white-space: pre-line;
 }
