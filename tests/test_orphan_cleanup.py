@@ -7,3 +7,5 @@ def test_orphan_cleanup_task_defined():
     text = APP_PATH.read_text(encoding='utf-8')
     assert 'async def _cleanup_orphan_files' in text
     assert 'asyncio.create_task(_cleanup_orphan_files(app))' in text
+    assert 'SELECT path FROM files' in text
+    assert 'DATA_DIR.iterdir()' in text

@@ -331,7 +331,7 @@ async def _cleanup_chunks() -> None:
 
 
 async def _cleanup_orphan_files(app: web.Application) -> None:
-    """存在しないユーザに紐付くファイルを定期削除する。"""
+    """存在しないユーザのファイルや DB に未登録のファイルを定期削除する。"""
     db: Database = app["db"]
     while True:
         try:
@@ -344,6 +344,19 @@ async def _cleanup_orphan_files(app: web.Application) -> None:
                 except Exception:
                     pass
                 await db.delete_file(r["id"])
+
+            # DB に登録されていない実ファイルの削除
+            valid_paths = {
+                r["path"] for r in await db.fetchall("SELECT path FROM files")
+            }
+            for p in DATA_DIR.iterdir():
+                if p in {CHUNK_DIR, PREVIEW_DIR, HLS_DIR}:
+                    continue
+                if p.is_file() and str(p) not in valid_paths:
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
         except Exception as e:
             log.warning("orphan cleanup failed: %s", e)
         await asyncio.sleep(3600)
