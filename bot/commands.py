@@ -9,6 +9,7 @@ import hmac
 import os
 import secrets
 import uuid
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -33,6 +34,7 @@ FILE_HMAC_SECRET = base64.urlsafe_b64decode(
 URL_EXPIRES_SEC = int(os.getenv("UPLOAD_EXPIRES_SEC", 86400))  # 24h
 DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parents[1] / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+PUBLIC_DOMAIN = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
 
 def make_otp_link(uri: str) -> str:
     token = base64.urlsafe_b64encode(uri.encode()).decode()
@@ -817,3 +819,68 @@ def setup_commands(bot: discord.Client):
             url = f"https://{os.getenv('PUBLIC_DOMAIN','localhost:9040')}/download/{_sign(r['id'], now+URL_EXPIRES_SEC)}"
             emb.add_field(name=r['original_name'], value=f"[DL]({url}) tags:{r['tags']}", inline=False)
         await i.response.send_message(embed=emb, ephemeral=True)
+
+    # --------------- /setup_qr -------------
+    @tree.command(name="setup_qr", description="自動設定 QR を DM で受け取ります。")
+    async def setup_qr(self, inter: discord.Interaction):
+        await inter.response.defer(ephemeral=True)
+        if not await self.db.user_exists(inter.user.id):
+            await inter.followup.send("ユーザ登録が見つかりません。", ephemeral=True); return
+
+        pw = secrets.token_urlsafe(12)
+        totp = pyotp.TOTP(pyotp.random_base32())
+        secret = totp.secret
+        uri = totp.provisioning_uri(str(inter.user), issuer_name="WDS")
+        otp_link = make_otp_link(uri)
+
+        qr_img = qrcode.make(uri)
+        buf = io.BytesIO(); qr_img.save(buf, format="PNG"); buf.seek(0)
+        setup_token = secrets.token_urlsafe(16)
+        if self.web_app:
+            self.web_app["setup_tokens"][setup_token] = {
+                "username": str(inter.user),
+                "password": pw,
+                "secret": secret,
+                "expires": time.time() + 600,
+            }
+        setup_link = f"https://{PUBLIC_DOMAIN}/setup/{setup_token}"
+        setup_qr = qrcode.make(setup_link)
+        setup_buf = io.BytesIO(); setup_qr.save(setup_buf, format="PNG"); setup_buf.seek(0)
+
+        await self.add_user(inter.user.id, str(inter.user), pw)
+        await self.db.execute(
+            "UPDATE users SET totp_secret=?, totp_enabled=1, enc_key=?, totp_verified=0 WHERE discord_id=?",
+            secret,
+            base64.urlsafe_b64encode(os.urandom(32)).decode(),
+            inter.user.id,
+        )
+        await self.db.commit()
+
+        login_url = f"https://{PUBLIC_DOMAIN}/login"
+        msg = (
+            "🔑 **Web ログイン情報**\n"
+            f"URL: {login_url}\n"
+            f"ユーザ名: {inter.user}\n"
+            f"パスワード: `{pw}`\n"
+            "――――――――――――――――――――\n"
+            "🤖 **自動設定 QR**\n"
+            "下記リンクか QR を読み取ると自動で設定できます:\n"
+            f"{setup_link}\n"
+            "――――――――――――――――――――\n"
+            "🔐 **二要素認証 (TOTP) を設定してください**\n"
+            "QR が読めない場合は下記リンクをタップ:\n"
+            f"{otp_link}\n"
+            f"`{secret}`           ← 手動入力用シークレット"
+        )
+
+        try:
+            await inter.user.send(
+                msg,
+                files=[
+                    discord.File(buf, "totp.png"),
+                    discord.File(setup_buf, "setup.png"),
+                ],
+            )
+            await inter.followup.send("DM を送信しました！", ephemeral=True)
+        except discord.Forbidden:
+            await inter.followup.send("❌ DM が拒否されています。", ephemeral=True)
