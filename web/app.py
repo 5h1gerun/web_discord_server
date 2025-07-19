@@ -152,6 +152,28 @@ def _download_base() -> Optional[str]:
     return f"https://{dl_domain}".rstrip("/")
 
 
+def _cookie_domain() -> Optional[str]:
+    """Return the cookie domain.
+
+    If ``COOKIE_DOMAIN`` is set, that value is returned. Otherwise the domain is
+    derived from ``DOWNLOAD_DOMAIN`` so that authentication cookies are shared
+    with the download subdomain.
+    """
+    env = os.getenv("COOKIE_DOMAIN")
+    if env:
+        return env
+    base = _download_base()
+    if not base:
+        return None
+    host = urllib.parse.urlsplit(base).hostname
+    if not host:
+        return None
+    parts = host.split(".")
+    if len(parts) >= 3:
+        return ".".join(parts[-2:])
+    return host
+
+
 def _make_download_url(path: str, external: bool = False) -> str:
     """Return a download URL. If ``external`` is True and ``DOWNLOAD_DOMAIN``
     is set, the domain is prefixed to ``path``. Otherwise ``path`` is returned
@@ -462,6 +484,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     storage = EncryptedCookieStorage(
         COOKIE_SECRET,
         cookie_name="wdsid",
+        domain=_cookie_domain(),
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="Lax",  # CSRF 低減
