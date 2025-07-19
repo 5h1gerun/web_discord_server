@@ -1244,13 +1244,15 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         if not info or info["expires"] < time.time():
             raise web.HTTPNotFound()
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
-        info = {
+        data = {
             "username": info["username"],
             "password": info["password"],
             "totp_secret": info["secret"],
             "login_url": f"https://{public_domain}/login",
         }
-        return web.json_response(info)
+        if "application/json" in req.headers.get("Accept", ""):
+            return web.json_response(data)
+        return _render(req, "setup_credentials.html", data)
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
