@@ -777,7 +777,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                # 認証済みのユーザーのみ利用するためドメインを固定しない
+                # 個人フォルダと同じドメインで利用するため DOWNLOAD_DOMAIN を使わない
                 f["download_url"] = _make_download_url(f["download_path"])
                 preview_fallback = f"{f['download_path']}?preview=1"
 
