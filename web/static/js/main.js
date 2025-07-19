@@ -427,8 +427,8 @@ async function handleToggle(toggle, expiration) {
         : `<span class="text-muted">非共有</span>`;
     }
 
-    // 共有状態が変わった際はプレビューURLも変わるため一覧を再取得
-    await reloadFileList();
+    // 共有状態が変わった旨の通知は WebSocket からも届くため、
+    // ここではリスト更新を行わない
   } catch (err) {
     let msg = err && err.message ? err.message : String(err);
     if (msg === 'Failed to fetch') {
