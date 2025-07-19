@@ -355,6 +355,7 @@ window.addEventListener("DOMContentLoaded", startExpirationCountdowns);
 async function handleToggle(toggle, expiration) {
   const fileId = toggle.dataset.fileId;
   const url    = toggle.dataset.url;
+  lastReload = Date.now();
   try {
     await refreshCsrfToken();
     const res = await fetch(url, {

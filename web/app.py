@@ -828,10 +828,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                # 認証付きでも DOWNLOAD_DOMAIN を使用
-                f["download_url"] = _make_download_url(
-                    f["download_path"], external=True
-                )
+                # 認証付きリンクは DOWNLOAD_DOMAIN を使わない
+                f["download_url"] = _make_download_url(f["download_path"])
                 preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
