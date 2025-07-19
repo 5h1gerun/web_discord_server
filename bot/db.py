@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     enc_key      TEXT
 );
 CREATE TABLE IF NOT EXISTS files (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT PRIMARY KEY,
     user_id         INTEGER NOT NULL,
     folder          TEXT    NOT NULL DEFAULT '',
     path            TEXT    NOT NULL,
@@ -128,7 +128,47 @@ async def init_db(db_path: Path = DB_PATH) -> None:
     async with aiosqlite.connect(db_path) as db:
         await db.executescript(SCHEMA)
         cur = await db.execute("PRAGMA table_info(files)")
-        cols = {row[1] for row in await cur.fetchall()}
+        info = await cur.fetchall()
+        cols = {row[1] for row in info}
+        id_type = next((row[2] for row in info if row[1] == "id"), "").upper()
+        if id_type and id_type != "TEXT":
+            await db.execute("ALTER TABLE files RENAME TO files_old")
+            await db.execute(
+                """
+                CREATE TABLE files (
+                    id TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    folder TEXT NOT NULL DEFAULT '',
+                    path TEXT NOT NULL,
+                    original_name TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    sha256 TEXT NOT NULL,
+                    uploaded_at TEXT NOT NULL,
+                    expires_at INTEGER NOT NULL DEFAULT 0,
+                    tags TEXT NOT NULL DEFAULT '',
+                    gdrive_id TEXT,
+                    is_shared INTEGER NOT NULL DEFAULT 0,
+                    token TEXT,
+                    expiration_sec INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """
+            )
+            await db.execute(
+                """
+                INSERT INTO files (
+                    id, user_id, folder, path, original_name, size, sha256,
+                    uploaded_at, expires_at, tags, gdrive_id, is_shared, token,
+                    expiration_sec
+                )
+                SELECT
+                    id, user_id, folder, path, original_name, size, sha256,
+                    uploaded_at, expires_at, tags, gdrive_id, is_shared, token,
+                    expiration_sec
+                FROM files_old
+                """
+            )
+            await db.execute("DROP TABLE files_old")
         if "gdrive_id" not in cols:
             await db.execute("ALTER TABLE files ADD COLUMN gdrive_id TEXT")
         if "is_shared" not in cols:
