@@ -330,6 +330,25 @@ async def _cleanup_chunks() -> None:
         await asyncio.sleep(3600)
 
 
+async def _cleanup_orphan_files(app: web.Application) -> None:
+    """存在しないユーザに紐付くファイルを定期削除する。"""
+    db: Database = app["db"]
+    while True:
+        try:
+            rows = await db.fetchall(
+                "SELECT id, path FROM files WHERE user_id NOT IN (SELECT id FROM users)"
+            )
+            for r in rows:
+                try:
+                    Path(r["path"]).unlink(missing_ok=True)
+                except Exception:
+                    pass
+                await db.delete_file(r["id"])
+        except Exception as e:
+            log.warning("orphan cleanup failed: %s", e)
+        await asyncio.sleep(3600)
+
+
 # ─────────────── Middleware ───────────────
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
@@ -885,6 +904,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.open()
         app["worker"] = asyncio.create_task(_task_worker(app))
         app["chunk_cleanup"] = asyncio.create_task(_cleanup_chunks())
+        app["orphan_cleanup"] = asyncio.create_task(_cleanup_orphan_files(app))
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -899,6 +919,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             cleaner.cancel()
             try:
                 await cleaner
+            except asyncio.CancelledError:
+                pass
+        ocleaner = app.get("orphan_cleanup")
+        if ocleaner:
+            ocleaner.cancel()
+            try:
+                await ocleaner
             except asyncio.CancelledError:
                 pass
 
