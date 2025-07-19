@@ -1240,7 +1240,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     async def setup_credentials(req: web.Request):
         token = req.match_info["token"]
-        info = req.app["setup_tokens"].pop(token, None)
+        info = req.app["setup_tokens"].get(token)
         if not info or info["expires"] < time.time():
             raise web.HTTPNotFound()
         public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
