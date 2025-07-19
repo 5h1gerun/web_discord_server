@@ -330,6 +330,57 @@ async def _cleanup_chunks() -> None:
         await asyncio.sleep(3600)
 
 
+async def _cleanup_orphan_files(app: web.Application) -> None:
+    """存在しないユーザのファイルや DB に未登録のファイルを定期削除する。"""
+    db: Database = app["db"]
+    while True:
+        try:
+            if DB_PATH.exists():
+                rows = await db.fetchall(
+                    "SELECT id, path FROM files WHERE user_id NOT IN (SELECT id FROM users)"
+                )
+                for r in rows:
+                    try:
+                        Path(r["path"]).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    await db.delete_file(r["id"])
+
+                valid_paths = {
+                    r["path"] for r in await db.fetchall("SELECT path FROM files")
+                }
+            else:
+                valid_paths = set()
+
+            for p in DATA_DIR.iterdir():
+                if p in {CHUNK_DIR, PREVIEW_DIR, HLS_DIR} or p == DB_PATH:
+                    continue
+                if not valid_paths:
+                    break
+                if p.is_file() and str(p) not in valid_paths:
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+        except Exception as e:
+            log.warning("orphan cleanup failed: %s", e)
+        await asyncio.sleep(3600)
+
+
+async def _cleanup_setup_tokens(app: web.Application) -> None:
+    """期限切れの自動設定トークンを削除"""
+    while True:
+        try:
+            now = time.time()
+            tokens = list(app["setup_tokens"].items())
+            for t, info in tokens:
+                if info["expires"] < now:
+                    del app["setup_tokens"][t]
+        except Exception as e:
+            log.warning("setup token cleanup failed: %s", e)
+        await asyncio.sleep(600)
+
+
 # ─────────────── Middleware ───────────────
 @web.middleware
 async def csrf_protect_mw(request: web.Request, handler):
@@ -877,6 +928,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     db = Database(DB_PATH)
     app["db"] = db
     app["qr_tokens"] = {}
+    app["setup_tokens"] = {}
     app["task_queue"] = asyncio.Queue()
     app["broadcast_ws"] = None  # placeholder, assigned later
 
@@ -885,6 +937,8 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         await db.open()
         app["worker"] = asyncio.create_task(_task_worker(app))
         app["chunk_cleanup"] = asyncio.create_task(_cleanup_chunks())
+        app["orphan_cleanup"] = asyncio.create_task(_cleanup_orphan_files(app))
+        app["setup_cleanup"] = asyncio.create_task(_cleanup_setup_tokens(app))
 
     async def on_cleanup(app: web.Application):
         worker = app.get("worker")
@@ -899,6 +953,20 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             cleaner.cancel()
             try:
                 await cleaner
+            except asyncio.CancelledError:
+                pass
+        ocleaner = app.get("orphan_cleanup")
+        if ocleaner:
+            ocleaner.cancel()
+            try:
+                await ocleaner
+            except asyncio.CancelledError:
+                pass
+        s_cleaner = app.get("setup_cleanup")
+        if s_cleaner:
+            s_cleaner.cancel()
+            try:
+                await s_cleaner
             except asyncio.CancelledError:
                 pass
 
@@ -1214,6 +1282,22 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             del req.app["qr_tokens"][token]
             return web.json_response({"status": "ok"})
         return web.json_response({"status": "pending"})
+
+    async def setup_credentials(req: web.Request):
+        token = req.match_info["token"]
+        info = req.app["setup_tokens"].get(token)
+        if not info or info["expires"] < time.time():
+            raise web.HTTPNotFound()
+        public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+        data = {
+            "username": info["username"],
+            "password": info["password"],
+            "totp_secret": info["secret"],
+            "login_url": f"https://{public_domain}/login",
+        }
+        if "application/json" in req.headers.get("Accept", ""):
+            return web.json_response(data)
+        return _render(req, "setup_credentials.html", data)
 
     async def logout(req):
         session = await aiohttp_session.get_session(req)
@@ -1779,70 +1863,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
                 {"success": False, "error": str(e)}, status=500
             )
 
-    async def import_shared(req: web.Request):
-        """Import a shared file into the user's personal folder."""
-        discord_id = req.get("user_id")
-        if not discord_id:
-            return web.json_response({"success": False, "error": "forbidden"}, status=403)
-
-        data = await req.json()
-        token = data.get("token")
-        if not token:
-            return web.json_response({"success": False, "error": "missing token"}, status=400)
-
-        fid = _verify_token(token)
-        if not fid:
-            return web.json_response({"success": False, "error": "invalid token"}, status=400)
-
-        db = req.app["db"]
-        rec = await db.fetchone(
-            "SELECT * FROM shared_files WHERE id = ? AND token = ? AND is_shared = 1",
-            fid,
-            token,
-        )
-        if not rec:
-            return web.json_response({"success": False, "error": "not found"}, status=404)
-
-        user_id = await db.get_user_pk(discord_id)
-        if not user_id:
-            return web.json_response({"success": False, "error": "forbidden"}, status=403)
-
-        new_id = str(uuid.uuid4())
-        src_path = Path(rec["path"])
-        dst_path = DATA_DIR / new_id
-        shutil.copy2(src_path, dst_path)
-
-        size = dst_path.stat().st_size
-        sha256sum = hashlib.sha256(dst_path.read_bytes()).hexdigest()
-        tags = rec["tags"]
-
-        mime, _ = mimetypes.guess_type(rec["file_name"])
-
-        prev_src = PREVIEW_DIR / f"{rec['id']}.jpg"
-        prev_dst = PREVIEW_DIR / f"{new_id}.jpg"
-        if prev_src.exists():
-            shutil.copy2(prev_src, prev_dst)
-
-        hls_src = HLS_DIR / rec["id"]
-        hls_dst = HLS_DIR / new_id
-        if hls_src.exists():
-            shutil.copytree(hls_src, hls_dst, dirs_exist_ok=True)
-        elif mime and mime.startswith("video"):
-            asyncio.create_task(_generate_hls(dst_path, new_id))
-
-        await db.add_file(
-            new_id,
-            user_id,
-            "",
-            rec["file_name"],
-            str(dst_path),
-            size,
-            sha256sum,
-            tags,
-            None,
-        )
-        await broadcast_ws({"action": "reload"})
-        return web.json_response({"success": True, "file_id": new_id})
 
     async def toggle_shared(request: web.Request):
         discord_id = request.get("user_id")
@@ -2732,6 +2752,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/qr_image/{token}", qr_image)
     app.router.add_get("/qr_login/{token}", qr_login)
     app.router.add_get("/qr_poll/{token}", qr_poll)
+    app.router.add_get("/setup/{token}", setup_credentials)
     app.router.add_get("/logout", logout)
     app.router.add_get("/gdrive_import", gdrive_form)
     app.router.add_get("/gdrive_auth", gdrive_auth)
@@ -2746,7 +2767,6 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app.router.add_get("/mobile", mobile_index)
     app.router.add_post("/upload", upload)
     app.router.add_post("/import_gdrive", import_gdrive)
-    app.router.add_post("/import_shared", import_shared)
     app.router.add_get("/download/{token}", download)
     app.router.add_post("/upload_chunked", upload_chunked)
     app.router.add_post("/toggle_shared/{id}", toggle_shared)

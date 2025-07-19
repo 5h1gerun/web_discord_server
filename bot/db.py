@@ -34,17 +34,20 @@ CREATE TABLE IF NOT EXISTS users (
     enc_key      TEXT
 );
 CREATE TABLE IF NOT EXISTS files (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id       INTEGER NOT NULL,
-    folder        TEXT    NOT NULL DEFAULT '',
-    path          TEXT    NOT NULL,
-    original_name TEXT    NOT NULL,
-    size          INTEGER NOT NULL,
-    sha256        TEXT    NOT NULL,
-    uploaded_at   TEXT    NOT NULL,
-    expires_at    INTEGER NOT NULL DEFAULT 0,
-    tags          TEXT    NOT NULL DEFAULT '',
-    gdrive_id     TEXT,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    folder          TEXT    NOT NULL DEFAULT '',
+    path            TEXT    NOT NULL,
+    original_name   TEXT    NOT NULL,
+    size            INTEGER NOT NULL,
+    sha256          TEXT    NOT NULL,
+    uploaded_at     TEXT    NOT NULL,
+    expires_at      INTEGER NOT NULL DEFAULT 0,
+    tags            TEXT    NOT NULL DEFAULT '',
+    gdrive_id       TEXT,
+    is_shared       INTEGER NOT NULL DEFAULT 0,
+    token           TEXT,
+    expiration_sec  INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS user_folders (
@@ -128,6 +131,16 @@ async def init_db(db_path: Path = DB_PATH) -> None:
         cols = {row[1] for row in await cur.fetchall()}
         if "gdrive_id" not in cols:
             await db.execute("ALTER TABLE files ADD COLUMN gdrive_id TEXT")
+        if "is_shared" not in cols:
+            await db.execute(
+                "ALTER TABLE files ADD COLUMN is_shared INTEGER NOT NULL DEFAULT 0"
+            )
+        if "token" not in cols:
+            await db.execute("ALTER TABLE files ADD COLUMN token TEXT")
+        if "expiration_sec" not in cols:
+            await db.execute(
+                "ALTER TABLE files ADD COLUMN expiration_sec INTEGER NOT NULL DEFAULT 0"
+            )
         cur = await db.execute("PRAGMA table_info(users)")
         ucols = {row[1] for row in await cur.fetchall()}
         if "gdrive_token" not in ucols:
@@ -445,8 +458,9 @@ class Database:
     ):
         await self.conn.execute(
             """INSERT INTO files
-            (id, user_id, folder, path, original_name, size, sha256, uploaded_at, expires_at, tags, gdrive_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?, ?)""",
+            (id, user_id, folder, path, original_name, size, sha256, uploaded_at,
+             expires_at, tags, gdrive_id, is_shared, token, expiration_sec)
+            VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), 0, ?, ?, 0, NULL, 0)""",
             (
                 file_id,
                 user_id,
