@@ -822,9 +822,9 @@ def setup_commands(bot: discord.Client):
 
     # --------------- /setup_qr -------------
     @tree.command(name="setup_qr", description="自動設定 QR を DM で受け取ります。")
-    async def setup_qr(self, inter: discord.Interaction):
+    async def setup_qr(inter: discord.Interaction):
         await inter.response.defer(ephemeral=True)
-        if not await self.db.user_exists(inter.user.id):
+        if not await bot.db.user_exists(inter.user.id):
             await inter.followup.send("ユーザ登録が見つかりません。", ephemeral=True); return
 
         pw = secrets.token_urlsafe(12)
@@ -836,8 +836,8 @@ def setup_commands(bot: discord.Client):
         qr_img = qrcode.make(uri)
         buf = io.BytesIO(); qr_img.save(buf, format="PNG"); buf.seek(0)
         setup_token = secrets.token_urlsafe(16)
-        if self.web_app:
-            self.web_app["setup_tokens"][setup_token] = {
+        if bot.web_app:
+            bot.web_app["setup_tokens"][setup_token] = {
                 "username": str(inter.user),
                 "password": pw,
                 "secret": secret,
@@ -847,14 +847,14 @@ def setup_commands(bot: discord.Client):
         setup_qr = qrcode.make(setup_link)
         setup_buf = io.BytesIO(); setup_qr.save(setup_buf, format="PNG"); setup_buf.seek(0)
 
-        await self.add_user(inter.user.id, str(inter.user), pw)
-        await self.db.execute(
+        await bot.add_user(inter.user.id, str(inter.user), pw)
+        await bot.db.execute(
             "UPDATE users SET totp_secret=?, totp_enabled=1, enc_key=?, totp_verified=0 WHERE discord_id=?",
             secret,
             base64.urlsafe_b64encode(os.urandom(32)).decode(),
             inter.user.id,
         )
-        await self.db.commit()
+        await bot.db.commit()
 
         login_url = f"https://{PUBLIC_DOMAIN}/login"
         msg = (
