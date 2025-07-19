@@ -36,6 +36,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `DB_PATH` | SQLite データベースのパス。既定値 `data/web_discord_server.db` |
 | `PUBLIC_DOMAIN` | 外部公開ドメイン。ダウンロードリンクや QR コード生成に使用。既定値 `localhost:9040` |
 | `DOWNLOAD_DOMAIN` | スマホ版ダウンロードリンクに用いる別ドメイン。既定値 未設定 |
+| `COOKIE_DOMAIN` | セッション Cookie のドメイン指定。未設定時は `DOWNLOAD_DOMAIN` から自動算出 |
 | `PORT` | Web サーバーが待ち受けるポート番号。既定値 `9040` |
 | `BOT_OWNER_ID` | ボット製作者の Discord ユーザー ID。登録通知 DM の送信先になります |
 | `BOT_GUILD_ID` | コマンド同期を行うギルド ID。開発サーバーを指定する際に使用します |
@@ -62,7 +63,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 
 指定したドメインには本アプリと同じ `/download/<token>` エンドポイントが存在する必要があります。別サーバーを利用する場合は、リバースプロキシなどで `/download` パスをこのアプリへ転送してください。
 
-`DOWNLOAD_DOMAIN` を指定すると、そのホスト名から共通ドメインを算出してセッション Cookie の `Domain` 属性に自動設定します。特別な環境変数を用意する必要はありません。
+`DOWNLOAD_DOMAIN` を指定すると、そのホスト名から共通ドメインを算出してセッション Cookie の `Domain` 属性に自動設定します。必要に応じて `COOKIE_DOMAIN` で明示的に指定できます。
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash

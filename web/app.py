@@ -153,7 +153,15 @@ def _download_base() -> Optional[str]:
 
 
 def _cookie_domain() -> Optional[str]:
-    """Derive a root domain for session cookies from ``DOWNLOAD_DOMAIN``."""
+    """Return the cookie domain.
+
+    If ``COOKIE_DOMAIN`` is set, that value is returned. Otherwise the domain is
+    derived from ``DOWNLOAD_DOMAIN`` so that authentication cookies are shared
+    with the download subdomain.
+    """
+    env = os.getenv("COOKIE_DOMAIN")
+    if env:
+        return env
     base = _download_base()
     if not base:
         return None
