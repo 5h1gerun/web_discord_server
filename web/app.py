@@ -459,19 +459,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app["websockets"] = set()
 
     # session setup
-    cookie_domain = os.getenv("COOKIE_DOMAIN")
-    storage_kwargs = dict(
+    storage = EncryptedCookieStorage(
+        COOKIE_SECRET,
         cookie_name="wdsid",
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="Lax",  # CSRF 低減
         max_age=60 * 60 * 24 * 7,  # 7 日
-    )
-    if cookie_domain:
-        storage_kwargs["domain"] = cookie_domain
-    storage = EncryptedCookieStorage(
-        COOKIE_SECRET,
-        **storage_kwargs,
     )
     session_setup(app, storage)
 
