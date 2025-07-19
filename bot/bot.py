@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 # ── stdlib ─────────────────────────────
-import logging, os, secrets, hashlib
+import logging, os, secrets, hashlib, time
 from pathlib import Path
 from typing import Optional
+import uuid
 
 # ── third-party ────────────────────────
 import discord
@@ -40,6 +41,8 @@ PUBLIC_DOMAIN = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
 WEB_PORT      = int(os.getenv("PORT", 9040))
 OWNER_ID      = int(os.getenv("BOT_OWNER_ID", "0")) or None   # 製作者の ID
 DEV_GUILD_ID = int(os.getenv("BOT_GUILD_ID", "0")) or None   # ← ここで定数化
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = Path(os.getenv("DATA_DIR", ROOT / "data"))
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 # ───────────────────────────────────────
@@ -65,6 +68,8 @@ class WebDiscordBot(discord.Client):
         # ① DB 接続まだ。open() は setup_hook で行う
         self.db = Database(db_path)
         self.owner_id = OWNER_ID                         # オーナー ID 定数を保持
+        self.web_app: web.Application | None = None
+        self.setup_tokens: dict[str, dict] = {}
 
         # ② Slash 用 CommandTree をここで生成！
         self.tree = app_commands.CommandTree(self)       # ← ★これが無いと AttributeError
@@ -94,7 +99,8 @@ class WebDiscordBot(discord.Client):
         await self.db.open()
 
         # ❷ Web サーバー
-        runner = web.AppRunner(create_app(self))
+        self.web_app = create_app(self)
+        runner = web.AppRunner(self.web_app)
         await runner.setup()
         await web.TCPSite(runner, "0.0.0.0", WEB_PORT).start()
 
@@ -120,6 +126,17 @@ class WebDiscordBot(discord.Client):
 
         qr_img = qrcode.make(uri)
         buf = io.BytesIO(); qr_img.save(buf, format="PNG"); buf.seek(0)
+        setup_token = secrets.token_urlsafe(16)
+        if self.web_app:
+            self.web_app["setup_tokens"][setup_token] = {
+                "username": str(member),
+                "password": pw,
+                "secret": secret,
+                "expires": time.time() + 600,
+            }
+        setup_link = f"https://{PUBLIC_DOMAIN}/setup/{setup_token}"
+        setup_qr = qrcode.make(setup_link)
+        setup_buf = io.BytesIO(); setup_qr.save(setup_buf, format="PNG"); setup_buf.seek(0)
         # 3) DB 登録（重複登録を防ぐため 1 回だけ）
         await self.db.add_user(                 # ← 既存シグネチャ通りに
             discord_id = member.id,
@@ -145,6 +162,10 @@ class WebDiscordBot(discord.Client):
             f"ユーザ名: {member}\n"
             f"パスワード: `{pw}`\n"
             "――――――――――――――――――――\n"
+            "🤖 **自動設定 QR**\n"
+            "下記リンクか QR を読み取ると自動で設定できます:\n"
+            f"{setup_link}\n"
+            "――――――――――――――――――――\n"
             "🔐 **二要素認証 (TOTP) を設定してください**\n"
             "QR が読めない場合は下記リンクをタップ:\n"
             f"{otp_link}\n"        # ← HTTPS リンクを送る
@@ -152,7 +173,13 @@ class WebDiscordBot(discord.Client):
         )
 
         try:
-            await member.send(msg, file=discord.File(buf, "totp.png"))
+            await member.send(
+                msg,
+                files=[
+                    discord.File(buf, "totp.png"),
+                    discord.File(setup_buf, "setup.png"),
+                ],
+            )
         except discord.Forbidden:
             log.warning("DM blocked for %s", member)
 
