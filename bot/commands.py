@@ -828,8 +828,6 @@ def setup_commands(bot: discord.Client):
         if bot.db.conn is None:
             await bot.db.open()
         await inter.response.defer(ephemeral=True)
-        if not await bot.db.user_exists(inter.user.id):
-            await inter.followup.send("ユーザ登録が見つかりません。", ephemeral=True); return
 
         pw = secrets.token_urlsafe(12)
         totp = pyotp.TOTP(pyotp.random_base32())
