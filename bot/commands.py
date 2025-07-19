@@ -824,9 +824,10 @@ def setup_commands(bot: discord.Client):
     # --------------- /setup_qr -------------
     @tree.command(name="setup_qr", description="自動設定 QR を DM で受け取ります。")
     async def setup_qr(inter: discord.Interaction):
-        await init_db(bot.db.db_path)
-        if bot.db.conn is None:
-            await bot.db.open()
+        bot, db = inter.client, inter.client.db
+        await init_db(db.db_path)
+        if db.conn is None:
+            await db.open()
         await inter.response.defer(ephemeral=True)
 
         pw = secrets.token_urlsafe(12)
@@ -849,14 +850,14 @@ def setup_commands(bot: discord.Client):
         setup_qr = qrcode.make(setup_link)
         setup_buf = io.BytesIO(); setup_qr.save(setup_buf, format="PNG"); setup_buf.seek(0)
 
-        await bot.add_user(inter.user.id, str(inter.user), pw)
-        await bot.db.execute(
+        await db.add_user(inter.user.id, str(inter.user), pw)
+        await db.execute(
             "UPDATE users SET totp_secret=?, totp_enabled=1, enc_key=?, totp_verified=0 WHERE discord_id=?",
             secret,
             base64.urlsafe_b64encode(os.urandom(32)).decode(),
             inter.user.id,
         )
-        await bot.db.commit()
+        await db.commit()
 
         login_url = f"https://{PUBLIC_DOMAIN}/login"
         msg = (
