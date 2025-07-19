@@ -456,9 +456,12 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app["websockets"] = set()
 
     # session setup
+    public_domain = os.getenv("PUBLIC_DOMAIN", "localhost:9040")
+    cookie_domain = public_domain.split(":")[0]
     storage = EncryptedCookieStorage(
         COOKIE_SECRET,
         cookie_name="wdsid",
+        domain=cookie_domain,  # DOWNLOAD_DOMAIN への認証用
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="Lax",  # CSRF 低減

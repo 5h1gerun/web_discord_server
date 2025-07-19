@@ -428,9 +428,7 @@ async function handleToggle(toggle, expiration) {
         : `<span class="text-muted">非共有</span>`;
     }
 
-    // 一覧を更新して共有リンクを反映
-    await reloadFileList();
-    lastReload = Date.now();
+    // 更新は WebSocket の reload メッセージで行う
   } catch (err) {
     let msg = err && err.message ? err.message : String(err);
     if (msg === 'Failed to fetch') {
@@ -787,6 +785,7 @@ function connectWs() {
       if (data.action === 'reload') {
         if (Date.now() - lastReload > 1000) {
           reloadFileList();
+          lastReload = Date.now();
         }
       } else if (
         data.action === 'qr_login' &&
