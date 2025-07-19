@@ -133,6 +133,7 @@ let isUploading = false;
 let progWrap = null;
 let progBar  = null;
 let userList = [];
+let lastReload = 0;
 
 // ―― ファイル一覧を再描画 ――
 async function reloadFileList() {
@@ -427,8 +428,9 @@ async function handleToggle(toggle, expiration) {
         : `<span class="text-muted">非共有</span>`;
     }
 
-    // 共有状態が変わった旨の通知は WebSocket からも届くため、
-    // ここではリスト更新を行わない
+    // 一覧を更新して共有リンクを反映
+    await reloadFileList();
+    lastReload = Date.now();
   } catch (err) {
     let msg = err && err.message ? err.message : String(err);
     if (msg === 'Failed to fetch') {
@@ -783,7 +785,9 @@ function connectWs() {
     try {
       const data = JSON.parse(e.data);
       if (data.action === 'reload') {
-        reloadFileList();
+        if (Date.now() - lastReload > 1000) {
+          reloadFileList();
+        }
       } else if (
         data.action === 'qr_login' &&
         typeof qTok !== 'undefined' &&
