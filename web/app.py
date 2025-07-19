@@ -459,13 +459,19 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     app["websockets"] = set()
 
     # session setup
-    storage = EncryptedCookieStorage(
-        COOKIE_SECRET,
+    cookie_domain = os.getenv("COOKIE_DOMAIN")
+    storage_kwargs = dict(
         cookie_name="wdsid",
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="Lax",  # CSRF 低減
         max_age=60 * 60 * 24 * 7,  # 7 日
+    )
+    if cookie_domain:
+        storage_kwargs["domain"] = cookie_domain
+    storage = EncryptedCookieStorage(
+        COOKIE_SECRET,
+        **storage_kwargs,
     )
     session_setup(app, storage)
 
@@ -831,8 +837,10 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
             else:
                 private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
                 f["download_path"] = f"/download/{private_token}"
-                # 認証が必要なため DOWNLOAD_DOMAIN は使用しない
-                f["download_url"] = _make_download_url(f["download_path"])
+                # 認証付きでも DOWNLOAD_DOMAIN を使用
+                f["download_url"] = _make_download_url(
+                    f["download_path"], external=True
+                )
                 preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
