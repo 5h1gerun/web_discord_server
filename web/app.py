@@ -76,7 +76,6 @@ GDRIVE_CREDENTIALS = os.getenv("GDRIVE_CREDENTIALS")
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "").strip()
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
-COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN")
 
 # HTTPS 強制リダイレクトの有無
 FORCE_HTTPS = os.getenv("FORCE_HTTPS", "0").lower() in {"1", "true", "yes"}
@@ -151,6 +150,20 @@ def _download_base() -> Optional[str]:
     if dl_domain.startswith(("http://", "https://")):
         return dl_domain.rstrip("/")
     return f"https://{dl_domain}".rstrip("/")
+
+
+def _cookie_domain() -> Optional[str]:
+    """Derive a root domain for session cookies from ``DOWNLOAD_DOMAIN``."""
+    base = _download_base()
+    if not base:
+        return None
+    host = urllib.parse.urlsplit(base).hostname
+    if not host:
+        return None
+    parts = host.split(".")
+    if len(parts) >= 3:
+        return ".".join(parts[-2:])
+    return host
 
 
 def _make_download_url(path: str, external: bool = False) -> str:
@@ -463,7 +476,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
     storage = EncryptedCookieStorage(
         COOKIE_SECRET,
         cookie_name="wdsid",
-        domain=COOKIE_DOMAIN,
+        domain=_cookie_domain(),
         secure=True,  # HTTPS 限定
         httponly=True,  # JS から参照不可
         samesite="Lax",  # CSRF 低減

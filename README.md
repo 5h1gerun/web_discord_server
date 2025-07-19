@@ -45,7 +45,6 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 | `DATA_DIR` | アップロードファイルを保存するディレクトリ。既定値 `./data` |
 | `STATIC_DIR` | 静的ファイルの格納場所。既定値 `./static` |
 | `TEMPLATE_DIR` | HTML テンプレートの場所。既定値 `./templates` |
-| `COOKIE_DOMAIN` | DOWNLOAD_DOMAIN を別ドメインで使う場合の Cookie ドメイン |
 | `COOKIE_SECRET` | 44 文字の URL-safe Base64。セッション暗号化に使用 (**必須**) |
 | `GEMINI_API_KEY` | Gemini API のキー。自動タグ付けに使用 |
 | `GDRIVE_CREDENTIALS` | Google Drive OAuth クレデンシャルのパス |
@@ -63,7 +62,7 @@ Gemini が非対応の形式はテキストへ変換してから解析を行い�
 
 指定したドメインには本アプリと同じ `/download/<token>` エンドポイントが存在する必要があります。別サーバーを利用する場合は、リバースプロキシなどで `/download` パスをこのアプリへ転送してください。
 
-`DOWNLOAD_DOMAIN` を異なるサブドメインで運用する際は、セッション Cookie の `Domain` 属性に同じ値を指定するため `COOKIE_DOMAIN` も設定してください。
+`DOWNLOAD_DOMAIN` を指定すると、そのホスト名から共通ドメインを算出してセッション Cookie の `Domain` 属性に自動設定します。特別な環境変数を用意する必要はありません。
 
 `COOKIE_SECRET` は次のコマンドで生成できます。
 ```bash
