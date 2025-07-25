@@ -828,37 +828,13 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
         for rec in raw_files:
             f = await _file_to_dict(rec, request)
             # ── プレビュー／ダウンロード URL を整備 ──
-            if f["is_shared"]:
-                # 1) DBに保存されたトークンを使う
-                token = f["token"]
-                if not token:
-                    exp = now_ts + f["expiration_sec"]
-                    token = _sign_token(f["id"], exp)
-                    await db.execute(
-                        "UPDATE shared_files SET token=?, expiration_sec=?, expires_at=? WHERE id=?",
-                        token,
-                        f["expiration_sec"],
-                        exp,
-                        f["id"],
-                    )
-                    await db.commit()
-                    f["token"] = token
-                # 2) 共有用URL
-                # プレビュー用は inline 表示させるため preview=1
-                f["download_path"] = f"/shared/download/{token}"
-                f["preview_url"] = f"{f['download_path']}?preview=1"
-                f["download_url"] = _make_download_url(
-                    f"{f['download_path']}?dl=1", external=True
-                )
-                preview_fallback = f["preview_url"]
-            else:
-                private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-                f["download_path"] = f"/download/{private_token}"
-                # 認証付きでも DOWNLOAD_DOMAIN を使用
-                f["download_url"] = _make_download_url(
-                    f["download_path"], external=True
-                )
-                preview_fallback = f"{f['download_path']}?preview=1"
+            private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
+            f["download_path"] = f"/download/{private_token}"
+            # 認証付きでも DOWNLOAD_DOMAIN を使用
+            f["download_url"] = _make_download_url(
+                f["download_path"], external=True
+            )
+            preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
