@@ -354,6 +354,8 @@ window.addEventListener("DOMContentLoaded", startExpirationCountdowns);
 async function handleToggle(toggle, expiration) {
   const fileId = toggle.dataset.fileId;
   const url    = toggle.dataset.url;
+  // 先にフラグを立てて WS の reload を1回だけ無視
+  wsSkipReload = true;
   try {
     await refreshCsrfToken();
     const res = await fetch(url, {
