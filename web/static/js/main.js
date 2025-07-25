@@ -429,6 +429,7 @@ async function handleToggle(toggle, expiration) {
 
     // 共有状態が変わった際はプレビューURLも変わるため一覧を再取得
     await reloadFileList();
+    wsSkipReload = true;
   } catch (err) {
     let msg = err && err.message ? err.message : String(err);
     if (msg === 'Failed to fetch') {
@@ -775,6 +776,7 @@ if (sendExecBtn) {
 })();
 
 let ws;
+let wsSkipReload = false;
 function connectWs() {
   if (ws) return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -783,7 +785,10 @@ function connectWs() {
     try {
       const data = JSON.parse(e.data);
       if (data.action === 'reload') {
-        reloadFileList();
+        if (!wsSkipReload) {
+          reloadFileList();
+        }
+        wsSkipReload = false;
       } else if (
         data.action === 'qr_login' &&
         typeof qTok !== 'undefined' &&
