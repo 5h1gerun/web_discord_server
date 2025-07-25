@@ -564,7 +564,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
     env.globals["icon_by_ext"] = icon_by_ext  # テンプレートから呼べるように
 
-    async def _file_to_dict(row: Row, request: web.Request) -> dict:
+    async def _file_to_dict(row: Row, request: web.Request, external: bool = False) -> dict:
         """DB Row → テンプレ用 dict
 
         共有期限切れの場合は自動的に非共有化する。
@@ -622,7 +622,7 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         # DL用URL (署名付き)
         signed = _sign_token(d["id"], now_ts + URL_EXPIRES_SEC)
-        d["download_url"] = _make_download_url(f"/download/{signed}")
+        d["download_url"] = _make_download_url(f"/download/{signed}", external=external)
         # HLS マスタープレイリストの有無を確認
         master_path = HLS_DIR / f"{d['id']}" / "master.m3u8"
         if master_path.exists():
@@ -826,21 +826,14 @@ def create_app(bot: Optional[discord.Client] = None) -> web.Application:
 
         file_objs: list[dict] = []
         for rec in raw_files:
-            f = await _file_to_dict(rec, request)
+            f = await _file_to_dict(rec, request, external=True)
             # ── プレビュー／ダウンロード URL を整備 ──
-            private_token = _sign_token(f["id"], now_ts + URL_EXPIRES_SEC)
-            f["download_path"] = f"/download/{private_token}"
-            # 認証付きでも DOWNLOAD_DOMAIN を使用
-            f["download_url"] = _make_download_url(
-                f["download_path"], external=True
-            )
-            preview_fallback = f"{f['download_path']}?preview=1"
 
             preview_file = PREVIEW_DIR / f"{f['id']}.jpg"
             if preview_file.exists():
                 f["preview_url"] = f"/previews/{preview_file.name}"
             else:
-                f["preview_url"] = preview_fallback
+                f["preview_url"] = f["download_url"] + "?preview=1"
 
             # 2) ファイル名表示用
             f["original_name"] = f.get(
