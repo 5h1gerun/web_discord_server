@@ -1,6 +1,6 @@
 from pathlib import Path
 
-CSS = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-fresh.css'
+CSS = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-modern.css'
 PHONE_CSS = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-phone.css'
 
 PC_TEMPLATES = [

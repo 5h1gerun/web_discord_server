@@ -1,6 +1,6 @@
 from pathlib import Path
 
-CSS_PATH = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-fresh.css'
+CSS_PATH = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-modern.css'
 
 
 def test_fresh_css_has_accent_colors():

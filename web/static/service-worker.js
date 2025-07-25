@@ -4,7 +4,7 @@ const OFFLINE_PAGE = '/offline';
 const OFFLINE_URLS = [
   '/',
   OFFLINE_PAGE,
-  '/static/css/style-fresh.css',
+  '/static/css/style-modern.css',
   '/static/css/style-mobile.css',
   '/static/css/style-mobile-friendly.css',
   '/static/css/style-phone.css',
