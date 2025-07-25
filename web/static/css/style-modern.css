@@ -1,0 +1,497 @@
+/*────────────────────────────────────
+  Modern Clean Theme
+────────────────────────────────────*/
+:root {
+  --bg-gradient-light: linear-gradient(135deg, #f0fff4, #e0f7fa);
+  --bg-gradient-dark: linear-gradient(135deg, #112233, #223344);
+  --login-bg-light: linear-gradient(135deg, #e0f0ff, #c8e6ff);
+  --login-bg-dark: linear-gradient(135deg, #223344, #112233);
+
+  --card-bg-light: #ffffff;
+  --card-bg-dark: #2d233c;
+  --card-border-light: #dfd2f1;
+  --card-border-dark: #453257;
+  --glass-bg-light: rgba(255, 255, 255, 0.8);
+  --glass-bg-dark: rgba(45, 35, 60, 0.85);
+  --shadow-light: rgba(0, 0, 0, 0.1);
+  --shadow-dark: rgba(0, 0, 0, 0.6);
+
+  --text-color-light: #1b1b1b;
+  --text-color-dark: #f8f8f8;
+
+  --link-color-light: #7d35ff;
+  --link-color-dark: #b38fff;
+
+  --btn-bg-light: #8e3bf8;
+  --btn-bg-dark: #aa7cfb;
+  --btn-hover-light: #6d2bcf;
+  --btn-hover-dark: #9d68f6;
+
+  --table-header-bg-light: #f9f0ff;
+  --table-header-bg-dark: #3c2b54;
+  --table-header-color: #212529;
+  --table-header-color-dark: #ffffff;
+  --table-row-bg-light: #ffffff;
+  --table-row-bg-dark: #2d233c;
+  --table-row-hover-dark: #403051;
+  --table-text-color-dark: #e8eaf0;
+
+  --input-bg-light: #faf9fc;
+  --input-bg-dark: #423052;
+  --input-text-dark: #ffffff;
+
+  --transition-speed: 0.3s;
+  --modal-overlay: rgba(0,0,0,0.6);
+  --accent-start: #00c853;
+  --accent-end: #00acc1;
+  --thumb-size: 60px;
+}
+
+/* サムネイルボタン共通サイズ */
+.thumb-btn {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  padding: 0;
+  border: none;
+}
+
+/* 画像・動画プレビューサイズ調整 */
+.thumb-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+body {
+  background: var(--bg-gradient-light);
+  color: var(--text-color-light);
+  transition: background var(--transition-speed), color var(--transition-speed);
+  font-family: 'Poppins', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  background-size: 400% 400%;
+  animation: gradientBG 20s ease infinite;
+}
+body.login {
+  background: var(--login-bg-light);
+}
+body.dark-mode.login {
+  background: var(--login-bg-dark);
+}
+body.dark-mode {
+  background: var(--bg-gradient-dark);
+  color: var(--text-color-dark);
+}
+
+@keyframes gradientBG {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.card {
+  background: var(--glass-bg-light);
+  border: 1px solid var(--card-border-light);
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px var(--shadow-light);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+body.dark-mode .card {
+  background: var(--glass-bg-dark);
+  border-color: var(--card-border-dark);
+  box-shadow: 0 6px 16px var(--shadow-dark);
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px var(--shadow-light);
+}
+body.dark-mode .card:hover {
+  box-shadow: 0 16px 32px var(--shadow-dark);
+}
+
+.table thead th {
+  background-color: var(--table-header-bg-light);
+  color: var(--table-header-color);
+  border: none;
+}
+body.dark-mode .table thead th {
+  background-color: var(--table-header-bg-dark);
+  color: var(--table-header-color-dark);
+}
+.table tbody tr {
+  background-color: var(--table-row-bg-light);
+  transition: background var(--transition-speed);
+  color: var(--text-color-light);
+}
+body.dark-mode .table tbody tr {
+  background-color: var(--table-row-bg-dark);
+  color: var(--table-text-color-dark);
+}
+body.dark-mode .table-hover tbody tr:hover {
+  background-color: var(--table-row-hover-dark);
+}
+.table td {
+  color: inherit;
+}
+
+.form-control {
+  background-color: var(--input-bg-light);
+  border: 1px solid var(--card-border-light);
+  color: var(--text-color-light);
+}
+.form-control:focus {
+  border-color: var(--btn-bg-light);
+  box-shadow: 0 0 6px var(--btn-bg-light);
+}
+body.dark-mode .form-control {
+  background-color: var(--input-bg-dark);
+  border-color: var(--card-border-dark);
+  color: var(--input-text-dark);
+}
+body.dark-mode .form-control:focus {
+  border-color: var(--btn-bg-dark);
+  box-shadow: 0 0 6px var(--btn-bg-dark);
+}
+
+/* Ripple & Tilt */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Modal background */
+#modal {
+  background-color: var(--modal-overlay);
+}
+
+/* Dark mode switch style */
+.form-check-input#darkModeSwitch {
+  width: 2.5em;
+  height: 1.3em;
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+.form-check-input#darkModeSwitch:checked {
+  background-color: #1565c0;
+}
+
+/* Responsive tweaks */
+@media (max-width: 576px) {
+  :root { --thumb-size: 40px; }
+  .card { margin: 0 0.5rem; }
+  .btn { font-size: 0.9rem; padding: 0.5rem 1rem; }
+  /* ファイル名を複数行表示してレイアウトを維持 */
+  .file-name {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.85rem;
+  }
+  /* テーブル全体が収まらない場合は横スクロール */
+  .table-responsive {
+    overflow-x: auto;
+  }
+  .table th,
+  .table td {
+    padding: 0.25rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Tooltip fixes */
+[data-bs-toggle="tooltip"] {
+  cursor: pointer;
+}
+
+/* File list reload animation */
+#fileListContainer {
+  transition: opacity 0.3s ease-in-out;
+}
+.fade-out {
+  opacity: 0.3;
+}
+.fade-in {
+  opacity: 1;
+}
+
+a {
+  transition: color var(--transition-speed), text-shadow var(--transition-speed);
+}
+a:hover {
+  text-decoration: none;
+  text-shadow: 0 0 4px var(--link-color-light);
+}
+body.dark-mode a:hover {
+  text-shadow: 0 0 4px var(--link-color-dark);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  border-color: var(--accent-start);
+  color: #fff;
+  transition: background var(--transition-speed), box-shadow var(--transition-speed);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--accent-start), #ff1c6a);
+  box-shadow: 0 0 10px var(--accent-end);
+}
+/* Login page dark-mode overrides */
+.dark-mode .card {
+    background-color: #2c2c2c !important;
+    color: #f0f0f0 !important;
+}
+.dark-mode .form-label {
+    color: #ccc !important;
+}
+.dark-mode .form-control {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #fff;
+}
+.dark-mode .btn-primary {
+    background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+    border-color: var(--accent-start);
+}
+.dark-mode .btn-primary:hover {
+    background: linear-gradient(135deg, var(--accent-start), #ff1c6a);
+}
+.dark-mode a {
+    color: #88b0f2 !important;
+}
+
+/* 共有フォルダ一覧のリンク色をダークモード用に調整 */
+body.dark-mode a.list-group-item-action {
+  color: var(--text-color-dark) !important;
+}
+body.dark-mode a.list-group-item-action:hover {
+  color: var(--link-color-dark) !important;
+}
+
+/* ── リストグループ（index.html／folder_view）のダークモード対応 ── */
+/* 通常（ライト） */
+.list-group {
+  border: 1px solid var(--card-border-light);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.list-group-item {
+  background-color: var(--table-row-bg-light);
+  color:            var(--text-color-light);
+  border-bottom: 1px solid var(--card-border-light);
+  transition: background var(--transition-speed), color var(--transition-speed);
+}
+.list-group-item:last-child {
+  border-bottom: none;
+}
+
+/* ダークモード */
+body.dark-mode .list-group {
+  border-color: var(--card-border-dark);
+}
+body.dark-mode .list-group-item {
+  background-color: var(--table-row-bg-dark);
+  color:            var(--table-text-color-dark);
+  border-bottom: 1px solid var(--card-border-dark);
+}
+body.dark-mode .list-group-item:last-child {
+  border-bottom: none;
+}
+
+/* Hover 時の色変化（任意） */
+body.dark-mode .list-group-item:hover {
+  background-color: var(--table-row-hover-dark);
+}
+
+/* ── Darkモード時の Bootstrap アラート ── */
+body.dark-mode .alert {
+  background-color: var(--glass-bg-dark) !important;
+  color:            var(--text-color-dark) !important;
+  border-color:     var(--card-border-dark) !important;
+}
+
+
+body.dark-mode .alert-warning {
+  background-color: #444556 !important;
+  color:            #f5f5f5    !important;
+}
+body.dark-mode .alert-danger {
+  background-color: #70222b !important;
+  color:            #f5f5f5    !important;
+}
+
+
+/* ——— スマホ（576px以下）でのログイン画面レスポンシブ対応 ——— */
+@media (max-width: 576px) {
+  /* カード全体を画面幅にフィット */
+  body.login .card {
+    margin: 1rem;            /* 両サイドに余白 */
+    width: auto;
+    max-width: 100%;         /* 100%幅まで拡大 */
+    padding: 1rem;           /* 内側の余白を若干増やす */
+  }
+
+  /* 入力フォームをフル幅に */
+  body.login .form-control {
+    width: 100%;
+    box-sizing: border-box;  /* パディング込みで100%に */
+  }
+
+  /* ラベルと入力を縦並びに */
+  body.login .form-outline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* ボタンをフル幅に */
+  body.login .btn {
+    width: 100%;
+    padding: 0.75rem;        /* タップしやすい高さ */
+    font-size: 1rem;         /* 読みやすい文字サイズ */
+  }
+
+  /* テキストやリンク類のフォントサイズ調整 */
+  body.login .form-label,
+  body.login h2.card-title {
+    font-size: 1rem;
+  }
+}
+
+/* ドロップゾーン強調 */
+#uploadArea {
+  position: relative;
+  transition: border 0.2s, background 0.2s;
+}
+#uploadArea.drag-over {
+  border: 2px dashed var(--btn-bg-light);
+  background-color: rgba(30, 144, 255, 0.05);
+}
+body.dark-mode #uploadArea.drag-over {
+  border-color: var(--btn-bg-dark);
+  background-color: rgba(100, 181, 246, 0.05);
+}
+
+body.dark-mode #fileSearch {
+  background-color:#343a40;
+  color:#f8f9fa;
+}
+
+/*──────────────────────────────
+  Cyber-Pink Progress Bar
+──────────────────────────────*/
+#uploadProgressBar {
+  /* ベースカラー：鮮やかなサイバーピンク */
+  background-color: #ff00a8;
+
+  /* 斜めストライプを手動で描画（白 15 % 透過）*/
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem; /* ストライプ幅 */
+
+  /* 発光する外枠（外側→内側） */
+  box-shadow:
+    0 0 8px  #ff00a8,
+    0 0 12px #ff00a8 inset;
+}
+
+/* Bootstrap の “striped + animated” に上書き */
+.progress-bar-striped.progress-bar-animated#uploadProgressBar {
+  animation: progress-bar-stripes 0.8s linear infinite; /* 速度を少し速く */
+}
+
+/* Stripe アニメのキーフレーム（Bootstrap と同名で上書き安全）*/
+@keyframes progress-bar-stripes {
+  0%   { background-position: 1rem 0; }
+  100% { background-position: 0    0; }
+}
+
+#scrollToTop {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  border: none;
+  border-radius: 25px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  cursor: pointer;
+
+  /* 初期状態：上へオフセット、かつ透明 */
+  transform: translateY(-20px);
+  opacity: 0;
+
+  /* transform と opacity にトランジション */
+  transition: transform 0.3s ease, opacity 0.3s ease;
+
+  z-index: 1000;
+}
+
+#scrollToTop.show {
+  /* 表示時：元の位置に戻し、不透明に */
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ── Send Modal Dark Mode ── */
+.dark-mode #sendModal .modal-content {
+  background-color: var(--input-bg-dark);
+  color: var(--input-text-dark);
+}
+.dark-mode #sendModal .form-select,
+.dark-mode #sendModal .form-control {
+  background-color: var(--input-bg-dark);
+  color: var(--input-text-dark);
+  border-color: var(--card-border-dark);
+}
+
+/* 長いファイル名は省略表示し、レイアウトが崩れないようにする */
+.file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 18rem; /* 長すぎる名前は省略表示 */
+}
+
+/* 残り期限を改行付きで表示する */
+.expiration-cell {
+  width: 8rem; /* 期限表示に十分な幅を確保 */
+}
+.expiration-cell small {
+  white-space: pre-line;
+}
+body.dark-mode .expiration-cell small {
+  color: var(--text-color-dark);
+}
+
+/* ── Breadcrumb Pills ── */
+.breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-light);
+  color: var(--text-color-light);
+  padding: 0.25rem 0.75rem;
+  border-radius: 2rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item {
+  margin-left: 0.5rem;
+}
+.breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  content: "\F285";
+  font-family: "bootstrap-icons";
+  color: var(--link-color-light);
+  padding-right: 0.25rem;
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item {
+  background-color: var(--card-bg-dark);
+  color: var(--text-color-dark);
+}
+body.dark-mode .breadcrumb-pills .breadcrumb-item + .breadcrumb-item::before {
+  color: var(--link-color-dark);
+}

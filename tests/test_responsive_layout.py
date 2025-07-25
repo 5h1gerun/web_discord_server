@@ -2,7 +2,7 @@ from pathlib import Path
 
 BASE_HTML = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'base.html'
 INDEX_HTML = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'index.html'
-CSS_PATH = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-fresh.css'
+CSS_PATH = Path(__file__).resolve().parents[1] / 'web' / 'static' / 'css' / 'style-modern.css'
 FILE_TABLE = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'partials' / 'file_table.html'
 SHARED_TABLE = Path(__file__).resolve().parents[1] / 'web' / 'templates' / 'partials' / 'shared_folder_table.html'
 
